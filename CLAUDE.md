@@ -1,0 +1,20 @@
+# karenda
+
+生理・PMS周期と予定の衝突を端末内だけで知らせるiPhoneアプリ（Expo SDK 58 + TypeScript）。
+オーナーはコードを書かない。実装・テスト・PR作成までClaudeが自走し、オーナーはiPhone（Expo Go）で確認してマージする。
+
+## 守ること
+- 外部通信をしない。サーバー・分析・広告SDKを入れない（ESLintと `src/noNetwork.test.ts` が検出する）
+- Expo Goで動くモジュールだけ使う。追加は `npx expo install`（ネットが無ければ `node_modules/expo/bundledNativeModules.json` の版で `npm install`）
+- 判定ロジックは `src/engine` に純粋関数で置き、画面から分ける。テストを先に書く
+- 日付は `src/engine/date.ts` の `DateKey`（"YYYY-MM-DD"）で扱う
+- 医療的な断定をしない（「予測」「目安」）
+- 1PR=1目的。`npm run check` が通らないPRは出さない
+
+## 構成
+- `src/engine` 判定ロジック / `src/data` 端末内保存 / `src/ui` 画面
+- Expo APIはSDKで変わる。詳細は `AGENTS.md`
+
+## コマンド
+- `npm run check`（型・lint・テスト）
+- `npx expo start`（iPhoneのExpo GoでQRを読む）
