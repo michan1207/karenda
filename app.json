@@ -2,6 +2,7 @@
   "expo": {
     "name": "Cocomia",
     "slug": "karenda",
+    "owner": "cocomia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -56,6 +57,11 @@
     "backgroundColor": "#f7f6f9",
     "locales": {
       "ja": "./locales/ja.json"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "82ff43d4-4eb7-4f1b-bf63-11e097d48265"
+      }
     }
   }
 }
