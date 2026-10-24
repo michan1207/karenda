@@ -8,6 +8,7 @@
 - Expo Goで動くモジュールだけ使う。追加は `npx expo install`（ネットが無ければ `node_modules/expo/bundledNativeModules.json` の版で `npm install`）
 - 判定ロジックは `src/engine` に純粋関数で置き、画面から分ける。テストを先に書く
 - 日付は `src/engine/date.ts` の `DateKey`（"YYYY-MM-DD"）で扱う
+- 表の変更は `src/data/migrations.ts` に追記するだけ（既存の手順は書き換えない）。テストは `createTestDatabase()`（Node内蔵SQLite）で行う
 - 医療的な断定をしない（「予測」「目安」）
 - 1PR=1目的。`npm run check` が通らないPRは出さない
 

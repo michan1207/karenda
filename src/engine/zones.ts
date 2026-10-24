@@ -19,18 +19,22 @@ export type ZoneMap = Map<DateKey, ZoneDay>;
 
 export type DateRange = { from: DateKey; until: DateKey };
 
-export function buildZones(
-  prediction: CyclePrediction,
-  range: DateRange,
-  settings: ZoneSettings = DEFAULT_ZONE_SETTINGS,
-): ZoneMap {
-  const { heavyDays, pmsDays } = settings;
+export function validateZoneSettings({ heavyDays, pmsDays }: ZoneSettings): void {
   if (!Number.isInteger(heavyDays) || heavyDays < 1 || heavyDays > 7) {
     throw new Error(`heavyDays must be 1-7: ${heavyDays}`);
   }
   if (!Number.isInteger(pmsDays) || pmsDays < 0 || pmsDays > 14) {
     throw new Error(`pmsDays must be 0-14: ${pmsDays}`);
   }
+}
+
+export function buildZones(
+  prediction: CyclePrediction,
+  range: DateRange,
+  settings: ZoneSettings = DEFAULT_ZONE_SETTINGS,
+): ZoneMap {
+  validateZoneSettings(settings);
+  const { heavyDays, pmsDays } = settings;
 
   const zones: ZoneMap = new Map();
   const inRange = (day: DateKey) => day >= range.from && day <= range.until;
