@@ -23,3 +23,19 @@ PCとiPhoneは同じWi-Fiにつないでください。つながらないとき�
 
 - `npm run check` で型チェック・lint・テストをまとめて実行
 - 外部通信はlintとテストで禁止しています
+
+## ストアに出す
+
+ビルドと提出は EAS（Expo のクラウドビルド）で行います。Mac は要りません。
+
+```
+npx eas-cli@latest login
+npx eas-cli@latest build --platform ios
+npx eas-cli@latest submit --platform ios --latest
+npx eas-cli@latest build --platform android
+```
+
+- ビルド番号は EAS が自動で増やします（`eas.json` の `appVersionSource: remote`）
+- 署名の証明書と鍵は EAS が作って保管します
+- Android の最初の AAB は Play Console に手で上げます（Google の決まり）
+- ストアに貼る文章の下書きは `store/` にあります

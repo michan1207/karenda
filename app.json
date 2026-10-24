@@ -9,7 +9,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cocomia.app",
-      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleDevelopmentRegion": "ja"
@@ -26,8 +25,7 @@
       "blockedPermissions": [
         "android.permission.WRITE_CALENDAR"
       ],
-      "package": "com.cocomia.app",
-      "versionCode": 1
+      "package": "com.cocomia.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
