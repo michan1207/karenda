@@ -100,3 +100,12 @@ export async function deleteAllData(db: Database): Promise<void> {
     await seedDefaults(db);
   });
 }
+
+export async function isOnboarded(db: Database): Promise<boolean> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'onboarded'");
+  return row?.value === '1';
+}
+
+export async function setOnboarded(db: Database): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarded', '1')");
+}

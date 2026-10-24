@@ -1,4 +1,4 @@
-import { isInMonth, monthGrid, shiftMonth } from './month';
+import { expandToWeeks, isInMonth, monthGrid, shiftMonth } from './month';
 
 describe('monthGrid', () => {
   it('covers the month in Monday-to-Sunday weeks', () => {
@@ -28,4 +28,9 @@ it('moves between months across years', () => {
 it('tells whether a day belongs to a month', () => {
   expect(isInMonth('2026-10-05', 2026, 10)).toBe(true);
   expect(isInMonth('2026-09-30', 2026, 10)).toBe(false);
+});
+
+it('expands a range to whole Monday-to-Sunday weeks', () => {
+  expect(expandToWeeks('2026-10-24', '2026-11-23')).toEqual({ from: '2026-10-19', until: '2026-11-29' });
+  expect(expandToWeeks('2026-10-19', '2026-10-25')).toEqual({ from: '2026-10-19', until: '2026-10-25' });
 });

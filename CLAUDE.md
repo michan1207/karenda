@@ -13,7 +13,7 @@
 - 1PR=1目的。`npm run check` が通らないPRは出さない
 
 ## 構成
-- `src/engine` 判定ロジック / `src/data` 端末内保存 / `src/ui` 画面
+- `src/engine` 判定ロジック / `src/data` 端末内保存・カレンダー読み取り / `src/ui` 画面（`useKarenda` が共有状態、`App.tsx` がタブ）
 - Expo APIはSDKで変わる。詳細は `AGENTS.md`
 
 ## コマンド
