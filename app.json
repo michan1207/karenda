@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.michan1207.karenda",
+      "bundleIdentifier": "com.cocomin.app",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -26,7 +26,7 @@
       "blockedPermissions": [
         "android.permission.WRITE_CALENDAR"
       ],
-      "package": "com.michan1207.karenda",
+      "package": "com.cocomin.app",
       "versionCode": 1
     },
     "web": {
