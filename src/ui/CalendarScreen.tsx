@@ -83,7 +83,7 @@ export default function CalendarScreen({ k, today }: Props) {
 
       <View style={styles.weekRow}>
         {WEEKDAYS.map((label) => (
-          <Text key={label} style={[styles.weekday, { color: colors.muted }]}>
+          <Text key={label} maxFontSizeMultiplier={1.4} style={[styles.weekday, { color: colors.muted }]}>
             {label}
           </Text>
         ))}
@@ -188,10 +188,15 @@ function DayCell({
         isSelected && { borderColor: colors.accent },
       ]}
     >
-      <Text style={[styles.cellDay, { color: colors.text }, isToday && { color: colors.accent, fontWeight: '700' }]}>
+      <Text
+        maxFontSizeMultiplier={1.4}
+        style={[styles.cellDay, { color: colors.text }, isToday && { color: colors.accent, fontWeight: '700' }]}
+      >
         {fromDateKey(day).getDate()}
       </Text>
-      <Text style={[styles.cellMark, { color: red ? colors.red : colors.yellow }]}>{alerts.length ? '⚠' : ' '}</Text>
+      <Text maxFontSizeMultiplier={1.4} style={[styles.cellMark, { color: red ? colors.red : colors.yellow }]}>
+        {alerts.length ? '⚠' : ' '}
+      </Text>
     </Pressable>
   );
 }

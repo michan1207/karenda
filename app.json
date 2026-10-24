@@ -1,17 +1,23 @@
 {
   "expo": {
-    "name": "karenda",
+    "name": "体調ガード",
     "slug": "karenda",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.michan1207.karenda",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "ja"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#7a4f9a",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -19,7 +25,9 @@
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
         "android.permission.WRITE_CALENDAR"
-      ]
+      ],
+      "package": "com.michan1207.karenda",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +39,25 @@
           "calendarPermission": "予定が体調の時期と重なっていないかを、この端末の中だけで確認するために使います。予定を外部に送ることはありません。",
           "remindersPermission": false
         }
-      ]
-    ]
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#f7f6f9",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#17141c"
+          }
+        }
+      ],
+      "expo-system-ui"
+    ],
+    "backgroundColor": "#f7f6f9",
+    "locales": {
+      "ja": "./locales/ja.json"
+    }
   }
 }
