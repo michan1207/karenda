@@ -27,7 +27,7 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Text accessibilityRole="header" style={[styles.title, { color: colors.accent }]}>
-        ここみん
+        Cocomia
       </Text>
       <Text style={[styles.lead, { color: colors.text }]}>体調の波に合わせて、予定を守るカレンダー</Text>
       {POINTS.map((point) => (

@@ -15,7 +15,7 @@
 ## 構成
 - `src/engine` 判定ロジック / `src/data` 端末内保存・カレンダー読み取り / `src/ui` 画面（`useKarenda` が共有状態、`App.tsx` がタブ）
 - Expo APIはSDKで変わる。詳細は `AGENTS.md`
-- アプリ名は「ここみん」、IDは `com.cocomin.app`。プライバシーポリシーとサポートページは `docs/`（GitHub Pages）
+- アプリ名は「Cocomia」、IDは `com.cocomia.app`。プライバシーポリシーとサポートページは `docs/`（GitHub Pages）
 
 ## コマンド
 - `npm run check`（型・lint・テスト）

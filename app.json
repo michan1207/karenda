@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ここみん",
+    "name": "Cocomia",
     "slug": "karenda",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.cocomin.app",
+      "bundleIdentifier": "com.cocomia.app",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -26,7 +26,7 @@
       "blockedPermissions": [
         "android.permission.WRITE_CALENDAR"
       ],
-      "package": "com.cocomin.app",
+      "package": "com.cocomia.app",
       "versionCode": 1
     },
     "web": {
