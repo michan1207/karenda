@@ -3,7 +3,15 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { CalendarSource, Database, deviceCalendar, isDismissed, openKarendaDatabase } from '../data';
+import {
+  CalendarSource,
+  Database,
+  deviceCalendar,
+  deviceNotifier,
+  isDismissed,
+  Notifier,
+  openKarendaDatabase,
+} from '../data';
 import { DateKey, toDateKey } from '../engine';
 import AlertsScreen from './AlertsScreen';
 import CalendarScreen from './CalendarScreen';
@@ -12,6 +20,7 @@ import OnboardingScreen from './OnboardingScreen';
 import SettingsScreen from './SettingsScreen';
 import { useColors } from './theme';
 import { useKarenda } from './useKarenda';
+import { useNotificationSync } from './useNotificationSync';
 import { useUpcomingAlerts } from './useUpcomingAlerts';
 
 type Tab = 'calendar' | 'alerts' | 'settings';
@@ -19,6 +28,7 @@ type Tab = 'calendar' | 'alerts' | 'settings';
 type Props = {
   loadDatabase?: () => Promise<Database>;
   calendar?: CalendarSource;
+  notifier?: Notifier;
   today?: () => DateKey;
 };
 
@@ -32,12 +42,18 @@ export default function App(props: Props) {
   );
 }
 
-export function Main({ loadDatabase = openKarendaDatabase, calendar = deviceCalendar, today = currentDay }: Props) {
+export function Main({
+  loadDatabase = openKarendaDatabase,
+  calendar = deviceCalendar,
+  notifier = deviceNotifier,
+  today = currentDay,
+}: Props) {
   const colors = useColors();
-  const k = useKarenda({ loadDatabase, calendar });
+  const k = useKarenda({ loadDatabase, calendar, notifier });
   const [tab, setTab] = useState<Tab>('calendar');
   const [day] = useState(today);
   const upcoming = useUpcomingAlerts(k, day).filter((alert) => !isDismissed(k.dismissed, alert.eventId, alert.date));
+  useNotificationSync(k, upcoming, day);
 
   let body;
   if (k.status === 'loading') {

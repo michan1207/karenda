@@ -10,11 +10,13 @@ import {
   getKeywords,
   getZoneSettings,
   isDismissed,
+  isNotifyEnabled,
   isOnboarded,
   listDismissedAlerts,
   listPeriodStarts,
   removePeriodStart,
   setKeywords,
+  setNotifyEnabled,
   setOnboarded,
   setZoneSettings,
 } from './store';
@@ -87,6 +89,16 @@ describe('onboarding', () => {
     expect(await isOnboarded(db)).toBe(true);
     await deleteAllData(db);
     expect(await isOnboarded(db)).toBe(false);
+  });
+});
+
+describe('notification setting', () => {
+  it('is on by default and can be turned off', async () => {
+    expect(await isNotifyEnabled(db)).toBe(true);
+    await setNotifyEnabled(db, false);
+    expect(await isNotifyEnabled(db)).toBe(false);
+    await setNotifyEnabled(db, true);
+    expect(await isNotifyEnabled(db)).toBe(true);
   });
 });
 

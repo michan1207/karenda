@@ -109,3 +109,13 @@ export async function isOnboarded(db: Database): Promise<boolean> {
 export async function setOnboarded(db: Database): Promise<void> {
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarded', '1')");
 }
+
+/** お知らせ通知を使うか（はじめは使う） */
+export async function isNotifyEnabled(db: Database): Promise<boolean> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'notify'");
+  return row?.value !== '0';
+}
+
+export async function setNotifyEnabled(db: Database, enabled: boolean): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('notify', ?)", enabled ? '1' : '0');
+}
