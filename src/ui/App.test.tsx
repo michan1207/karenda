@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Linking, Share } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { addPeriodStart, CalendarSource, Database, listPeriodStarts, migrate, setOnboarded } from '../data';
+import { addPeriodStart, CalendarSource, Database, listPeriodStarts, migrate, Notifier, setOnboarded } from '../data';
 import { createTestDatabase } from '../data/testDatabase';
-import type { CalendarEvent } from '../engine';
+import type { CalendarEvent, NotificationPlan } from '../engine';
 import { Main } from './App';
 
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
@@ -27,33 +27,51 @@ function fakeCalendar(granted: boolean, events: CalendarEvent[] = EVENTS) {
   } satisfies CalendarSource;
 }
 
+function fakeNotifier(granted = true) {
+  return {
+    requestAccess: jest.fn(async () => granted),
+    replaceAll: jest.fn(async (_plans: NotificationPlan[]) => {}),
+  } satisfies Notifier;
+}
+
+const lastPlanDates = (notifier: ReturnType<typeof fakeNotifier>) =>
+  notifier.replaceAll.mock.calls.at(-1)?.[0].map((plan) => plan.date);
+
 const METRICS = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 
 async function setup({
   starts = REGULAR,
   onboarded = true,
   calendar = fakeCalendar(true),
-}: { starts?: string[]; onboarded?: boolean; calendar?: ReturnType<typeof fakeCalendar> } = {}) {
+  notifier = fakeNotifier(),
+}: {
+  starts?: string[];
+  onboarded?: boolean;
+  calendar?: ReturnType<typeof fakeCalendar>;
+  notifier?: ReturnType<typeof fakeNotifier>;
+} = {}) {
   const db: Database = createTestDatabase();
   await migrate(db);
   if (onboarded) await setOnboarded(db);
   for (const start of starts) await addPeriodStart(db, start);
   await render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <Main loadDatabase={async () => db} calendar={calendar} today={() => '2026-10-24'} />
+      <Main loadDatabase={async () => db} calendar={calendar} notifier={notifier} today={() => '2026-10-24'} />
     </SafeAreaProvider>,
   );
-  return { db, calendar };
+  return { db, calendar, notifier };
 }
 
 describe('first run', () => {
   it('explains the app before asking for calendar access', async () => {
-    const { calendar } = await setup({ onboarded: false, starts: [] });
+    const { calendar, notifier } = await setup({ onboarded: false, starts: [] });
     expect(await screen.findByText('データはこの端末の中だけ')).toBeTruthy();
     expect(calendar.requestAccess).not.toHaveBeenCalled();
+    expect(notifier.requestAccess).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByText('はじめる'));
     expect(await screen.findByText('2026年10月')).toBeTruthy();
     expect(calendar.requestAccess).toHaveBeenCalled();
+    expect(notifier.requestAccess).toHaveBeenCalled();
   });
 });
 
@@ -130,6 +148,39 @@ describe('alerts', () => {
   });
 });
 
+describe('notifications', () => {
+  it('schedules reminders before clashing events', async () => {
+    const { notifier } = await setup();
+    await screen.findByText('お知らせ（2）');
+    // 10-27の出張（レッド）は3日前の今日、11-20のプレゼン（イエロー）は3日前の11-17
+    expect(lastPlanDates(notifier)).toEqual(['2026-10-24', '2026-11-17']);
+  });
+
+  it('drops the reminder of a dismissed alert', async () => {
+    const { notifier } = await setup();
+    await fireEvent.press(await screen.findByText('お知らせ（2）'));
+    await fireEvent.press(screen.getAllByText('わかった')[0]);
+    await screen.findByText('お知らせ（1）');
+    expect(lastPlanDates(notifier)).toEqual(['2026-11-17']);
+  });
+
+  it('clears all reminders when turned off in settings', async () => {
+    const { notifier } = await setup();
+    await fireEvent.press(await screen.findByText('設定'));
+    await fireEvent(screen.getByLabelText('重なる予定の前に通知する'), 'valueChange', false);
+    expect(await screen.findByText('お知らせ（2）')).toBeTruthy();
+    expect(lastPlanDates(notifier)).toEqual([]);
+  });
+
+  it('does not schedule when the device has notifications off, and says so', async () => {
+    const notifier = fakeNotifier(false);
+    await setup({ notifier });
+    await fireEvent.press(await screen.findByText('設定'));
+    expect(screen.getByText('端末の設定で通知がオフになっています。')).toBeTruthy();
+    expect(notifier.replaceAll).not.toHaveBeenCalled();
+  });
+});
+
 describe('settings', () => {
   async function openSettings(options?: Parameters<typeof setup>[0]) {
     const result = await setup(options);
@@ -184,7 +235,12 @@ describe('settings', () => {
 it('explains when the data cannot be loaded', async () => {
   await render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <Main loadDatabase={() => Promise.reject(new Error('no'))} calendar={fakeCalendar(true)} today={() => '2026-10-24'} />
+      <Main
+        loadDatabase={() => Promise.reject(new Error('no'))}
+        calendar={fakeCalendar(true)}
+        notifier={fakeNotifier()}
+        today={() => '2026-10-24'}
+      />
     </SafeAreaProvider>,
   );
   expect(await screen.findByText('データを読み込めませんでした。アプリを開き直してください。')).toBeTruthy();

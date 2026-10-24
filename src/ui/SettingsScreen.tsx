@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { RiskKeywords, ZoneSettings } from '../engine';
-import { Button, Section } from './components';
+import { Button, Notice, Section } from './components';
 import { dayTitle } from './format';
 import { Colors, useColors } from './theme';
 import type { Karenda } from './useKarenda';
@@ -30,6 +30,28 @@ export default function SettingsScreen({ k }: Props) {
       <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
         設定
       </Text>
+
+      <Section colors={colors} title="お知らせ通知">
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>重なる予定の前に通知する</Text>
+          <Switch
+            accessibilityLabel="重なる予定の前に通知する"
+            value={k.notifyEnabled}
+            onValueChange={k.setNotify}
+            trackColor={{ true: colors.accent, false: colors.line }}
+          />
+        </View>
+        <Text style={[styles.help, { color: colors.muted }]}>
+          しっかり注意の予定は7日前と3日前、少し注意の予定は3日前の朝9時に、この端末から通知します。同じ日の通知は1件にまとめます。
+        </Text>
+        {k.notifyEnabled && k.notifyAccess === 'denied' && (
+          <Notice
+            colors={colors}
+            text="端末の設定で通知がオフになっています。"
+            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
+          />
+        )}
+      </Section>
 
       <Section colors={colors} title="気をつける時期">
         <Stepper
