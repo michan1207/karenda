@@ -104,7 +104,10 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
       onPress={onPress}
       style={styles.tab}
     >
-      <Text style={[styles.tabLabel, { color: active ? colors.accent : colors.muted }, active && styles.tabActive]}>
+      <Text
+        maxFontSizeMultiplier={1.6}
+        style={[styles.tabLabel, { color: active ? colors.accent : colors.muted }, active && styles.tabActive]}
+      >
         {label}
       </Text>
     </Pressable>

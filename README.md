@@ -1,6 +1,9 @@
-# karenda
+# Cocomia（ココミア／karenda）
 
-体調（生理・PMS周期）と予定の衝突を、iPhoneの中だけで知らせるカレンダーアプリ。
+体調（生理・PMS周期）と予定の衝突を、スマホの中だけで知らせるカレンダーアプリ。
+
+- サポート: https://michan1207.github.io/karenda/
+- プライバシーポリシー: https://michan1207.github.io/karenda/privacy.html
 
 ## iPhoneで動かす
 
