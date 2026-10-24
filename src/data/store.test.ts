@@ -10,10 +10,12 @@ import {
   getKeywords,
   getZoneSettings,
   isDismissed,
+  isOnboarded,
   listDismissedAlerts,
   listPeriodStarts,
   removePeriodStart,
   setKeywords,
+  setOnboarded,
   setZoneSettings,
 } from './store';
 import { createTestDatabase } from './testDatabase';
@@ -75,6 +77,16 @@ describe('settings', () => {
   it('replaces keywords, trimming blanks and preferring high on duplicates', async () => {
     await setKeywords(db, { high: [' 出張 ', '発表会'], medium: ['ヨガ', '', '発表会'] });
     expect(await getKeywords(db)).toEqual({ high: ['出張', '発表会'], medium: ['ヨガ'] });
+  });
+});
+
+describe('onboarding', () => {
+  it('remembers that the first-run guide was finished until all data is deleted', async () => {
+    expect(await isOnboarded(db)).toBe(false);
+    await setOnboarded(db);
+    expect(await isOnboarded(db)).toBe(true);
+    await deleteAllData(db);
+    expect(await isOnboarded(db)).toBe(false);
   });
 });
 

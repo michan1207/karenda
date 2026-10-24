@@ -32,3 +32,11 @@ export function shiftMonth(year: number, month: number, delta: number): { year: 
 export function isInMonth(day: DateKey, year: number, month: number): boolean {
   return day.startsWith(`${year}-${String(month).padStart(2, '0')}-`);
 }
+
+/** 期間を、月曜はじまり・日曜おわりの週単位に広げる（週ごとの予定数を正しく数えるため） */
+export function expandToWeeks(from: DateKey, until: DateKey): { from: DateKey; until: DateKey } {
+  return {
+    from: addDays(from, -((fromDateKey(from).getDay() + 6) % 7)),
+    until: addDays(until, 6 - ((fromDateKey(until).getDay() + 6) % 7)),
+  };
+}

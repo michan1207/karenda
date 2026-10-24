@@ -1,0 +1,191 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Linking, Share } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { addPeriodStart, CalendarSource, Database, listPeriodStarts, migrate, setOnboarded } from '../data';
+import { createTestDatabase } from '../data/testDatabase';
+import type { CalendarEvent } from '../engine';
+import { Main } from './App';
+
+jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
+jest.mock('expo-calendar/legacy', () => ({}));
+
+// 次の生理は 10-26（ヘビー期 10-26〜28）、PMS期 10-19〜25。今日は 10-24
+const REGULAR = ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'];
+const EVENTS: CalendarEvent[] = [
+  { id: 'trip', title: '福岡出張', start: '2026-10-27', end: '2026-10-27', allDay: false },
+  { id: 'shop', title: '買い物', start: '2026-10-27', end: '2026-10-27', allDay: false },
+  { id: 'talk', title: '企画プレゼン', start: '2026-11-20', end: '2026-11-20', allDay: false },
+];
+
+function fakeCalendar(granted: boolean, events: CalendarEvent[] = EVENTS) {
+  return {
+    requestAccess: jest.fn(async () => granted),
+    getEvents: jest.fn(async (from: string, until: string) =>
+      events.filter((event) => event.end >= from && event.start <= until),
+    ),
+  } satisfies CalendarSource;
+}
+
+const METRICS = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
+
+async function setup({
+  starts = REGULAR,
+  onboarded = true,
+  calendar = fakeCalendar(true),
+}: { starts?: string[]; onboarded?: boolean; calendar?: ReturnType<typeof fakeCalendar> } = {}) {
+  const db: Database = createTestDatabase();
+  await migrate(db);
+  if (onboarded) await setOnboarded(db);
+  for (const start of starts) await addPeriodStart(db, start);
+  await render(
+    <SafeAreaProvider initialMetrics={METRICS}>
+      <Main loadDatabase={async () => db} calendar={calendar} today={() => '2026-10-24'} />
+    </SafeAreaProvider>,
+  );
+  return { db, calendar };
+}
+
+describe('first run', () => {
+  it('explains the app before asking for calendar access', async () => {
+    const { calendar } = await setup({ onboarded: false, starts: [] });
+    expect(await screen.findByText('データはこの端末の中だけ')).toBeTruthy();
+    expect(calendar.requestAccess).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('はじめる'));
+    expect(await screen.findByText('2026年10月')).toBeTruthy();
+    expect(calendar.requestAccess).toHaveBeenCalled();
+  });
+});
+
+describe('calendar', () => {
+  it('colors the zones and marks days where events clash', async () => {
+    const { calendar } = await setup();
+    expect(await screen.findByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています')).toBeTruthy();
+    expect(screen.getByLabelText('10月20日（火）、PMS警戒期（予測）')).toBeTruthy();
+    expect(calendar.getEvents).toHaveBeenCalledWith('2026-09-28', '2026-11-01');
+  });
+
+  it('shows the events and advice for a tapped day', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています'));
+    expect(screen.getByText('⚠ 福岡出張')).toBeTruthy();
+    expect(screen.getByText(/生理2日目と重なる見込みです/)).toBeTruthy();
+    expect(screen.getByText('買い物')).toBeTruthy();
+  });
+
+  it('records and removes a past start date picked on the calendar', async () => {
+    const { db } = await setup({ starts: [] });
+    expect(await screen.findByText(/生理が始まった日を選んで記録すると/)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('10月20日（火）'));
+    await fireEvent.press(screen.getByText('この日を生理開始日として記録'));
+    expect(await screen.findByText(/28日周期を仮定した仮の予測/)).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual(['2026-10-20']);
+    await fireEvent.press(screen.getByText('この日の記録を消す'));
+    expect(await screen.findByText('この日を生理開始日として記録')).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual([]);
+  });
+
+  it('does not offer to record a future date', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByLabelText('10月30日（金）'));
+    expect(screen.queryByText('この日を生理開始日として記録')).toBeNull();
+  });
+
+  it('explains a denied calendar and links to Settings, still showing zones', async () => {
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    const calendar = fakeCalendar(false);
+    await setup({ calendar });
+    expect(await screen.findByText(/カレンダーへのアクセスが許可されていない/)).toBeTruthy();
+    await fireEvent.press(screen.getByText('設定アプリで許可する'));
+    expect(openSettings).toHaveBeenCalled();
+    expect(calendar.getEvents).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('10月26日（月）、生理1日目（予測）')).toBeTruthy();
+  });
+
+  it('moves between months and loads that month', async () => {
+    const { calendar } = await setup();
+    await screen.findByText('2026年10月');
+    await fireEvent.press(screen.getByLabelText('次の月'));
+    expect(screen.getByText('2026年11月')).toBeTruthy();
+    expect(calendar.getEvents).toHaveBeenLastCalledWith('2026-10-26', '2026-12-06');
+  });
+});
+
+describe('alerts', () => {
+  it('lists the next 30 days red first and hides dismissed alerts', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByText('お知らせ（2）'));
+    const titles = screen.getAllByText(/^(福岡出張|企画プレゼン)$/).map((node) => node.props.children);
+    expect(titles).toEqual(['福岡出張', '企画プレゼン']);
+    expect(screen.getByText('しっかり注意')).toBeTruthy();
+    await fireEvent.press(screen.getAllByText('わかった')[0]);
+    expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
+    expect(screen.queryByText('福岡出張')).toBeNull();
+  });
+
+  it('says when nothing clashes', async () => {
+    await setup({ calendar: fakeCalendar(true, []) });
+    await fireEvent.press(await screen.findByText('お知らせ'));
+    expect(screen.getByText('気をつけたい時期と重なる予定はありません。')).toBeTruthy();
+  });
+});
+
+describe('settings', () => {
+  async function openSettings(options?: Parameters<typeof setup>[0]) {
+    const result = await setup(options);
+    await fireEvent.press(await screen.findByText('設定'));
+    return result;
+  }
+
+  it('changes the PMS length within its range', async () => {
+    await openSettings();
+    expect(screen.getByText('7日前')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('PMS警戒期（予定日の何日前から）を減らす'));
+    expect(await screen.findByText('6日前')).toBeTruthy();
+  });
+
+  it('adds and removes keywords, moving a word between levels', async () => {
+    await openSettings();
+    await fireEvent.changeText(screen.getByLabelText('重い予定に言葉を追加'), '会議');
+    await fireEvent.press(screen.getByLabelText('重い予定に追加'));
+    expect(await screen.findByLabelText('「会議」を重い予定から外す')).toBeTruthy();
+    expect(screen.queryByLabelText('「会議」をふつうの予定から外す')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('「出張」を重い予定から外す'));
+    expect(screen.queryByLabelText('「出張」を重い予定から外す')).toBeNull();
+  });
+
+  it('lists records newest first and removes one', async () => {
+    const { db } = await openSettings();
+    expect(screen.getByText('9月28日（月）〜')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('9月28日（月）の記録を消す'));
+    expect(await listPeriodStarts(db)).toEqual(REGULAR.slice(0, 3));
+  });
+
+  it('exports data through the share sheet', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
+    await openSettings();
+    await fireEvent.press(screen.getByText('データを書き出す'));
+    const message = share.mock.calls[0][0] as { message: string };
+    expect(JSON.parse(message.message)).toMatchObject({ app: 'karenda', periodStarts: REGULAR });
+  });
+
+  it('deletes everything only after confirming, then shows the first-run guide', async () => {
+    const { db } = await openSettings();
+    await fireEvent.press(screen.getByText('すべてのデータを削除'));
+    await fireEvent.press(screen.getByText('やめる'));
+    expect(await listPeriodStarts(db)).toEqual(REGULAR);
+    await fireEvent.press(screen.getByText('すべてのデータを削除'));
+    await fireEvent.press(screen.getByText('すべて削除する'));
+    expect(await screen.findByText('はじめる')).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual([]);
+  });
+});
+
+it('explains when the data cannot be loaded', async () => {
+  await render(
+    <SafeAreaProvider initialMetrics={METRICS}>
+      <Main loadDatabase={() => Promise.reject(new Error('no'))} calendar={fakeCalendar(true)} today={() => '2026-10-24'} />
+    </SafeAreaProvider>,
+  );
+  expect(await screen.findByText('データを読み込めませんでした。アプリを開き直してください。')).toBeTruthy();
+});
