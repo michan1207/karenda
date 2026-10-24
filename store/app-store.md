@@ -109,4 +109,4 @@ Predictions are estimates and the app states that it is not for medical diagnosi
 
 ## スクリーンショット
 
-6.9インチ（1320×2868）を3〜5枚。別のPRで用意します。
+6.9インチ（1320×2868）の4枚を `store/images/ios/` に用意しています。番号の順にアップロードしてください。画面の予定や記録は見本用の架空のものです。
