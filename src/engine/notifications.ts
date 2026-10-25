@@ -13,6 +13,9 @@ export type NotificationPlan = {
 /** 直前に言われても動かせないので、前もって知らせる */
 const LEAD_DAYS = { red: [7, 3], yellow: [3] } as const;
 
+/** ロック画面で人に見られても分からないよう、生理・PMS・体調の言葉は通知に入れない */
+const NUDGE = 'アプリを開いて、準備の予定を確かめてみませんか。';
+
 function monthDay(day: DateKey): string {
   const date = fromDateKey(day);
   return `${date.getMonth() + 1}/${date.getDate()}`;
@@ -44,13 +47,13 @@ export function planNotifications(alerts: ConflictAlert[], today: DateKey): Noti
           id: `guard-${date}`,
           date,
           title: `${monthDay(first.date)}「${first.title}」の前に`,
-          body: first.message,
+          body: NUDGE,
         };
       }
       return {
         id: `guard-${date}`,
         date,
-        title: `体調の時期と重なる予定が${sorted.length}件あります`,
+        title: `確かめたい予定が${sorted.length}件あります`,
         body: sorted.map((alert) => `${monthDay(alert.date)} ${alert.title}`).join('、'),
       };
     });

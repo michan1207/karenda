@@ -17,14 +17,22 @@ describe('planNotifications', () => {
     expect(plans.map((plan) => plan.date)).toEqual(['2026-11-07', '2026-11-13', '2026-11-17']);
   });
 
-  it('writes the event date and title, and the advice as the body', () => {
+  it('writes the event date and title, and a neutral nudge as the body', () => {
     const [plan] = planNotifications([alert('t', '2026-11-10', 'yellow', '企画プレゼン')], '2026-10-24');
     expect(plan).toEqual({
       id: 'guard-2026-11-07',
       date: '2026-11-07',
       title: '11/10「企画プレゼン」の前に',
-      body: '企画プレゼンのメッセージ',
+      body: 'アプリを開いて、準備の予定を確かめてみませんか。',
     });
+  });
+
+  it('never mentions the period or PMS, since it shows on the lock screen', () => {
+    const plans = planNotifications(
+      [alert('a', '2026-11-12', 'yellow', '会議'), alert('b', '2026-11-12', 'red', '出張'), alert('c', '2026-11-20', 'red')],
+      '2026-10-24',
+    );
+    for (const plan of plans) expect(plan.title + plan.body).not.toMatch(/生理|PMS|体調|メッセージ/);
   });
 
   it('skips reminders that would have been in the past', () => {
@@ -46,7 +54,7 @@ describe('planNotifications', () => {
       '2026-10-24',
     );
     const sameDay = plans.find((plan) => plan.date === '2026-11-09')!;
-    expect(sameDay.title).toBe('体調の時期と重なる予定が2件あります');
+    expect(sameDay.title).toBe('確かめたい予定が2件あります');
     expect(sameDay.body).toBe('11/12 出張、11/12 会議');
     expect(new Set(plans.map((plan) => plan.id)).size).toBe(plans.length);
   });
