@@ -6,7 +6,7 @@ App Store Connect の各画面に、そのまま貼れる形にしています�
 
 | 項目 | 内容 |
 | --- | --- |
-| 名前（30文字まで） | Cocomia - 体調と予定のカレンダー |
+| 名前（30文字まで） | Amiel - 体調と予定のカレンダー |
 | サブタイトル（30文字まで） | 生理・PMSと大事な予定の重なりを先回り |
 | バンドルID | com.cocomia.app |
 | SKU | cocomia-ios |
@@ -18,14 +18,14 @@ App Store Connect の各画面に、そのまま貼れる形にしています�
 
 ### プロモーションテキスト（170文字まで）
 
-生理やPMSの時期に、出張やプレゼンが重なっていませんか？Cocomiaは、体調の波とカレンダーの予定を照らし合わせて、ぶつかりそうな予定を前もってお知らせします。データはすべてこの端末の中だけ。
+生理やPMSの時期に、出張やプレゼンが重なっていませんか？Amielは、体調の波とカレンダーの予定を照らし合わせて、ぶつかりそうな予定を前もってお知らせします。データはすべてこの端末の中だけ。
 
 ### 説明
 
 ```
-Cocomia（ココミア）は、体調の波に合わせて予定を守るカレンダーです。
+Amiel（アミエル）は、体調の波に合わせて予定を守るカレンダーです。
 
-生理やPMSの時期に、大事なプレゼンや出張、旅行が重なってしまった経験はありませんか？Cocomiaは、記録した生理の開始日から次の時期を予測し、iPhoneのカレンダーの予定と照らし合わせて、重なりそうな予定を前もってお知らせします。
+生理やPMSの時期に、大事なプレゼンや出張、旅行が重なってしまった経験はありませんか？Amielは、記録した生理の開始日から次の時期を予測し、iPhoneのカレンダーの予定と照らし合わせて、重なりそうな予定を前もってお知らせします。
 
 ■ できること
 ・生理が始まった日をタップで記録
@@ -62,7 +62,7 @@ Cocomia（ココミア）は、体調の波に合わせて予定を守るカレ�
 ### 著作権
 
 ```
-2026 Cocomia
+2026 Amiel
 ```
 
 ## App のプライバシー
@@ -89,7 +89,7 @@ Cocomia（ココミア）は、体調の波に合わせて予定を守るカレ�
 ### メモ（審査担当者向け、英語）
 
 ```
-Cocomia is a calendar that warns users when important events overlap with their predicted period or PMS days.
+Amiel is a calendar that warns users when important events overlap with their predicted period or PMS days.
 
 - No account or sign-in is required.
 - All data stays on the device. The app has no server, analytics, ads or crash reporting, and makes no network requests.
