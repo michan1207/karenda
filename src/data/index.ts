@@ -5,4 +5,6 @@ export { deviceCalendar, toCalendarEvent } from './calendar';
 export type { CalendarSource } from './calendar';
 export { deviceNotifier } from './notifier';
 export type { Notifier } from './notifier';
+export { deviceReview } from './review';
+export type { ReviewPrompt } from './review';
 export * from './store';

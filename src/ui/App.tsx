@@ -8,9 +8,11 @@ import {
   Database,
   deviceCalendar,
   deviceNotifier,
+  deviceReview,
   isDismissed,
   Notifier,
   openKarendaDatabase,
+  ReviewPrompt,
 } from '../data';
 import { DateKey, toDateKey } from '../engine';
 import AlertsScreen from './AlertsScreen';
@@ -29,6 +31,7 @@ type Props = {
   loadDatabase?: () => Promise<Database>;
   calendar?: CalendarSource;
   notifier?: Notifier;
+  askReview?: ReviewPrompt;
   today?: () => DateKey;
 };
 
@@ -46,10 +49,11 @@ export function Main({
   loadDatabase = openKarendaDatabase,
   calendar = deviceCalendar,
   notifier = deviceNotifier,
+  askReview = deviceReview,
   today = currentDay,
 }: Props) {
   const colors = useColors();
-  const k = useKarenda({ loadDatabase, calendar, notifier });
+  const k = useKarenda({ loadDatabase, calendar, notifier, askReview });
   const [tab, setTab] = useState<Tab>('calendar');
   const [day] = useState(today);
   const upcoming = useUpcomingAlerts(k, day).filter((alert) => !isDismissed(k.dismissed, alert.eventId, alert.date));

@@ -11,6 +11,7 @@ const ALLOWED = [
   'expo-splash-screen',
   'expo-sqlite',
   'expo-status-bar',
+  'expo-store-review',
   'expo-system-ui',
   'react',
   'react-native',

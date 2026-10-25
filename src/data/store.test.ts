@@ -12,12 +12,14 @@ import {
   isDismissed,
   isNotifyEnabled,
   isOnboarded,
+  isReviewAsked,
   listDismissedAlerts,
   listPeriodStarts,
   removePeriodStart,
   setKeywords,
   setNotifyEnabled,
   setOnboarded,
+  setReviewAsked,
   setZoneSettings,
 } from './store';
 import { createTestDatabase } from './testDatabase';
@@ -89,6 +91,12 @@ describe('onboarding', () => {
     expect(await isOnboarded(db)).toBe(true);
     await deleteAllData(db);
     expect(await isOnboarded(db)).toBe(false);
+  });
+
+  it('remembers that a review was asked for', async () => {
+    expect(await isReviewAsked(db)).toBe(false);
+    await setReviewAsked(db);
+    expect(await isReviewAsked(db)).toBe(true);
   });
 });
 
