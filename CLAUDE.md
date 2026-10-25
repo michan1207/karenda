@@ -1,4 +1,4 @@
-# karenda（Cocomia）カーネル
+# karenda（Amiel）カーネル
 
 生理・PMS周期と予定の衝突を端末内だけで知らせるiPhoneアプリ（Expo SDK 58 + TypeScript）。
 オーナーはコードを書かない。実装→テスト→コミット→PR作成までClaudeが自走し、オーナーはiPhone（Expo Go）で確認してマージする。
