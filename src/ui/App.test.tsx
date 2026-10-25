@@ -9,6 +9,7 @@ import { Main } from './App';
 
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 jest.mock('expo-calendar/legacy', () => ({}));
+jest.mock('expo-store-review', () => ({}));
 
 // 次の生理は 10-26（ヘビー期 10-26〜28）、PMS期 10-19〜25。今日は 10-24
 const REGULAR = ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'];
@@ -44,11 +45,13 @@ async function setup({
   onboarded = true,
   calendar = fakeCalendar(true),
   notifier = fakeNotifier(),
+  askReview = jest.fn(async () => {}),
 }: {
   starts?: string[];
   onboarded?: boolean;
   calendar?: ReturnType<typeof fakeCalendar>;
   notifier?: ReturnType<typeof fakeNotifier>;
+  askReview?: jest.Mock;
 } = {}) {
   const db: Database = createTestDatabase();
   await migrate(db);
@@ -56,10 +59,16 @@ async function setup({
   for (const start of starts) await addPeriodStart(db, start);
   await render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <Main loadDatabase={async () => db} calendar={calendar} notifier={notifier} today={() => '2026-10-24'} />
+      <Main
+        loadDatabase={async () => db}
+        calendar={calendar}
+        notifier={notifier}
+        askReview={askReview}
+        today={() => '2026-10-24'}
+      />
     </SafeAreaProvider>,
   );
-  return { db, calendar, notifier };
+  return { db, calendar, notifier, askReview };
 }
 
 describe('first run', () => {
@@ -101,6 +110,18 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByText('この日の記録を消す'));
     expect(await screen.findByText('この日を生理開始日として記録')).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual([]);
+  });
+
+  it('asks for a review once, right after the third recorded start', async () => {
+    const { askReview } = await setup({ starts: ['2026-08-31', '2026-09-28'] });
+    await fireEvent.press(await screen.findByLabelText(/^10月20日（火）/));
+    await fireEvent.press(screen.getByText('この日を生理開始日として記録'));
+    expect(await screen.findByText('この日の記録を消す')).toBeTruthy();
+    expect(askReview).toHaveBeenCalledTimes(1);
+    await fireEvent.press(screen.getByText('この日の記録を消す'));
+    await fireEvent.press(await screen.findByText('この日を生理開始日として記録'));
+    expect(await screen.findByText('この日の記録を消す')).toBeTruthy();
+    expect(askReview).toHaveBeenCalledTimes(1);
   });
 
   it('does not offer to record a future date', async () => {

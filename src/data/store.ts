@@ -110,6 +110,16 @@ export async function setOnboarded(db: Database): Promise<void> {
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarded', '1')");
 }
 
+/** レビューのお願いは一度だけ */
+export async function isReviewAsked(db: Database): Promise<boolean> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'review_asked'");
+  return row?.value === '1';
+}
+
+export async function setReviewAsked(db: Database): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('review_asked', '1')");
+}
+
 /** お知らせ通知を使うか（はじめは使う） */
 export async function isNotifyEnabled(db: Database): Promise<boolean> {
   const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'notify'");

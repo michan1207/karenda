@@ -11,16 +11,19 @@ import {
   getZoneSettings,
   isNotifyEnabled,
   isOnboarded,
+  isReviewAsked,
   listDismissedAlerts,
   listPeriodStarts,
   Notifier,
   removePeriodStart,
+  ReviewPrompt,
   setKeywords as saveKeywords,
   setNotifyEnabled,
   setOnboarded,
+  setReviewAsked,
   setZoneSettings as saveZoneSettings,
 } from '../data';
-import { DateKey, DEFAULT_KEYWORDS, DEFAULT_ZONE_SETTINGS, RiskKeywords, ZoneSettings } from '../engine';
+import { DateKey, DEFAULT_KEYWORDS, DEFAULT_ZONE_SETTINGS, RiskKeywords, shouldAskReview, ZoneSettings } from '../engine';
 
 export type Access = 'checking' | 'granted' | 'denied';
 
@@ -28,6 +31,7 @@ export type KarendaDeps = {
   loadDatabase: () => Promise<Database>;
   calendar: CalendarSource;
   notifier: Notifier;
+  askReview: ReviewPrompt;
 };
 
 /** 画面どうしで共有する、端末内データとカレンダー許可の状態 */
@@ -56,7 +60,7 @@ export type Karenda = {
   deleteAll(): Promise<void>;
 };
 
-export function useKarenda({ loadDatabase, calendar, notifier }: KarendaDeps): Karenda {
+export function useKarenda({ loadDatabase, calendar, notifier, askReview }: KarendaDeps): Karenda {
   const [db, setDb] = useState<Database | null>(null);
   const [status, setStatus] = useState<Karenda['status']>('loading');
   const [onboarded, setOnboardedState] = useState(false);
@@ -149,7 +153,14 @@ export function useKarenda({ loadDatabase, calendar, notifier }: KarendaDeps): K
       await requestAccess();
       await requestNotifyAccess();
     },
-    addStart: (day) => withDb((opened) => addPeriodStart(opened, day)),
+    addStart: (day) =>
+      withDb(async (opened) => {
+        await addPeriodStart(opened, day);
+        if ((await isReviewAsked(opened)) || !shouldAskReview(await listPeriodStarts(opened), day)) return;
+        await setReviewAsked(opened);
+        // 記録はもう済んでいるので、お願いが出せなくても止めない
+        await askReview().catch(() => {});
+      }),
     removeStart: (day) => withDb((opened) => removePeriodStart(opened, day)),
     setSettings: (next) => withDb((opened) => saveZoneSettings(opened, next)),
     setKeywords: (next) => withDb((opened) => saveKeywords(opened, next)),
