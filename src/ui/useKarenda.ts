@@ -7,13 +7,9 @@ import {
   deleteAllData,
   dismissAlert,
   exportData,
-  getKeywords,
-  getZoneSettings,
-  isNotifyEnabled,
-  isOnboarded,
   isReviewAsked,
-  listDismissedAlerts,
   listPeriodStarts,
+  loadState,
   Notifier,
   removePeriodStart,
   ReviewPrompt,
@@ -22,6 +18,7 @@ import {
   setOnboarded,
   setReviewAsked,
   setZoneSettings as saveZoneSettings,
+  StoredState,
 } from '../data';
 import { DateKey, DEFAULT_KEYWORDS, DEFAULT_ZONE_SETTINGS, RiskKeywords, shouldAskReview, ZoneSettings } from '../engine';
 
@@ -35,20 +32,13 @@ export type KarendaDeps = {
 };
 
 /** 画面どうしで共有する、端末内データとカレンダー許可の状態 */
-export type Karenda = {
+export type Karenda = StoredState & {
   status: 'loading' | 'ready' | 'error';
-  onboarded: boolean;
   access: Access;
   calendar: CalendarSource;
   notifier: Notifier;
-  /** 設定でお知らせ通知を使うか */
-  notifyEnabled: boolean;
   /** 端末の通知の許可 */
   notifyAccess: Access;
-  starts: DateKey[];
-  settings: ZoneSettings;
-  keywords: RiskKeywords;
-  dismissed: Set<string>;
   finishOnboarding(): Promise<void>;
   addStart(day: DateKey): Promise<void>;
   removeStart(day: DateKey): Promise<void>;
@@ -60,34 +50,26 @@ export type Karenda = {
   deleteAll(): Promise<void>;
 };
 
+const INITIAL_STATE: StoredState = {
+  onboarded: false,
+  notifyEnabled: true,
+  starts: [],
+  settings: DEFAULT_ZONE_SETTINGS,
+  keywords: DEFAULT_KEYWORDS,
+  dismissed: new Set(),
+};
+
 export function useKarenda({ loadDatabase, calendar, notifier, askReview }: KarendaDeps): Karenda {
   const [db, setDb] = useState<Database | null>(null);
   const [status, setStatus] = useState<Karenda['status']>('loading');
-  const [onboarded, setOnboardedState] = useState(false);
   const [access, setAccess] = useState<Access>('checking');
-  const [notifyEnabled, setNotifyEnabledState] = useState(true);
   const [notifyAccess, setNotifyAccess] = useState<Access>('checking');
-  const [starts, setStarts] = useState<DateKey[]>([]);
-  const [settings, setSettingsState] = useState<ZoneSettings>(DEFAULT_ZONE_SETTINGS);
-  const [keywords, setKeywordsState] = useState<RiskKeywords>(DEFAULT_KEYWORDS);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [stored, setStored] = useState<StoredState>(INITIAL_STATE);
 
   const reload = useCallback(async (opened: Database) => {
-    const [loadedOnboarded, loadedNotify, loadedStarts, loadedSettings, loadedKeywords, loadedDismissed] = await Promise.all([
-      isOnboarded(opened),
-      isNotifyEnabled(opened),
-      listPeriodStarts(opened),
-      getZoneSettings(opened),
-      getKeywords(opened),
-      listDismissedAlerts(opened),
-    ]);
-    setOnboardedState(loadedOnboarded);
-    setNotifyEnabledState(loadedNotify);
-    setStarts(loadedStarts);
-    setSettingsState(loadedSettings);
-    setKeywordsState(loadedKeywords);
-    setDismissed(loadedDismissed);
-    return { onboarded: loadedOnboarded, notify: loadedNotify };
+    const loaded = await loadState(opened);
+    setStored(loaded);
+    return loaded;
   }, []);
 
   const requestAccess = useCallback(async () => {
@@ -118,7 +100,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview }: Kare
         // はじめての案内で説明してから許可を求める。案内が済んでいれば起動時に確認する
         if (loaded.onboarded) {
           await requestAccess();
-          if (loaded.notify) await requestNotifyAccess();
+          if (loaded.notifyEnabled) await requestNotifyAccess();
         }
       })
       .catch(() => active && setStatus('error'));
@@ -137,17 +119,12 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview }: Kare
   );
 
   return {
+    ...stored,
     status,
-    onboarded,
     access,
     calendar,
     notifier,
-    notifyEnabled,
     notifyAccess,
-    starts,
-    settings,
-    keywords,
-    dismissed,
     finishOnboarding: async () => {
       await withDb(setOnboarded);
       await requestAccess();

@@ -67,6 +67,29 @@ export async function listDismissedAlerts(db: Database): Promise<Set<string>> {
 export const isDismissed = (dismissed: Set<string>, eventId: string, date: DateKey) =>
   dismissed.has(alertKey(eventId, date));
 
+/** 画面が表示に使う保存内容。書き込みのたびにこれだけ読み直す */
+export type StoredState = {
+  onboarded: boolean;
+  /** 設定でお知らせ通知を使うか */
+  notifyEnabled: boolean;
+  starts: DateKey[];
+  settings: ZoneSettings;
+  keywords: RiskKeywords;
+  dismissed: Set<string>;
+};
+
+export async function loadState(db: Database): Promise<StoredState> {
+  const [onboarded, notifyEnabled, starts, settings, keywords, dismissed] = await Promise.all([
+    isOnboarded(db),
+    isNotifyEnabled(db),
+    listPeriodStarts(db),
+    getZoneSettings(db),
+    getKeywords(db),
+    listDismissedAlerts(db),
+  ]);
+  return { onboarded, notifyEnabled, starts, settings, keywords, dismissed };
+}
+
 export type ExportedData = {
   app: 'karenda';
   schemaVersion: number;
