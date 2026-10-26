@@ -15,6 +15,7 @@ import {
   isReviewAsked,
   listDismissedAlerts,
   listPeriodStarts,
+  loadState,
   removePeriodStart,
   setKeywords,
   setNotifyEnabled,
@@ -117,6 +118,24 @@ describe('dismissed alerts', () => {
     const dismissed = await listDismissedAlerts(db);
     expect(isDismissed(dismissed, 'ev1', '2026-10-27')).toBe(true);
     expect(isDismissed(dismissed, 'ev1', '2026-11-24')).toBe(false);
+  });
+});
+
+describe('loadState', () => {
+  it('reads everything the screens show in one call', async () => {
+    await setOnboarded(db);
+    await setNotifyEnabled(db, false);
+    await addPeriodStart(db, '2026-10-01');
+    await dismissAlert(db, 'ev1', '2026-10-27');
+    const state = await loadState(db);
+    expect(state).toMatchObject({
+      onboarded: true,
+      notifyEnabled: false,
+      starts: ['2026-10-01'],
+      settings: DEFAULT_ZONE_SETTINGS,
+      keywords: DEFAULT_KEYWORDS,
+    });
+    expect(isDismissed(state.dismissed, 'ev1', '2026-10-27')).toBe(true);
   });
 });
 
