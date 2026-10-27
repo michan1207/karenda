@@ -1,6 +1,12 @@
+import app from '../../app.json';
 import { toCalendarEvent } from './calendar';
 
 jest.mock('expo-calendar/legacy', () => ({}));
+
+// expo-calendar は Android で読み取りにも READ と WRITE の両方の許可を求める。WRITE を塞ぐと許可が通らない
+it('does not block calendar write permission on Android', () => {
+  expect(JSON.stringify(app)).not.toContain('WRITE_CALENDAR');
+});
 
 const local = (y: number, m: number, d: number, h = 0, min = 0) => new Date(y, m - 1, d, h, min);
 
