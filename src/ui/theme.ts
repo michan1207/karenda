@@ -31,6 +31,12 @@ const palette = {
 
 export type Colors = (typeof palette)['light'];
 
+// 文字・余白・角丸のスケール（AMIEL_DESIGN_SYSTEM.md §4〜5）。値は今の画面で使っている数値そのまま
+export const fontSize = { display: 32, title: 22, heading: 17, bodyLarge: 16, label: 15, body: 14, small: 13, caption: 12 } as const;
+export const fontWeight = { regular: '400', semibold: '600', bold: '700' } as const;
+export const space = { hair: 2, xs: 4, sm: 6, md: 8, lg: 12, card: 14, xl: 16, xxl: 24 } as const;
+export const radius = { xs: 4, sm: 8, md: 12, pill: 999 } as const;
+
 export function useColors(): Colors {
   return palette[useColorScheme() === 'dark' ? 'dark' : 'light'];
 }
