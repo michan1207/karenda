@@ -15,6 +15,7 @@
 ## カレンダー（expo-calendar）
 - Expo Go では新APIが使えないので `expo-calendar/legacy` の読み取り関数だけ使う（`calendar.ts`）
 - 読むだけ。予定の書き込みはしない
+- Android: expo-calendar は読み取りでも READ_CALENDAR と WRITE_CALENDAR の両方を要求・確認する。`blockedPermissions` で WRITE を塞ぐと常に「許可なし」になる（10-28修正）
 - `toCalendarEvent`: IDは `元ID@開始日`（繰り返し予定の区別）。0時ちょうど終わりは前日までに丸める
 - `CalendarSource` 型で差し替え可能（画面テストは偽物を渡す）
 
