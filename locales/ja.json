@@ -1,6 +1,6 @@
 {
   "ios": {
-    "CFBundleDisplayName": "Amiel",
+    "CFBundleDisplayName": "Cocomia",
     "NSCalendarsUsageDescription": "予定が体調の時期と重なっていないかを、この端末の中だけで確認するために使います。予定を外部に送ることはありません。",
     "NSCalendarsFullAccessUsageDescription": "予定が体調の時期と重なっていないかを、この端末の中だけで確認するために使います。予定を外部に送ることはありません。"
   }
