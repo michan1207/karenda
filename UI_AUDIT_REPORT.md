@@ -1,4 +1,4 @@
-# UI監査レポート（Amiel / karenda）
+# UI監査レポート（Cocomia / karenda）
 
 **実施日**: 2026-10-27　**対象**: `src/ui/*.tsx`（テスト除く6ファイル・約1,400行）と `src/ui/theme.ts`、`app.json`、`assets/icon.png`
 **方法**: `amicuna-design-method` スキルの手順1。すべて grep による実測値と、`contrast.py`（WCAG 2.x の式）での計算値。**コードは変更していない。**
