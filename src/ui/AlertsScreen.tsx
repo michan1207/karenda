@@ -47,11 +47,13 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
 
 function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () => void }) {
   const colors = useColors();
-  const tone = alert.level === 'red' ? colors.red : colors.yellow;
+  const strong = alert.level === 'red';
+  const tone = strong ? colors.alertStrong : colors.alertMild;
+  const fill = strong ? colors.alertStrongSoft : colors.alertMildSoft;
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line, borderLeftColor: tone }]}>
+    <View style={[styles.card, { backgroundColor: fill, borderColor: colors.line, borderLeftColor: tone }]}>
       <View style={styles.cardHead}>
-        <Text style={[styles.badge, { color: tone, borderColor: tone }]}>
+        <Text style={[styles.badge, { color: colors.onAccent, backgroundColor: tone, borderColor: tone }]}>
           {alert.level === 'red' ? 'しっかり注意' : '少し注意'}
         </Text>
         <Text style={[styles.date, { color: colors.muted }]}>{dayTitle(alert.date)}</Text>
@@ -71,7 +73,8 @@ const styles = StyleSheet.create({
   sub: { fontSize: 13 },
   card: { borderWidth: 1, borderLeftWidth: 4, borderRadius: 12, padding: 14, gap: 6 },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  badge: { fontSize: 12, fontWeight: '700', borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  // iOSのTextは overflow を付けないと背景色が角丸で切り抜かれない
+  badge: { fontSize: 12, fontWeight: '700', borderWidth: 1, borderRadius: 999, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 2 },
   date: { fontSize: 13 },
   eventTitle: { fontSize: 16, fontWeight: '700' },
   message: { fontSize: 14, lineHeight: 21 },

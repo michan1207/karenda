@@ -11,7 +11,7 @@ import {
   shiftMonth,
   ZoneDay,
 } from '../engine';
-import { Button, Notice } from './components';
+import { AlertMark, Button, Notice } from './components';
 import { dayTitle, WEEKDAYS, zoneLabel } from './format';
 import { Colors, useColors } from './theme';
 import { useEvents } from './useEvents';
@@ -109,7 +109,10 @@ export default function CalendarScreen({ k, today }: Props) {
       <View style={styles.legend}>
         <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
         <LegendItem color={colors.pms} label="PMS警戒期" textColor={colors.muted} />
-        <Text style={[styles.legendText, { color: colors.muted }]}>⚠ 予定と重なる日</Text>
+        <View style={styles.legendItem}>
+          <AlertMark colors={colors} level="red" size={12} />
+          <Text style={[styles.legendText, { color: colors.muted }]}>予定と重なる日</Text>
+        </View>
       </View>
 
       <View style={[styles.detail, { backgroundColor: colors.surface, borderColor: colors.line }]}>
@@ -124,12 +127,12 @@ export default function CalendarScreen({ k, today }: Props) {
             const alert = alertFor(event.id);
             return (
               <View key={event.id} style={styles.eventRow}>
-                <Text style={[styles.eventTitle, { color: colors.text }]}>
-                  {alert ? '⚠ ' : ''}
-                  {event.title || '（タイトルなし）'}
-                </Text>
+                <View style={styles.eventHead}>
+                  {alert && <AlertMark colors={colors} level={alert.level} size={16} />}
+                  <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title || '（タイトルなし）'}</Text>
+                </View>
                 {alert && (
-                  <Text style={[styles.detailText, { color: alert.level === 'red' ? colors.red : colors.yellow }]}>
+                  <Text style={[styles.detailText, { color: alert.level === 'red' ? colors.alertStrong : colors.alertMild }]}>
                     {alert.message}
                   </Text>
                 )}
@@ -170,7 +173,7 @@ function DayCell({
   isSelected: boolean;
   onPress: () => void;
 }) {
-  const red = alerts.some((alert) => alert.level === 'red');
+  const level = alerts.some((alert) => alert.level === 'red') ? 'red' : 'yellow';
   const background = zone?.zone === 'heavy' ? colors.heavy : zone?.zone === 'pms' ? colors.pms : 'transparent';
   const label = [dayTitle(day), zone ? zoneLabel(zone) : null, alerts.length ? '予定と重なっています' : null]
     .filter(Boolean)
@@ -182,21 +185,21 @@ function DayCell({
       accessibilityLabel={label}
       accessibilityState={{ selected: isSelected }}
       onPress={onPress}
-      style={[
-        styles.cell,
-        { backgroundColor: background, opacity: inMonth ? 1 : 0.4 },
-        isSelected && { borderColor: colors.accent },
-      ]}
+      style={[styles.cell, isSelected && { borderColor: colors.accent }]}
     >
+      {/* 前後の月は塗りだけ薄くする。文字に透過をかけると読めなくなる */}
+      <View style={[StyleSheet.absoluteFill, styles.cellFill, { backgroundColor: background, opacity: inMonth ? 1 : 0.4 }]} />
       <Text
         maxFontSizeMultiplier={1.4}
-        style={[styles.cellDay, { color: colors.text }, isToday && { color: colors.accent, fontWeight: '700' }]}
+        style={[
+          styles.cellDay,
+          { color: inMonth ? colors.text : colors.muted },
+          isToday && { color: colors.accent, fontWeight: '700' },
+        ]}
       >
         {fromDateKey(day).getDate()}
       </Text>
-      <Text maxFontSizeMultiplier={1.4} style={[styles.cellMark, { color: red ? colors.red : colors.yellow }]}>
-        {alerts.length ? '⚠' : ' '}
-      </Text>
+      <View style={styles.cellMark}>{alerts.length > 0 && <AlertMark colors={colors} level={level} size={12} />}</View>
     </Pressable>
   );
 }
@@ -226,8 +229,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  cellFill: { borderRadius: 6 },
   cellDay: { fontSize: 16 },
-  cellMark: { fontSize: 12, lineHeight: 14 },
+  cellMark: { height: 14, justifyContent: 'center' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   swatch: { width: 12, height: 12, borderRadius: 3 },
@@ -237,6 +241,7 @@ const styles = StyleSheet.create({
   detailZone: { fontSize: 13 },
   detailText: { fontSize: 14, lineHeight: 21 },
   eventRow: { gap: 2 },
+  eventHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   eventTitle: { fontSize: 15, fontWeight: '600' },
   footnote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
 });

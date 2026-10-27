@@ -95,7 +95,7 @@ export default function SettingsScreen({ k }: Props) {
                 onPress={() => k.removeStart(start)}
                 hitSlop={8}
               >
-                <Text style={[styles.remove, { color: colors.red }]}>消す</Text>
+                <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
               </Pressable>
             </View>
           ))
@@ -107,7 +107,7 @@ export default function SettingsScreen({ k }: Props) {
           データはこの端末の中だけに保存しています。機種変更のときは書き出して保管してください。
         </Text>
         <Button colors={colors} kind="secondary" label="データを書き出す" onPress={exportData} />
-        {exportError && <Text style={[styles.help, { color: colors.red }]}>書き出せませんでした。もう一度お試しください。</Text>}
+        {exportError && <Text style={[styles.help, { color: colors.danger }]}>書き出せませんでした。もう一度お試しください。</Text>}
         {confirmDelete ? (
           <View style={styles.confirm}>
             <Text style={[styles.help, { color: colors.text }]}>
