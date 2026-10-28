@@ -7,14 +7,18 @@ const CLOSING = 'やさしくしてくれたらうれしいな🍵\n（Cocomia�
 // 周期は長くても45日なので、この先までに次のヘビー期が必ず入る
 const LOOKAHEAD_DAYS = 60;
 
-/** 生理の言い方。soft は生理のことを書かない */
-export type PartnerWording = 'period' | 'girlsDay' | 'soft' | 'monthly';
+/** 生理の言い方。soft / lowHp / rest は生理のことを書かない */
+export type PartnerWording = 'period' | 'girlsDay' | 'soft' | 'monthly' | 'thatDay' | 'moon' | 'lowHp' | 'rest';
 
 const WORDINGS: Record<PartnerWording, { now: string; next: (span: string) => string }> = {
-  period: { now: 'いま生理中だよ', next: (span) => `次の生理は${span}ごろの予定だよ` },
-  girlsDay: { now: 'いま女の子の日だよ', next: (span) => `次の女の子の日は${span}ごろの予定だよ` },
-  soft: { now: 'いま体調がゆらぎやすい時期だよ', next: (span) => `次は${span}ごろ、ちょっと体調がゆらぎそう` },
-  monthly: { now: 'いま月のもの中だよ', next: (span) => `次の月のものは${span}ごろの予定だよ` },
+  period: { now: 'いま生理中だよ🌙', next: (span) => `次の生理は${span}ごろの予定だよ🌙` },
+  girlsDay: { now: 'いま女の子の日だよ🌙', next: (span) => `次の女の子の日は${span}ごろの予定だよ🌙` },
+  soft: { now: 'いま体調がゆらぎやすい時期だよ🌙', next: (span) => `次は${span}ごろ、ちょっと体調がゆらぎそう🌙` },
+  monthly: { now: 'いま月のもの中だよ🌙', next: (span) => `次の月のものは${span}ごろの予定だよ🌙` },
+  thatDay: { now: 'いまあの日だよ🌙', next: (span) => `次のあの日は${span}ごろの予定だよ🌙` },
+  moon: { now: 'いまお月さまの日だよ🌙', next: (span) => `次のお月さまの日は${span}ごろの予定だよ🌙` },
+  lowHp: { now: 'いまHPひくめモードだよ🥺', next: (span) => `次は${span}ごろ、HPひくめモードになりそう🥺` },
+  rest: { now: 'いまおやすみモードだよ🧸', next: (span) => `次は${span}ごろ、おやすみモードになりそう🧸` },
 };
 
 function monthDay(day: DateKey): string {
@@ -52,7 +56,7 @@ export function partnerMessage(
   while (isHeavy(addDays(end, 1))) end = addDays(end, 1);
 
   const words = WORDINGS[wording];
-  if (start === today) return `${words.now}🌙\n${monthDay(end)}ごろまで、ちょっとしんどいかも。\n${CLOSING}`;
+  if (start === today) return `${words.now}\n${monthDay(end)}ごろまで、ちょっとしんどいかも。\n${CLOSING}`;
   const before = settings.pmsDays > 0 ? 'その前の数日は、ゆらぎやすいかも。\n' : '';
-  return `${words.next(span(start, end))}🌙\n${before}${CLOSING}`;
+  return `${words.next(span(start, end))}\n${before}${CLOSING}`;
 }

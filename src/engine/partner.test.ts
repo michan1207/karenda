@@ -21,16 +21,20 @@ describe('partnerMessage', () => {
 
   it.each([
     ['girlsDay', 'いま女の子の日だよ🌙', '次の女の子の日は10月26日〜28日ごろの予定だよ🌙'],
-    ['monthly', 'いま月のもの中だよ🌙', '次の月のものは10月26日〜28日ごろの予定だよ🌙'],
     ['soft', 'いま体調がゆらぎやすい時期だよ🌙', '次は10月26日〜28日ごろ、ちょっと体調がゆらぎそう🌙'],
+    ['monthly', 'いま月のもの中だよ🌙', '次の月のものは10月26日〜28日ごろの予定だよ🌙'],
+    ['thatDay', 'いまあの日だよ🌙', '次のあの日は10月26日〜28日ごろの予定だよ🌙'],
+    ['moon', 'いまお月さまの日だよ🌙', '次のお月さまの日は10月26日〜28日ごろの予定だよ🌙'],
+    ['lowHp', 'いまHPひくめモードだよ🥺', '次は10月26日〜28日ごろ、HPひくめモードになりそう🥺'],
+    ['rest', 'いまおやすみモードだよ🧸', '次は10月26日〜28日ごろ、おやすみモードになりそう🧸'],
   ] as const)('words it as %s', (wording, now, next) => {
     expect(partnerMessage(ON_PERIOD, DEFAULT_ZONE_SETTINGS, '2026-10-27', wording)).toMatch(new RegExp(`^${now}\n`));
     expect(partnerMessage(REGULAR, DEFAULT_ZONE_SETTINGS, '2026-10-24', wording)).toMatch(new RegExp(`^${next}\n`));
   });
 
-  it('never names the period when softened', () => {
+  it.each(['soft', 'lowHp', 'rest'] as const)('never names the period when worded as %s', (wording) => {
     for (const [starts, today] of [[ON_PERIOD, '2026-10-27'], [REGULAR, '2026-10-24']] as const) {
-      expect(partnerMessage([...starts], DEFAULT_ZONE_SETTINGS, today, 'soft')).not.toMatch(/生理|女の子の日|月のもの/);
+      expect(partnerMessage([...starts], DEFAULT_ZONE_SETTINGS, today, wording)).not.toMatch(/生理|女の子|月のもの|あの日|お月さま/);
     }
   });
 

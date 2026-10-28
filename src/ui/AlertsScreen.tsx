@@ -13,6 +13,10 @@ const WORDINGS: [PartnerWording, string][] = [
   ['girlsDay', '女の子の日'],
   ['soft', '体調をぼかす'],
   ['monthly', '月のもの'],
+  ['thatDay', 'あの日'],
+  ['moon', 'お月さまの日'],
+  ['lowHp', 'HPひくめ'],
+  ['rest', 'おやすみモード'],
 ];
 
 /** alerts は閉じたものを除いた、今日から30日間の警告 */
