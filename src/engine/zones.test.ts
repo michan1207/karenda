@@ -1,5 +1,5 @@
 import { predictCycle } from './cycle';
-import { buildZones } from './zones';
+import { buildZones, periodPhase } from './zones';
 
 const regular = predictCycle(['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'])!; // 28 days every time
 
@@ -47,5 +47,18 @@ describe('buildZones', () => {
   it('rejects settings outside a sensible range', () => {
     expect(() => buildZones(regular, { from: '2026-10-01', until: '2026-10-31' }, { heavyDays: 0, pmsDays: 7 })).toThrow();
     expect(() => buildZones(regular, { from: '2026-10-01', until: '2026-10-31' }, { heavyDays: 3, pmsDays: 20 })).toThrow();
+  });
+});
+
+describe('periodPhase', () => {
+  const zones = buildZones(regular, { from: '2026-09-28', until: '2026-10-31' });
+
+  it('names the days before, during and right after a period', () => {
+    expect(periodPhase('2026-09-29', zones)).toBe('during');
+    expect(periodPhase('2026-10-01', zones)).toBe('after');
+    expect(periodPhase('2026-10-04', zones)).toBe('after');
+    expect(periodPhase('2026-10-05', zones)).toBeUndefined();
+    expect(periodPhase('2026-10-19', zones)).toBe('before');
+    expect(periodPhase('2026-10-26', zones)).toBe('during');
   });
 });

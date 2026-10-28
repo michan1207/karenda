@@ -2,17 +2,22 @@ import { useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
+  addDays,
+  AFTER_PERIOD_DAYS,
   computeGuard,
   ConflictAlert,
   DateKey,
   fromDateKey,
   isInMonth,
   monthGrid,
+  PeriodPhase,
+  periodPhase,
   shiftMonth,
   ZoneDay,
 } from '../engine';
 import { Button, Notice } from './components';
 import { dayTitle, WEEKDAYS, zoneLabel } from './format';
+import { MOOD_NOTES } from './moodNotes';
 import { Colors, useColors } from './theme';
 import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
@@ -37,7 +42,8 @@ export default function CalendarScreen({ k, today }: Props) {
         settings: k.settings,
         keywords: k.keywords,
         events,
-        range: { from: grid.from, until: grid.until },
+        // 月初の日も「生理の終わりごろ」を判定できるよう、少し前から作る
+        range: { from: addDays(grid.from, -AFTER_PERIOD_DAYS), until: grid.until },
       }),
     [k.starts, k.settings, k.keywords, events, grid],
   );
@@ -52,6 +58,7 @@ export default function CalendarScreen({ k, today }: Props) {
   const selectedEvents = events.filter((event) => event.start <= selected && event.end >= selected);
   const alertFor = (eventId: string) => guard.alerts.find((alert) => alert.eventId === eventId);
   const isRecorded = k.starts.includes(selected);
+  const phase = periodPhase(selected, guard.zones);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -144,6 +151,8 @@ export default function CalendarScreen({ k, today }: Props) {
         ) : null}
       </View>
 
+      {phase && <MoodNotes phase={phase} colors={colors} />}
+
       <Text style={[styles.footnote, { color: colors.muted }]}>
         予測は目安です。医療的な診断や避妊には使えません。データはこの端末の中だけで扱います。
       </Text>
@@ -210,6 +219,36 @@ function LegendItem({ color, label, textColor }: { color: string; label: string;
   );
 }
 
+function MoodNotes({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
+  const note = MOOD_NOTES[phase];
+  return (
+    <View style={[styles.detail, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+      <Text accessibilityRole="header" style={[styles.detailTitle, { color: colors.text }]}>
+        {note.title}
+      </Text>
+      <Text style={[styles.detailText, { color: colors.text }]}>{note.summary}</Text>
+      <View>
+        {note.feelings.map((feeling) => (
+          <Text key={feeling} style={[styles.detailText, { color: colors.text }]}>
+            ・{feeling}
+          </Text>
+        ))}
+      </View>
+      <Text style={[styles.moodLabel, { color: colors.muted }]}>関係する病名・言葉</Text>
+      <View>
+        {note.names.map((name) => (
+          <Text key={name} style={[styles.detailText, { color: colors.text }]}>
+            ・{name}
+          </Text>
+        ))}
+      </View>
+      <Text style={[styles.detailZone, { color: colors.muted }]}>
+        感じ方には個人差があり、ここに書いたことは目安です。つらさが続く時や生活に支障がある時は、婦人科や心療内科に相談してみてください。
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
@@ -238,5 +277,6 @@ const styles = StyleSheet.create({
   detailText: { fontSize: 14, lineHeight: 21 },
   eventRow: { gap: 2 },
   eventTitle: { fontSize: 15, fontWeight: '600' },
+  moodLabel: { fontSize: 13, fontWeight: '600' },
   footnote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
 });

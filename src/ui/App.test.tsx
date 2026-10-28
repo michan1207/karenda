@@ -100,6 +100,23 @@ describe('calendar', () => {
     expect(screen.getByText('買い物')).toBeTruthy();
   });
 
+  it('shows the feelings and related names that the phase of the tapped day tends to bring', async () => {
+    await setup();
+    // 今日 10-24 は PMS警戒期
+    expect(await screen.findByText('生理前に起こりやすい心の変化')).toBeTruthy();
+    expect(screen.getByText(/PMDD（月経前不快気分障害）/)).toBeTruthy();
+    expect(screen.getByText(/双極性障害/)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています'));
+    expect(screen.getByText('生理中に起こりやすい心の変化')).toBeTruthy();
+    expect(screen.getByText(/月経困難症/)).toBeTruthy();
+    expect(screen.getByText(/月経に伴ううつ状態/)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('10月1日（木）'));
+    expect(screen.getByText('生理の終わりごろ〜直後に起こりやすい心の変化')).toBeTruthy();
+    expect(screen.getByText(/鉄欠乏性貧血/)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('10月5日（月）'));
+    expect(screen.queryByText(/起こりやすい心の変化/)).toBeNull();
+  });
+
   it('records and removes a past start date picked on the calendar', async () => {
     const { db } = await setup({ starts: [] });
     expect(await screen.findByText(/生理が始まった日を選んで記録すると/)).toBeTruthy();
