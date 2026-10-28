@@ -185,7 +185,9 @@ describe('alerts', () => {
     await fireEvent.press(screen.getByText('パートナーに伝える'));
     expect(share).toHaveBeenCalledWith({ message: '来週ちょっとしんどいかも🍵' });
     await fireEvent.press(screen.getByText('生理'));
-    expect(screen.getByLabelText('送る文').props.value).toMatch(/^次の生理は/);
+    expect(screen.getByLabelText('送る文').props.value).toMatch(/^次の生理は[^]*ちょっと気にかけてくれたらうれしいな☺️/);
+    await fireEvent.press(screen.getByText('ありがとう'));
+    expect(screen.getByLabelText('送る文').props.value).toMatch(/いつもありがとう。よろしくね🍵\n（Cocomiaの予測/);
     share.mockRestore();
   });
 

@@ -2,8 +2,8 @@ import { predictCycle } from './cycle';
 import { addDays, DateKey, fromDateKey } from './date';
 import { buildZones, ZoneSettings } from './zones';
 
-// 本人がパートナーに送る文なので、話し言葉でやわらかく。予測であることは最後に添える
-const CLOSING = 'やさしくしてくれたらうれしいな🍵\n（Cocomiaの予測なので、前後するかも）';
+// 本人がパートナーに送る文なので、話し言葉でやわらかく。予測であることは最後に必ず添える
+const PREDICTION = '（Cocomiaの予測なので、前後するかも）';
 // 周期は長くても45日なので、この先までに次のヘビー期が必ず入る
 const LOOKAHEAD_DAYS = 60;
 
@@ -19,6 +19,17 @@ const WORDINGS: Record<PartnerWording, { now: string; next: (span: string) => st
   moon: { now: 'いまお月さまの日だよ🌙', next: (span) => `次のお月さまの日は${span}ごろの予定だよ🌙` },
   lowHp: { now: 'いまHPひくめモードだよ🥺', next: (span) => `次は${span}ごろ、HPひくめモードになりそう🥺` },
   rest: { now: 'いまおやすみモードだよ🧸', next: (span) => `次は${span}ごろ、おやすみモードになりそう🧸` },
+};
+
+/** 締めの一言 */
+export type PartnerClosing = 'care' | 'gentle' | 'thanks' | 'slow' | 'watch';
+
+const CLOSINGS: Record<PartnerClosing, string> = {
+  care: 'ちょっと気にかけてくれたらうれしいな☺️',
+  gentle: 'やさしくしてくれたらうれしいな🍵',
+  thanks: 'いつもありがとう。よろしくね🍵',
+  slow: 'ゆっくりめに過ごすね🍵',
+  watch: 'そっと見守ってくれたら助かるな🌿',
 };
 
 function monthDay(day: DateKey): string {
@@ -41,6 +52,7 @@ export function partnerMessage(
   settings: ZoneSettings,
   today: DateKey,
   wording: PartnerWording,
+  closing: PartnerClosing,
 ): string | null {
   const prediction = predictCycle(starts);
   if (!prediction) return null;
@@ -56,7 +68,8 @@ export function partnerMessage(
   while (isHeavy(addDays(end, 1))) end = addDays(end, 1);
 
   const words = WORDINGS[wording];
-  if (start === today) return `${words.now}\n${monthDay(end)}ごろまで、ちょっとしんどいかも。\n${CLOSING}`;
+  const tail = `${CLOSINGS[closing]}\n${PREDICTION}`;
+  if (start === today) return `${words.now}\n${monthDay(end)}ごろまで、ちょっとしんどいかも。\n${tail}`;
   const before = settings.pmsDays > 0 ? 'その前の数日は、ゆらぎやすいかも。\n' : '';
-  return `${words.next(span(start, end))}\n${before}${CLOSING}`;
+  return `${words.next(span(start, end))}\n${before}${tail}`;
 }
