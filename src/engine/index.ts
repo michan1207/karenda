@@ -6,5 +6,4 @@ export * from './zones';
 export * from './guard';
 export * from './month';
 export * from './notifications';
-export * from './partner';
 export * from './review';
