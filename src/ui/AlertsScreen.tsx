@@ -1,6 +1,6 @@
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
-import { addDays, ConflictAlert, DateKey } from '../engine';
+import { addDays, ConflictAlert, DateKey, partnerMessage } from '../engine';
 import { Button, Notice } from './components';
 import { dayTitle } from './format';
 import { useColors } from './theme';
@@ -12,6 +12,7 @@ type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[] };
 
 export default function AlertsScreen({ k, today, alerts }: Props) {
   const colors = useColors();
+  const message = partnerMessage(k.starts, k.settings, today, UPCOMING_DAYS);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -21,6 +22,15 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
       <Text style={[styles.sub, { color: colors.muted }]}>
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
       </Text>
+      {message && (
+        <>
+          {/* 送る前に開けなかっただけなので、失うものは無い */}
+          <Button colors={colors} kind="secondary" label="パートナーに伝える" onPress={() => Share.share({ message }).catch(() => {})} />
+          <Text style={[styles.sub, { color: colors.muted }]}>
+            気をつけたい時期の日付だけを、LINEなどで送れます。予定の中身は送りません。
+          </Text>
+        </>
+      )}
 
       {k.access === 'denied' && (
         <Notice
