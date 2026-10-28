@@ -2,33 +2,30 @@ import { partnerMessage } from './partner';
 import { DEFAULT_ZONE_SETTINGS } from './zones';
 
 const REGULAR = ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28']; // 28 days every time
+const CLOSING = 'やさしくしてくれたらうれしいな🍵\n（Cocomiaの予測なので、前後するかも）';
 
 describe('partnerMessage', () => {
-  it('lists the coming windows as one span each, PMS and period joined', () => {
-    // 今日 10-24 は PMS期の中。10-26〜28 がヘビー期、次は 11-16〜22 PMS・11-23〜25 ヘビー期
-    expect(partnerMessage(REGULAR, DEFAULT_ZONE_SETTINGS, '2026-10-24', 30)).toBe(
-      [
-        '【Cocomia】体調に気をつけたい時期（予測）',
-        '・10月24日〜28日ごろ',
-        '・11月16日〜25日ごろ',
-        'アプリの予測なので、前後することがあります。',
-      ].join('\n'),
+  it('says the period is on now and until when', () => {
+    // 10-26 に記録 → ヘビー期は 10-28 まで
+    expect(partnerMessage([...REGULAR, '2026-10-26'], DEFAULT_ZONE_SETTINGS, '2026-10-27')).toBe(
+      `いま生理中だよ🌙\n10月28日ごろまで、ちょっとしんどいかも。\n${CLOSING}`,
     );
   });
 
-  it('writes a window to its end even past the coming days, across months', () => {
-    // 29日周期（28〜30日）→ PMS 10-23〜29、ヘビー期 10-30〜11-03
-    const starts = ['2026-08-05', '2026-09-02', '2026-10-02'];
-    expect(partnerMessage(starts, DEFAULT_ZONE_SETTINGS, '2026-10-10', 15)).toContain('・10月23日〜11月3日ごろ\n');
+  it('tells the next period before it comes', () => {
+    // 次は 10-26〜28（今日 10-24 は PMS期の中）
+    expect(partnerMessage(REGULAR, DEFAULT_ZONE_SETTINGS, '2026-10-24')).toBe(
+      `次の生理は10月26日〜28日ごろの予定だよ🌙\nその前の数日は、ゆらぎやすいかも。\n${CLOSING}`,
+    );
   });
 
-  it('never names the period or PMS, since it may show in a notification', () => {
-    expect(partnerMessage(REGULAR, DEFAULT_ZONE_SETTINGS, '2026-10-24', 30)).not.toMatch(/生理|PMS/);
+  it('writes a span across months, and leaves out the days before when PMS is off', () => {
+    // 29日周期（28〜30日）→ ヘビー期 10-30〜11-03
+    const message = partnerMessage(['2026-08-05', '2026-09-02', '2026-10-02'], { heavyDays: 3, pmsDays: 0 }, '2026-10-10');
+    expect(message).toBe(`次の生理は10月30日〜11月3日ごろの予定だよ🌙\n${CLOSING}`);
   });
 
-  it('returns null without records or when nothing falls in the coming days', () => {
-    expect(partnerMessage([], DEFAULT_ZONE_SETTINGS, '2026-10-24', 30)).toBeNull();
-    // 1件だけの記録（10-20）→ 次の PMS期は 11-08 から
-    expect(partnerMessage(['2026-10-20'], DEFAULT_ZONE_SETTINGS, '2026-10-23', 14)).toBeNull();
+  it('returns null without records', () => {
+    expect(partnerMessage([], DEFAULT_ZONE_SETTINGS, '2026-10-24')).toBeNull();
   });
 });

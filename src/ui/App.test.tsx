@@ -162,13 +162,13 @@ describe('alerts', () => {
     expect(screen.queryByText('福岡出張')).toBeNull();
   });
 
-  it('tells a partner the coming windows through the share sheet, dates only', async () => {
+  it('tells a partner the next period through the share sheet, without events', async () => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     await setup();
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
     await fireEvent.press(screen.getByText('パートナーに伝える'));
     const { message } = share.mock.calls[0][0] as { message: string };
-    expect(message).toContain('・10月24日〜28日ごろ\n・11月16日〜25日ごろ');
+    expect(message).toContain('次の生理は10月26日〜28日ごろの予定だよ🌙');
     expect(message).not.toMatch(/福岡出張|企画プレゼン/);
     share.mockRestore();
   });

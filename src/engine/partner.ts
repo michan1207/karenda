@@ -2,41 +2,41 @@ import { predictCycle } from './cycle';
 import { addDays, DateKey, fromDateKey } from './date';
 import { buildZones, ZoneSettings } from './zones';
 
-// 生理・PMSの言葉は入れない。LINE の通知やトーク一覧で人に見られても分からないように
-const HEADER = '【Cocomia】体調に気をつけたい時期（予測）';
-const FOOTER = 'アプリの予測なので、前後することがあります。';
-// 期間の終わりごろに始まる時期も最後まで書けるよう、その先まで見る（1つの時期は長くても50日ほど）
+// 本人がパートナーに送る文なので、話し言葉でやわらかく。予測であることは最後に添える
+const CLOSING = 'やさしくしてくれたらうれしいな🍵\n（Cocomiaの予測なので、前後するかも）';
+// 周期は長くても45日なので、この先までに次のヘビー期が必ず入る
 const LOOKAHEAD_DAYS = 60;
 
+function monthDay(day: DateKey): string {
+  const date = fromDateKey(day);
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 function span(from: DateKey, to: DateKey): string {
-  const a = fromDateKey(from);
-  const b = fromDateKey(to);
-  const start = `${a.getMonth() + 1}月${a.getDate()}日`;
-  if (from === to) return start;
-  return `${start}〜${a.getMonth() === b.getMonth() ? '' : `${b.getMonth() + 1}月`}${b.getDate()}日`;
+  if (from === to) return monthDay(from);
+  const sameMonth = fromDateKey(from).getMonth() === fromDateKey(to).getMonth();
+  return `${monthDay(from)}〜${sameMonth ? `${fromDateKey(to).getDate()}日` : monthDay(to)}`;
 }
 
 /**
- * パートナーに送る文。今日から days 日のうちにかかる警戒ゾーンを、続いている日をまとめて日付だけで書く。
- * 記録が無い・該当する時期が無いときは null。
+ * パートナーに送る短い文。今がヘビー期ならいつまでか、そうでなければ次のヘビー期を伝える。
+ * 予定や記録の中身は入れない。記録が無いときは null。
  */
-export function partnerMessage(starts: DateKey[], settings: ZoneSettings, today: DateKey, days: number): string | null {
+export function partnerMessage(starts: DateKey[], settings: ZoneSettings, today: DateKey): string | null {
   const prediction = predictCycle(starts);
   if (!prediction) return null;
 
-  const until = addDays(today, days);
-  const last = addDays(until, LOOKAHEAD_DAYS);
+  const last = addDays(today, LOOKAHEAD_DAYS);
   const zones = buildZones(prediction, { from: today, until: last }, settings);
+  const isHeavy = (day: DateKey) => zones.get(day)?.zone === 'heavy';
 
-  const runs: [DateKey, DateKey][] = [];
-  for (let day = today; day <= last; day = addDays(day, 1)) {
-    if (!zones.has(day)) continue;
-    const run = runs.at(-1);
-    if (run && run[1] === addDays(day, -1)) run[1] = day;
-    else if (day <= until) runs.push([day, day]);
-    else break;
-  }
-  if (runs.length === 0) return null;
+  let start = today;
+  while (start <= last && !isHeavy(start)) start = addDays(start, 1);
+  if (start > last) return null;
+  let end = start;
+  while (isHeavy(addDays(end, 1))) end = addDays(end, 1);
 
-  return [HEADER, ...runs.map(([from, to]) => `・${span(from, to)}ごろ`), FOOTER].join('\n');
+  if (start === today) return `いま生理中だよ🌙\n${monthDay(end)}ごろまで、ちょっとしんどいかも。\n${CLOSING}`;
+  const before = settings.pmsDays > 0 ? 'その前の数日は、ゆらぎやすいかも。\n' : '';
+  return `次の生理は${span(start, end)}ごろの予定だよ🌙\n${before}${CLOSING}`;
 }

@@ -12,7 +12,7 @@ type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[] };
 
 export default function AlertsScreen({ k, today, alerts }: Props) {
   const colors = useColors();
-  const message = partnerMessage(k.starts, k.settings, today, UPCOMING_DAYS);
+  const message = partnerMessage(k.starts, k.settings, today);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -27,7 +27,7 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
           {/* 送る前に開けなかっただけなので、失うものは無い */}
           <Button colors={colors} kind="secondary" label="パートナーに伝える" onPress={() => Share.share({ message }).catch(() => {})} />
           <Text style={[styles.sub, { color: colors.muted }]}>
-            気をつけたい時期の日付だけを、LINEなどで送れます。予定の中身は送りません。
+            いまの生理か次の生理の目安を、LINEなどでやさしく伝えられます。予定の中身は送りません。
           </Text>
         </>
       )}
