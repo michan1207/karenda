@@ -7,6 +7,16 @@ const CLOSING = 'やさしくしてくれたらうれしいな🍵\n（Cocomia�
 // 周期は長くても45日なので、この先までに次のヘビー期が必ず入る
 const LOOKAHEAD_DAYS = 60;
 
+/** 生理の言い方。soft は生理のことを書かない */
+export type PartnerWording = 'period' | 'girlsDay' | 'soft' | 'monthly';
+
+const WORDINGS: Record<PartnerWording, { now: string; next: (span: string) => string }> = {
+  period: { now: 'いま生理中だよ', next: (span) => `次の生理は${span}ごろの予定だよ` },
+  girlsDay: { now: 'いま女の子の日だよ', next: (span) => `次の女の子の日は${span}ごろの予定だよ` },
+  soft: { now: 'いま体調がゆらぎやすい時期だよ', next: (span) => `次は${span}ごろ、ちょっと体調がゆらぎそう` },
+  monthly: { now: 'いま月のもの中だよ', next: (span) => `次の月のものは${span}ごろの予定だよ` },
+};
+
 function monthDay(day: DateKey): string {
   const date = fromDateKey(day);
   return `${date.getMonth() + 1}月${date.getDate()}日`;
@@ -22,7 +32,12 @@ function span(from: DateKey, to: DateKey): string {
  * パートナーに送る短い文。今がヘビー期ならいつまでか、そうでなければ次のヘビー期を伝える。
  * 予定や記録の中身は入れない。記録が無いときは null。
  */
-export function partnerMessage(starts: DateKey[], settings: ZoneSettings, today: DateKey): string | null {
+export function partnerMessage(
+  starts: DateKey[],
+  settings: ZoneSettings,
+  today: DateKey,
+  wording: PartnerWording,
+): string | null {
   const prediction = predictCycle(starts);
   if (!prediction) return null;
 
@@ -36,7 +51,8 @@ export function partnerMessage(starts: DateKey[], settings: ZoneSettings, today:
   let end = start;
   while (isHeavy(addDays(end, 1))) end = addDays(end, 1);
 
-  if (start === today) return `いま生理中だよ🌙\n${monthDay(end)}ごろまで、ちょっとしんどいかも。\n${CLOSING}`;
+  const words = WORDINGS[wording];
+  if (start === today) return `${words.now}🌙\n${monthDay(end)}ごろまで、ちょっとしんどいかも。\n${CLOSING}`;
   const before = settings.pmsDays > 0 ? 'その前の数日は、ゆらぎやすいかも。\n' : '';
-  return `次の生理は${span(start, end)}ごろの予定だよ🌙\n${before}${CLOSING}`;
+  return `${words.next(span(start, end))}🌙\n${before}${CLOSING}`;
 }

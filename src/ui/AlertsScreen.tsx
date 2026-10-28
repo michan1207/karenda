@@ -1,18 +1,27 @@
-import { Linking, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
-import { addDays, ConflictAlert, DateKey, partnerMessage } from '../engine';
+import { addDays, ConflictAlert, DateKey, partnerMessage, PartnerWording } from '../engine';
 import { Button, Notice } from './components';
 import { dayTitle } from './format';
 import { useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
 
+const WORDINGS: [PartnerWording, string][] = [
+  ['period', '生理'],
+  ['girlsDay', '女の子の日'],
+  ['soft', '体調をぼかす'],
+  ['monthly', '月のもの'],
+];
+
 /** alerts は閉じたものを除いた、今日から30日間の警告 */
 type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[] };
 
 export default function AlertsScreen({ k, today, alerts }: Props) {
   const colors = useColors();
-  const message = partnerMessage(k.starts, k.settings, today);
+  const [wording, setWording] = useState<PartnerWording>('period');
+  const message = partnerMessage(k.starts, k.settings, today, wording);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -23,13 +32,30 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
       </Text>
       {message && (
-        <>
+        <View style={[styles.share, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+          <Text style={[styles.sub, { color: colors.muted }]}>パートナーに伝える言い方</Text>
+          <View style={styles.chips}>
+            {WORDINGS.map(([id, label]) => {
+              const selected = id === wording;
+              return (
+                <Pressable
+                  key={id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => setWording(id)}
+                  hitSlop={4}
+                  style={[styles.chip, { borderColor: selected ? colors.accent : colors.line }]}
+                >
+                  <Text style={[styles.chipText, { color: selected ? colors.accent : colors.text }]}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={[styles.message, { color: colors.text }]}>{message}</Text>
           {/* 送る前に開けなかっただけなので、失うものは無い */}
           <Button colors={colors} kind="secondary" label="パートナーに伝える" onPress={() => Share.share({ message }).catch(() => {})} />
-          <Text style={[styles.sub, { color: colors.muted }]}>
-            いまの生理か次の生理の目安を、LINEなどでやさしく伝えられます。予定の中身は送りません。
-          </Text>
-        </>
+          <Text style={[styles.sub, { color: colors.muted }]}>LINEなどで送れます。予定の中身は送りません。</Text>
+        </View>
       )}
 
       {k.access === 'denied' && (
@@ -79,6 +105,10 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
   title: { fontSize: 22, fontWeight: '700', marginTop: 8 },
   sub: { fontSize: 13 },
+  share: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  chipText: { fontSize: 13 },
   card: { borderWidth: 1, borderLeftWidth: 4, borderRadius: 12, padding: 14, gap: 6 },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   badge: { fontSize: 12, fontWeight: '700', borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
