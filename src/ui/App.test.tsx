@@ -179,32 +179,32 @@ describe('alerts', () => {
     expect(screen.queryByText('福岡出張')).toBeNull();
   });
 
-  it('tells a partner the next period in the picked wording through the share sheet, without events', async () => {
+  it('tells a partner in the picked template through the share sheet, without events', async () => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     await setup();
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
     const draft = () => screen.getByLabelText('送る文').props.value as string;
-    expect(draft()).toMatch(/^次の生理は10月26日〜28日ごろの予定だよ/);
-    await fireEvent.press(screen.getByText('女の子の日'));
-    expect(draft()).toMatch(/^次の女の子の日は10月26日〜28日ごろの予定だよ/);
+    expect(draft()).toMatch(/^本日より省エネモード（生理）に入りました🔋/);
+    await fireEvent.press(screen.getByText('HPほぼゼロ'));
+    expect(draft()).toMatch(/^生理でHP（体力量）がほぼゼロです/);
     await fireEvent.press(screen.getByText('パートナーに伝える'));
     const { message } = share.mock.calls[0][0] as { message: string };
-    expect(message).toMatch(/^次の女の子の日は10月26日〜28日ごろの予定だよ🌙/);
+    expect(message).toMatch(/^生理でHP（体力量）がほぼゼロです/);
     expect(message).not.toMatch(/福岡出張|企画プレゼン/);
     share.mockRestore();
   });
 
-  it('sends the message as edited, and goes back to the sample when a wording is picked', async () => {
+  it('sends the message as edited, and goes back to the template when one is picked', async () => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     await setup();
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
     await fireEvent.changeText(screen.getByLabelText('送る文'), '来週ちょっとしんどいかも🍵');
     await fireEvent.press(screen.getByText('パートナーに伝える'));
     expect(share).toHaveBeenCalledWith({ message: '来週ちょっとしんどいかも🍵' });
-    await fireEvent.press(screen.getByText('生理'));
-    expect(screen.getByLabelText('送る文').props.value).toMatch(/^次の生理は[^]*ちょっと気にかけてくれたらうれしいな☺️/);
-    await fireEvent.press(screen.getByText('ありがとう'));
-    expect(screen.getByLabelText('送る文').props.value).toMatch(/いつもありがとう。よろしくね🍵\n（Cocomiaの予測/);
+    await fireEvent.press(screen.getByText('マイペース'));
+    expect(screen.getByLabelText('送る文').props.value).toBe(
+      '今日から生理期間に入りました！\n今月も体調見ながらマイペースに過ごします〜！',
+    );
     share.mockRestore();
   });
 

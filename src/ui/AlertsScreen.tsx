@@ -1,30 +1,26 @@
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { addDays, ConflictAlert, DateKey, PartnerClosing, partnerMessage, PartnerWording } from '../engine';
+import { addDays, ConflictAlert, DateKey } from '../engine';
 import { Button, Notice } from './components';
 import { dayTitle } from './format';
 import { Colors, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
 
-const WORDINGS: [PartnerWording, string][] = [
-  ['period', '生理'],
-  ['girlsDay', '女の子の日'],
-  ['soft', '体調をぼかす'],
-  ['monthly', '月のもの'],
-  ['thatDay', 'あの日'],
-  ['moon', 'お月さまの日'],
-  ['lowHp', 'HPひくめ'],
-  ['rest', 'おやすみモード'],
-];
-
-const CLOSINGS: [PartnerClosing, string][] = [
-  ['care', '気にかけて'],
-  ['gentle', 'やさしくして'],
-  ['thanks', 'ありがとう'],
-  ['slow', 'ゆっくり過ごす'],
-  ['watch', '見守って'],
+/** パートナーにLINEなどで送る見本の文と、選ぶボタンの名前（2026-10-28 オーナー指定の文面） */
+const TEMPLATES: [string, string][] = [
+  ['本日より省エネモード（生理）に入りました🔋\n省電力で動くので、やさしく見守ってください（笑）', '省エネモード'],
+  ['【緊急速報】生理が始まりました！\n本日から「取扱注意（優しく接する）」指定期間となります⚠️笑', '緊急速報'],
+  ['生理到来につき、本日よりポンコツ化しております🤖\nちょっとボーッとしてても許してね！', 'ポンコツ化'],
+  ['生理でHP（体力量）がほぼゼロです……🪫\nゴロゴロしながら充電するので、温かい目で見守ってください！', 'HPほぼゼロ'],
+  ['今日から生理になっちゃいました💦\nちょっと体調重めなので、のんびり過ごさせてもらえると助かります！', '体調重め'],
+  [
+    '生理が始まったので、もしイライラしたり落ち込んで見えたらごめんね😢\nホルモンのせいなので優しくしてもらえると嬉しいです！',
+    'イライラごめん',
+  ],
+  ['今日から生理になっちゃった！\n今度の予定は、無理せずゆっくり過ごせるプランにしてもらえると助かります🙇‍♀️', '予定ゆっくり'],
+  ['今日から生理期間に入りました！\n今月も体調見ながらマイペースに過ごします〜！', 'マイペース'],
 ];
 
 /** alerts は閉じたものを除いた、今日から30日間の警告 */
@@ -32,12 +28,10 @@ type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[] };
 
 export default function AlertsScreen({ k, today, alerts }: Props) {
   const colors = useColors();
-  const [wording, setWording] = useState<PartnerWording>('period');
-  const [closing, setClosing] = useState<PartnerClosing>('care');
-  const message = partnerMessage(k.starts, k.settings, today, wording, closing);
+  const [template, setTemplate] = useState(TEMPLATES[0][0]);
   // null の間は見本の文のまま。書き換えたら、その文を送る
   const [edited, setEdited] = useState<string | null>(null);
-  const text = edited ?? message ?? '';
+  const text = edited ?? template;
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -47,48 +41,36 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
       <Text style={[styles.sub, { color: colors.muted }]}>
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
       </Text>
-      {message && (
-        <View style={[styles.share, { backgroundColor: colors.surface, borderColor: colors.line }]}>
-          <Text style={[styles.sub, { color: colors.muted }]}>パートナーに伝える言い方</Text>
-          <Chips
-            colors={colors}
-            options={WORDINGS}
-            value={wording}
-            onPick={(id) => {
-              setWording(id);
-              setEdited(null);
-            }}
-          />
-          <Text style={[styles.sub, { color: colors.muted }]}>締めの一言</Text>
-          <Chips
-            colors={colors}
-            options={CLOSINGS}
-            value={closing}
-            onPick={(id) => {
-              setClosing(id);
-              setEdited(null);
-            }}
-          />
-          <TextInput
-            accessibilityLabel="送る文"
-            value={text}
-            onChangeText={setEdited}
-            multiline
-            style={[styles.input, { color: colors.text, borderColor: colors.line }]}
-          />
-          {/* 送る前に開けなかっただけなので、失うものは無い */}
-          <Button
-            colors={colors}
-            kind="secondary"
-            label="パートナーに伝える"
-            disabled={!text.trim()}
-            onPress={() => Share.share({ message: text }).catch(() => {})}
-          />
-          <Text style={[styles.sub, { color: colors.muted }]}>
-            文は自由に書き換えられます。言い方や締めの一言を押すと見本に戻ります。LINEなどで送れて、予定の中身は送りません。
-          </Text>
-        </View>
-      )}
+      <View style={[styles.share, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+        <Text style={[styles.sub, { color: colors.muted }]}>パートナーに送る文の見本</Text>
+        <Chips
+          colors={colors}
+          options={TEMPLATES}
+          value={template}
+          onPick={(id) => {
+            setTemplate(id);
+            setEdited(null);
+          }}
+        />
+        <TextInput
+          accessibilityLabel="送る文"
+          value={text}
+          onChangeText={setEdited}
+          multiline
+          style={[styles.input, { color: colors.text, borderColor: colors.line }]}
+        />
+        {/* 送る前に開けなかっただけなので、失うものは無い */}
+        <Button
+          colors={colors}
+          kind="secondary"
+          label="パートナーに伝える"
+          disabled={!text.trim()}
+          onPress={() => Share.share({ message: text }).catch(() => {})}
+        />
+        <Text style={[styles.sub, { color: colors.muted }]}>
+          文は自由に書き換えられます。見本を押すと元の文に戻ります。LINEなどで送れて、予定の中身は送りません。
+        </Text>
+      </View>
 
       {k.access === 'denied' && (
         <Notice
