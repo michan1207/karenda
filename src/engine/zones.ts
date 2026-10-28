@@ -67,3 +67,19 @@ export function buildZones(
 
   return zones;
 }
+
+/** ヘビー期の翌日から何日を「生理の終わりごろ〜直後」とみなすか */
+export const AFTER_PERIOD_DAYS = 4;
+
+export type PeriodPhase = 'before' | 'during' | 'after';
+
+/** 心の変化の目安を出すための時期。前の日のゾーンも見るので、zones は AFTER_PERIOD_DAYS 日前から作っておく */
+export function periodPhase(day: DateKey, zones: ZoneMap): PeriodPhase | undefined {
+  const zone = zones.get(day)?.zone;
+  if (zone === 'heavy') return 'during';
+  if (zone === 'pms') return 'before';
+  for (let i = 1; i <= AFTER_PERIOD_DAYS; i++) {
+    if (zones.get(addDays(day, -i))?.zone === 'heavy') return 'after';
+  }
+  return undefined;
+}

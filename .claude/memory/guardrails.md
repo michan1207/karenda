@@ -12,6 +12,7 @@
 - heavy: 記録済み開始日から heavyDays 日 + 予測の earliest〜(latest+heavyDays-1)
 - pms: (earliest − pmsDays) 〜 latest の前日。heavy が優先
 - 含まれない日は「通常/回復期」で警告対象外
+- `periodPhase(day, zones)`: pms→before / heavy→during / ヘビー期の翌日から`AFTER_PERIOD_DAYS`(4)日→after。心の変化の目安表示用で、警告・通知には使わない
 
 ## 予定のリスク（risk.ts）
 - 終日予定は常に high
