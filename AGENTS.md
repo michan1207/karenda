@@ -1,5 +1,7 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
+Project rules (no network access, no definitive medical claims, one purpose per PR) are in `CLAUDE.md`; details are in `.claude/memory/`.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
@@ -13,21 +15,18 @@ Expo ships breaking changes every SDK release. APIs you remember are likely rena
 Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
 
 ```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
+npx expo install <package>  # use instead of npm/yarn/pnpm/bun add — then pin native expo-* to node_modules/expo/bundledNativeModules.json
 npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
+npm run check               # typecheck + lint + tests (same as CI)
 npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
 ```
 
-Run lint and typecheck before declaring any task done.
+Run `npm run check` before declaring any task done. `npx expo install` can pick a newer patch than Expo Go ships, which crashes iOS at launch ("DYLD Symbol missing"); `src/dependencies.test.ts` checks this for expo-font and expo-asset.
 
-## Navigation & Routing
+## Navigation & Layers
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+- This app does **not** use Expo Router (it is not installed). `src/ui/App.tsx` shows one of three screens (calendar, alerts, settings) from a `tab` state and draws its own bottom tab bar. Do not add `expo-router`, React Navigation, or a `src/app/` folder.
+- Layers: `src/engine` (pure logic, no Expo imports) → `src/data` (SQLite, calendar, notifications) → `src/ui` (screens). Screens import only from `src/data/index.ts` and `src/engine/index.ts`.
 
 ## Building with EAS
 
@@ -37,5 +36,5 @@ Docs: https://docs.expo.dev/eas/index.md
 ## Rules
 
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
+- The owner tests in Expo Go, which only includes its bundled native modules. Use only those; do not add a library that needs a development build.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
