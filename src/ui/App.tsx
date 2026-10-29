@@ -1,7 +1,7 @@
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, AppState, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -57,7 +57,14 @@ export function Main({
   const colors = useColors();
   const k = useKarenda({ loadDatabase, calendar, notifier, askReview });
   const [tab, setTab] = useState<Tab>('calendar');
-  const [day] = useState(today);
+  const [day, setDay] = useState(today);
+  // 開いたまま日をまたいで戻った時に「今日」を進める（iPhone はアプリを何日もメモリに残す）
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setDay(today());
+    });
+    return () => subscription.remove();
+  }, [today]);
   const upcoming = useUpcomingAlerts(k, day).filter((alert) => !isDismissed(k.dismissed, alert.eventId, alert.date));
   useNotificationSync(k, upcoming, day);
 

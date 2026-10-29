@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 
 import {
   addPeriodStart,
@@ -108,6 +109,18 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview }: Kare
       active = false;
     };
   }, [loadDatabase, reload, requestAccess, requestNotifyAccess]);
+
+  // 設定アプリで許可を変えて戻った時に読み直す。戻るたびに確認画面は出さない
+  const { onboarded, notifyEnabled } = stored;
+  useEffect(() => {
+    if (status !== 'ready' || !onboarded) return;
+    const subscription = AppState.addEventListener('change', async (state) => {
+      if (state !== 'active') return;
+      setAccess((await calendar.hasAccess().catch(() => false)) ? 'granted' : 'denied');
+      if (notifyEnabled) setNotifyAccess((await notifier.hasAccess().catch(() => false)) ? 'granted' : 'denied');
+    });
+    return () => subscription.remove();
+  }, [status, onboarded, notifyEnabled, calendar, notifier]);
 
   const withDb = useCallback(
     async (task: (opened: Database) => Promise<void>) => {
