@@ -290,14 +290,17 @@ describe('settings', () => {
   });
 
   it('deletes everything only after confirming, then shows the first-run guide', async () => {
-    const { db } = await openSettings();
+    const { db, notifier } = await openSettings();
     await fireEvent.press(screen.getByText('すべてのデータを削除'));
     await fireEvent.press(screen.getByText('やめる'));
     expect(await listPeriodStarts(db)).toEqual(REGULAR);
+    expect(lastPlanDates(notifier)?.length).toBeGreaterThan(0);
     await fireEvent.press(screen.getByText('すべてのデータを削除'));
     await fireEvent.press(screen.getByText('すべて削除する'));
     expect(await screen.findByText('はじめる')).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual([]);
+    // 予定名の入った予約が、削除のあとに届かない
+    expect(notifier.replaceAll).toHaveBeenLastCalledWith([]);
   });
 });
 
