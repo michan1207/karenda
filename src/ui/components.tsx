@@ -1,7 +1,14 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Pressable, Text as BaseText, StyleProp, StyleSheet, TextProps, View, ViewStyle } from 'react-native';
 
-import { Colors, radius } from './theme';
+import { Colors, fonts, radius } from './theme';
+
+/** 文字はすべてこれを通す。同梱のフォントは fontWeight では太くならないので、太さに合う書体を選ぶ */
+export function Text({ style, ...props }: TextProps) {
+  const weight = StyleSheet.flatten(style)?.fontWeight;
+  const bold = weight === '600' || weight === '700' || weight === 'bold';
+  return <BaseText {...props} style={[style, { fontFamily: bold ? fonts.bold : fonts.regular, fontWeight: 'normal' }]} />;
+}
 
 /** 白い地・大きめの角丸・やわらかい影のカード。カード状のものはすべてこれを通す */
 export function Card({ colors, style, children }: { colors: Colors; style?: StyleProp<ViewStyle>; children: ReactNode }) {

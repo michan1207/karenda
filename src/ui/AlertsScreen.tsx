@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 
 import { addDays, ConflictAlert, DateKey } from '../engine';
-import { AlertMark, Button, Card, Notice, PillHeading } from './components';
+import { AlertMark, Button, Card, Notice, PillHeading, Text } from './components';
 import { dayTitle } from './format';
-import { Colors, radius, useColors } from './theme';
+import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
 
@@ -172,7 +172,15 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
   chipSelected: { fontWeight: '700' },
-  input: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, lineHeight: 22 },
+  input: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: fonts.regular,
+  },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badge: {

@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { RiskKeywords, ZoneSettings } from '../engine';
-import { Button, Notice, Section } from './components';
+import { Button, Notice, Section, Text } from './components';
 import { dayTitle } from './format';
-import { Colors, radius, useColors } from './theme';
+import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda };
@@ -262,7 +262,15 @@ const styles = StyleSheet.create({
   chip: { borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  input: { flex: 1, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15 },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: fonts.regular,
+  },
   addLabel: { fontSize: 15, fontWeight: '600' },
   confirm: { gap: 8 },
 });

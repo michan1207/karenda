@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   addDays,
@@ -15,7 +15,7 @@ import {
   shiftMonth,
   ZoneDay,
 } from '../engine';
-import { AlertMark, Button, Card, Notice, PillHeading } from './components';
+import { AlertMark, Button, Card, Notice, PillHeading, Text } from './components';
 import { dayTitle, WEEKDAYS, zoneLabel } from './format';
 import { MOOD_NOTES } from './moodNotes';
 import { Colors, radius, useColors } from './theme';

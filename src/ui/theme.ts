@@ -52,6 +52,8 @@ export const fontSize = { display: 32, title: 22, heading: 17, bodyLarge: 16, la
 export const fontWeight = { regular: '400', semibold: '600', bold: '700' } as const;
 export const space = { hair: 2, xs: 4, sm: 6, md: 8, lg: 12, card: 14, xl: 16, xxl: 24 } as const;
 export const radius = { xs: 4, sm: 8, md: 12, lg: 16, pill: 999 } as const;
+// 丸ゴシック（Zen Maru Gothic、OFL）。assets/fonts に同梱し、外から取らない
+export const fonts = { regular: 'ZenMaruGothic-Regular', bold: 'ZenMaruGothic-Bold' } as const;
 
 export function useColors(): Colors {
   return palette[useColorScheme() === 'dark' ? 'dark' : 'light'];

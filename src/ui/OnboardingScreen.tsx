@@ -1,6 +1,6 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Heart } from './components';
+import { Button, Card, Heart, Text } from './components';
 import { useColors } from './theme';
 
 const POINTS = [

@@ -1,6 +1,7 @@
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -17,10 +18,10 @@ import {
 import { DateKey, toDateKey } from '../engine';
 import AlertsScreen from './AlertsScreen';
 import CalendarScreen from './CalendarScreen';
-import { Notice } from './components';
+import { Notice, Text } from './components';
 import OnboardingScreen from './OnboardingScreen';
 import SettingsScreen from './SettingsScreen';
-import { radius, useColors } from './theme';
+import { fonts, radius, useColors } from './theme';
 import { useKarenda } from './useKarenda';
 import { useNotificationSync } from './useNotificationSync';
 import { useUpcomingAlerts } from './useUpcomingAlerts';
@@ -38,11 +39,12 @@ type Props = {
 const currentDay = () => toDateKey(new Date());
 
 export default function App(props: Props) {
-  return (
-    <SafeAreaProvider>
-      <Main {...props} />
-    </SafeAreaProvider>
-  );
+  // 同梱の丸ゴシックを読む。読めなかった時は端末の標準フォントのまま進める
+  const [fontsLoaded, fontError] = useFonts({
+    [fonts.regular]: require('../../assets/fonts/ZenMaruGothic-Regular.ttf'),
+    [fonts.bold]: require('../../assets/fonts/ZenMaruGothic-Bold.ttf'),
+  });
+  return <SafeAreaProvider>{(fontsLoaded || fontError) && <Main {...props} />}</SafeAreaProvider>;
 }
 
 export function Main({
