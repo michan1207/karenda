@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { RiskKeywords, ZoneSettings } from '../engine';
-import { Button, Notice, Section, Text } from './components';
+import { Button, Decorations, Notice, Ribbon, Section, Text } from './components';
 import { dayTitle } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
@@ -27,9 +27,10 @@ export default function SettingsScreen({ k }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-        設定
-      </Text>
+      <Decorations colors={colors} />
+      <View style={styles.title}>
+        <Ribbon colors={colors} text="設定" />
+      </View>
 
       <Section colors={colors} title="お知らせ通知">
         <View style={styles.row}>
@@ -38,7 +39,7 @@ export default function SettingsScreen({ k }: Props) {
             accessibilityLabel="重なる予定の前に通知する"
             value={k.notifyEnabled}
             onValueChange={k.setNotify}
-            trackColor={{ true: colors.accent, false: colors.line }}
+            trackColor={{ true: colors.pink, false: colors.line }}
           />
         </View>
         <Text style={[styles.help, { color: colors.muted }]}>
@@ -160,9 +161,9 @@ function Stepper({
           disabled={value <= min}
           onPress={() => step(-1)}
           hitSlop={8}
-          style={[styles.stepButton, { backgroundColor: value <= min ? colors.disabledSurface : colors.pms }]}
+          style={[styles.stepButton, { backgroundColor: value <= min ? colors.disabledSurface : colors.pinkSoft }]}
         >
-          <Text style={[styles.stepText, { color: value <= min ? colors.muted : colors.accent }]}>－</Text>
+          <Text style={[styles.stepText, { color: value <= min ? colors.muted : colors.pinkText }]}>－</Text>
         </Pressable>
         <Text style={[styles.stepValue, { color: colors.text }]}>
           {value}
@@ -174,9 +175,9 @@ function Stepper({
           disabled={value >= max}
           onPress={() => step(1)}
           hitSlop={8}
-          style={[styles.stepButton, { backgroundColor: value >= max ? colors.disabledSurface : colors.pms }]}
+          style={[styles.stepButton, { backgroundColor: value >= max ? colors.disabledSurface : colors.pinkSoft }]}
         >
-          <Text style={[styles.stepText, { color: value >= max ? colors.muted : colors.accent }]}>＋</Text>
+          <Text style={[styles.stepText, { color: value >= max ? colors.muted : colors.pinkText }]}>＋</Text>
         </Pressable>
       </View>
     </View>
@@ -221,9 +222,9 @@ function KeywordList({
             accessibilityRole="button"
             accessibilityLabel={`「${word}」を${label}から外す`}
             onPress={() => onChange({ ...keywords, [level]: words.filter((existing) => existing !== word) })}
-            style={[styles.chip, { backgroundColor: colors.roseSoft }]}
+            style={[styles.chip, { backgroundColor: colors.pinkSoft }]}
           >
-            <Text style={[styles.chipText, { color: colors.text }]}>{word} ×</Text>
+            <Text style={[styles.chipText, { color: colors.pinkText }]}>{word} ×</Text>
           </Pressable>
         ))}
       </View>
@@ -239,7 +240,7 @@ function KeywordList({
           style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
         />
         <Pressable accessibilityRole="button" accessibilityLabel={`${label}に追加`} onPress={add} hitSlop={8}>
-          <Text style={[styles.addLabel, { color: colors.accent }]}>追加</Text>
+          <Text style={[styles.addLabel, { color: colors.pinkText }]}>追加</Text>
         </Pressable>
       </View>
     </View>
@@ -248,7 +249,7 @@ function KeywordList({
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
-  title: { fontSize: 22, fontWeight: '700', marginTop: 8 },
+  title: { marginTop: 8, marginBottom: 4 },
   help: { fontSize: 13, lineHeight: 19 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   rowLabel: { fontSize: 15, flexShrink: 1 },

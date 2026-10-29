@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Heart, Text } from './components';
+import { Button, Card, Decorations, Heart, Mascot, MASCOT_NAME, Ribbon, Text } from './components';
 import { useColors } from './theme';
 
 const POINTS = [
@@ -26,19 +26,20 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
   const colors = useColors();
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.titleRow}>
-        <Heart color={colors.rose} size={18} />
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.accent }]}>
-          Cocomia
+      <Decorations colors={colors} />
+      <View style={styles.hero}>
+        <Mascot colors={colors} size={150} />
+        <Text style={[styles.name, { color: colors.pinkText, backgroundColor: colors.surface }]}>
+          案内役の{MASCOT_NAME}だよ。よろしくね
         </Text>
-        <Heart color={colors.rose} size={18} />
+        <Ribbon colors={colors} text="Cocomia" />
       </View>
       <Text style={[styles.lead, { color: colors.text }]}>体調の波に合わせて、予定を守るカレンダー</Text>
       {POINTS.map((point) => (
         <Card key={point.title} colors={colors} style={styles.point}>
           <View style={styles.pointHead}>
-            <Heart color={colors.rose} />
-            <Text style={[styles.pointTitle, { color: colors.text }]}>{point.title}</Text>
+            <Heart color={colors.heart} size={12} />
+            <Text style={[styles.pointTitle, { color: colors.pinkText }]}>{point.title}</Text>
           </View>
           <Text style={[styles.pointBody, { color: colors.muted }]}>{point.body}</Text>
         </Card>
@@ -50,8 +51,8 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
 
 const styles = StyleSheet.create({
   content: { padding: 24, gap: 14 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 24 },
-  title: { fontSize: 32, fontWeight: '700' },
+  hero: { alignItems: 'center', gap: 8, marginTop: 16 },
+  name: { fontSize: 14, fontWeight: '700', borderRadius: 999, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 4 },
   lead: { fontSize: 17, marginBottom: 8, textAlign: 'center' },
   point: { gap: 4 },
   pointHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },

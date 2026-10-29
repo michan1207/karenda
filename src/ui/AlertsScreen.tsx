@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 
 import { addDays, ConflictAlert, DateKey } from '../engine';
-import { AlertMark, Button, Card, Notice, PillHeading, Text } from './components';
+import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
@@ -32,15 +32,25 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
   // null の間は見本の文のまま。書き換えたら、その文を送る
   const [edited, setEdited] = useState<string | null>(null);
   const text = edited ?? template;
+  const line =
+    k.starts.length === 0
+      ? '生理が始まった日を記録すると、ここでお知らせできるよ'
+      : k.access === 'denied'
+        ? 'カレンダーを見せてもらえると、予定との重なりを調べられるよ'
+        : alerts.length
+          ? `気をつけたい予定が${alerts.length}件あるよ。早めに準備しようね`
+          : '重なる予定はないよ。いい調子！';
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-        これから{UPCOMING_DAYS}日のお知らせ
-      </Text>
-      <Text style={[styles.sub, { color: colors.muted }]}>
+      <Decorations colors={colors} />
+      <View style={styles.title}>
+        <Ribbon colors={colors} text={`これから${UPCOMING_DAYS}日のお知らせ`} />
+      </View>
+      <Text style={[styles.sub, styles.center, { color: colors.muted }]}>
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
       </Text>
+      <MascotSays colors={colors} text={line} />
       <Card colors={colors}>
         <PillHeading colors={colors} text="パートナーに送る文の見本" />
         <Chips
@@ -62,7 +72,6 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
         {/* 送る前に開けなかっただけなので、失うものは無い */}
         <Button
           colors={colors}
-          kind="secondary"
           label="パートナーに伝える"
           disabled={!text.trim()}
           onPress={() => Share.share({ message: text }).catch(() => {})}
@@ -120,11 +129,11 @@ function Chips<T extends string>({
             style={[
               styles.chip,
               selected
-                ? { borderColor: colors.accent, backgroundColor: colors.pms }
+                ? { borderColor: colors.pink, backgroundColor: colors.pinkSoft }
                 : { borderColor: colors.line, backgroundColor: colors.surface },
             ]}
           >
-            <Text style={[styles.chipText, { color: selected ? colors.accent : colors.text }, selected && styles.chipSelected]}>
+            <Text style={[styles.chipText, { color: selected ? colors.pinkText : colors.text }, selected && styles.chipSelected]}>
               {label}
             </Text>
           </Pressable>
@@ -139,7 +148,7 @@ function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () =
   const strong = alert.level === 'red';
   const tone = strong ? colors.alertStrong : colors.alertMild;
   return (
-    <Card colors={colors} style={{ backgroundColor: strong ? colors.alertStrongSoft : colors.alertMildSoft }}>
+    <Card colors={colors} style={{ backgroundColor: strong ? colors.alertStrongSoft : colors.alertMildSoft, borderColor: tone }}>
       <View style={styles.cardHead}>
         <View style={styles.badgeRow}>
           <AlertMark colors={colors} strong={strong} />
@@ -166,10 +175,11 @@ function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () =
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
-  title: { fontSize: 22, fontWeight: '700', marginTop: 8 },
+  title: { marginTop: 8 },
+  center: { textAlign: 'center' },
   sub: { fontSize: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  chip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
   chipSelected: { fontWeight: '700' },
   input: {

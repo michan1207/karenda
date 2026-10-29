@@ -15,7 +15,7 @@ import {
   shiftMonth,
   ZoneDay,
 } from '../engine';
-import { AlertMark, Button, Card, Notice, PillHeading, Text } from './components';
+import { AlertMark, Button, Card, Decorations, Heart, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, WEEKDAYS, zoneLabel } from './format';
 import { MOOD_NOTES } from './moodNotes';
 import { Colors, radius, useColors } from './theme';
@@ -23,6 +23,15 @@ import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda; today: DateKey };
+
+/** ミアが選んだ日について話す一言。時期は予測なので「かも」「と言われている」で言い切らない */
+function mascotLine(phase: PeriodPhase | undefined, who: string, recorded: boolean): string {
+  if (!recorded) return 'はじめまして！生理が始まった日を選んで、記録してみてね';
+  if (phase === 'before') return `${who}PMSの時期かも。ゆっくり過ごしてね`;
+  if (phase === 'during') return `${who}生理の時期かも。あたたかくして休んでね`;
+  if (phase === 'after') return `${who}生理のあとの時期。疲れが出やすいと言われているよ`;
+  return `${who}気をつけたい時期の外だよ。予定もたのしんでね`;
+}
 
 export default function CalendarScreen({ k, today }: Props) {
   const colors = useColors();
@@ -62,29 +71,30 @@ export default function CalendarScreen({ k, today }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
+      <Decorations colors={colors} />
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="前の月"
           onPress={() => goMonth(-1)}
           hitSlop={4}
-          style={[styles.nav, { backgroundColor: colors.pms }]}
+          style={[styles.nav, { backgroundColor: colors.surface, boxShadow: colors.shadow }]}
         >
-          <Text style={[styles.navText, { color: colors.accent }]}>‹</Text>
+          <Text style={[styles.navText, { color: colors.pink }]}>‹</Text>
         </Pressable>
-        <Text accessibilityRole="header" style={[styles.month, { color: colors.text }]}>
-          {year}年{month}月
-        </Text>
+        <Ribbon colors={colors} text={`${year}年${month}月`} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="次の月"
           onPress={() => goMonth(1)}
           hitSlop={4}
-          style={[styles.nav, { backgroundColor: colors.pms }]}
+          style={[styles.nav, { backgroundColor: colors.surface, boxShadow: colors.shadow }]}
         >
-          <Text style={[styles.navText, { color: colors.accent }]}>›</Text>
+          <Text style={[styles.navText, { color: colors.pink }]}>›</Text>
         </Pressable>
       </View>
+
+      <MascotSays colors={colors} text={mascotLine(phase, selected === today ? '今日は' : 'この日は', k.starts.length > 0)} />
 
       {k.access === 'denied' && (
         <Notice
@@ -102,8 +112,12 @@ export default function CalendarScreen({ k, today }: Props) {
 
       <Card colors={colors} style={styles.grid}>
         <View style={styles.weekRow}>
-          {WEEKDAYS.map((label) => (
-            <Text key={label} maxFontSizeMultiplier={1.4} style={[styles.weekday, { color: colors.muted }]}>
+          {WEEKDAYS.map((label, i) => (
+            <Text
+              key={label}
+              maxFontSizeMultiplier={1.4}
+              style={[styles.weekday, { color: i === 6 ? colors.pink : i === 5 ? colors.accent : colors.muted }]}
+            >
               {label}
             </Text>
           ))}
@@ -137,7 +151,7 @@ export default function CalendarScreen({ k, today }: Props) {
       </Card>
 
       <Card colors={colors}>
-        <Text style={[styles.detailTitle, { color: colors.text }]}>{dayTitle(selected)}</Text>
+        <PillHeading colors={colors} text={dayTitle(selected)} />
         <ZoneBadge colors={colors} zone={guard.zones.get(selected)} />
         {selectedEvents.length === 0 ? (
           <Text style={[styles.detailText, { color: colors.muted }]}>
@@ -197,7 +211,8 @@ function DayCell({
   onPress: () => void;
 }) {
   const red = alerts.some((alert) => alert.level === 'red');
-  const background = zone?.zone === 'heavy' ? colors.heavy : zone?.zone === 'pms' ? colors.pms : 'transparent';
+  const zoneColor = zone?.zone === 'heavy' ? colors.heavy : zone?.zone === 'pms' ? colors.pms : 'transparent';
+  const background = isToday ? colors.pink : zoneColor;
   const label = [dayTitle(day), zone ? zoneLabel(zone) : null, alerts.length ? '予定と重なっています' : null]
     .filter(Boolean)
     .join('、');
@@ -216,7 +231,7 @@ function DayCell({
     >
       <Text
         maxFontSizeMultiplier={1.4}
-        style={[styles.cellDay, { color: colors.text }, isToday && { color: colors.accent, fontWeight: '700' }]}
+        style={[styles.cellDay, { color: colors.text }, isToday && { color: colors.onPink, fontWeight: '700' }]}
       >
         {fromDateKey(day).getDate()}
       </Text>
@@ -245,6 +260,17 @@ function ZoneBadge({ colors, zone }: { colors: Colors; zone: ZoneDay | undefined
   );
 }
 
+function Bullet({ colors, text }: { colors: Colors; text: string }) {
+  return (
+    <View style={styles.bullet}>
+      <View style={styles.bulletMark}>
+        <Heart color={colors.heart} size={9} />
+      </View>
+      <Text style={[styles.detailText, styles.bulletText, { color: colors.text }]}>{text}</Text>
+    </View>
+  );
+}
+
 function MoodNotes({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
   const note = MOOD_NOTES[phase];
   return (
@@ -253,17 +279,13 @@ function MoodNotes({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
       <Text style={[styles.detailText, { color: colors.text }]}>{note.summary}</Text>
       <View>
         {note.feelings.map((feeling) => (
-          <Text key={feeling} style={[styles.detailText, { color: colors.text }]}>
-            ・{feeling}
-          </Text>
+          <Bullet key={feeling} colors={colors} text={feeling} />
         ))}
       </View>
       <Text style={[styles.moodLabel, { color: colors.muted }]}>関係する病名・言葉</Text>
       <View>
         {note.names.map((name) => (
-          <Text key={name} style={[styles.detailText, { color: colors.text }]}>
-            ・{name}
-          </Text>
+          <Bullet key={name} colors={colors} text={name} />
         ))}
       </View>
       <Text style={[styles.detailZone, { color: colors.muted }]}>
@@ -277,8 +299,10 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
   nav: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  bullet: { flexDirection: 'row', gap: 6 },
+  bulletMark: { height: 21, justifyContent: 'center' },
+  bulletText: { flex: 1 },
   navText: { fontSize: 26, lineHeight: 30, fontWeight: '700' },
-  month: { fontSize: 22, fontWeight: '700' },
   grid: { padding: 12, gap: 4 },
   weekRow: { flexDirection: 'row', gap: 4 },
   weekday: { flex: 1, textAlign: 'center', fontSize: 12 },
@@ -297,7 +321,6 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   swatch: { width: 12, height: 12, borderRadius: radius.pill },
   legendText: { fontSize: 12 },
-  detailTitle: { fontSize: 17, fontWeight: '700' },
   detailZone: { fontSize: 13 },
   detailText: { fontSize: 14, lineHeight: 21 },
   zoneBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 3 },

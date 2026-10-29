@@ -17,10 +17,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#7a4f9a",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#ffeef4",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.cocomia.app"
@@ -39,13 +37,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/mascot.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#f7f6f9",
+          "backgroundColor": "#ffeef4",
           "dark": {
-            "image": "./assets/splash-icon.png",
-            "backgroundColor": "#17141c"
+            "image": "./assets/mascot.png",
+            "backgroundColor": "#221a2a"
           }
         }
       ],
