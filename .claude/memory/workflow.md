@@ -6,6 +6,7 @@
 
 ## ライブラリを足す時
 - Expo Go に入っているモジュールだけ使う。追加は `npx expo install`（ネットが無ければ `node_modules/expo/bundledNativeModules.json` の版で `npm install`）
+- ネイティブの `expo-*` は `node_modules/expo/bundledNativeModules.json` の版に**固定**する（`npx expo install` はネットの最新を入れることがある）。新しすぎると iOS が起動直後に「DYLD Symbol missing」で落ちる（2026-10-29 expo-font 58.0.11）。`src/dependencies.test.ts` で検査
 - 通信しないことを確かめ、`src/dependencies.test.ts` に追記（`src/noNetwork.test.ts` とESLintが通信を検出する）
 - Expo API は SDK ごとに変わる。使う前に `AGENTS.md` の手順で v58 のドキュメントを確認
 
