@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Pressable, Text as BaseText, StyleProp, StyleSheet, TextProps, View, ViewStyle } from 'react-native';
+import { Image, Pressable, Text as BaseText, StyleProp, StyleSheet, TextProps, View, ViewStyle } from 'react-native';
 
 import { Colors, fonts, radius } from './theme';
 
@@ -10,10 +10,16 @@ export function Text({ style, ...props }: TextProps) {
   return <BaseText {...props} style={[style, { fontFamily: bold ? fonts.bold : fonts.regular, fontWeight: 'normal' }]} />;
 }
 
-/** 白い地・大きめの角丸・やわらかい影のカード。カード状のものはすべてこれを通す */
+/** 白い地・ピンクの枠・大きな角丸・やわらかい影のカード。カード状のものはすべてこれを通す */
 export function Card({ colors, style, children }: { colors: Colors; style?: StyleProp<ViewStyle>; children: ReactNode }) {
-  return <View style={[styles.card, { backgroundColor: colors.surface, boxShadow: colors.shadow }, style]}>{children}</View>;
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line, boxShadow: colors.shadow }, style]}>
+      {children}
+    </View>
+  );
 }
+
+const hidden = { accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' } as const;
 
 /** 飾りのハート。絵文字は端末で形が変わるので、正方形と丸2つで描く */
 export function Heart({ color, size = 10 }: { color: string; size?: number }) {
@@ -22,7 +28,7 @@ export function Heart({ color, size = 10 }: { color: string; size?: number }) {
   const cy = a * 0.854;
   const part = { position: 'absolute', width: a, height: a, backgroundColor: color, top: cy - a / 2 } as const;
   return (
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: size, height: a * 1.561 }}>
+    <View {...hidden} style={{ width: size, height: a * 1.561 }}>
       <View style={[part, { left: cx - a / 2, transform: [{ rotate: '45deg' }] }]} />
       <View style={[part, { left: cx - 0.854 * a, top: cy - 0.854 * a, borderRadius: a / 2 }]} />
       <View style={[part, { left: cx - 0.146 * a, top: cy - 0.854 * a, borderRadius: a / 2 }]} />
@@ -30,15 +36,107 @@ export function Heart({ color, size = 10 }: { color: string; size?: number }) {
   );
 }
 
-/** ハートで挟んだカプセル型の見出し（Amicuna のピル見出し） */
-export function PillHeading({ colors, text }: { colors: Colors; text: string }) {
+/** 飾りのお花。花びら5枚と黄色いしべ */
+export function Flower({ colors, size = 14 }: { colors: Colors; size?: number }) {
+  const petal = size * 0.42;
+  const r = (size - petal) / 2;
   return (
-    <View style={[styles.pill, { backgroundColor: colors.roseSoft }]}>
-      <Heart color={colors.rose} />
-      <Text accessibilityRole="header" style={[styles.pillText, { color: colors.text }]}>
+    <View {...hidden} style={{ width: size, height: size }}>
+      {[0, 72, 144, 216, 288].map((deg) => (
+        <View
+          key={deg}
+          style={{
+            position: 'absolute',
+            width: petal,
+            height: petal,
+            borderRadius: petal / 2,
+            backgroundColor: colors.flower,
+            left: r + r * Math.sin((deg * Math.PI) / 180),
+            top: r - r * Math.cos((deg * Math.PI) / 180),
+          }}
+        />
+      ))}
+      <View
+        style={{
+          position: 'absolute',
+          width: petal * 0.8,
+          height: petal * 0.8,
+          borderRadius: petal,
+          backgroundColor: colors.sparkle,
+          left: (size - petal * 0.8) / 2,
+          top: (size - petal * 0.8) / 2,
+        }}
+      />
+    </View>
+  );
+}
+
+/** 画面の上のほうに散らすハート・お花・キラキラ。触れても何も起きない */
+export function Decorations({ colors }: { colors: Colors }) {
+  const sparkle = (size: number) => (
+    <Text allowFontScaling={false} style={{ fontSize: size, lineHeight: size + 2, color: colors.sparkle }}>
+      ✦
+    </Text>
+  );
+  return (
+    <View {...hidden} pointerEvents="none" style={styles.decorations}>
+      <View style={[styles.deco, { top: 6, left: '4%' }]}>
+        <Heart color={colors.heart} size={16} />
+      </View>
+      <View style={[styles.deco, { top: 2, left: '30%' }]}>{sparkle(12)}</View>
+      <View style={[styles.deco, { top: 8, right: '28%' }]}>
+        <Flower colors={colors} size={16} />
+      </View>
+      <View style={[styles.deco, { top: 4, right: '5%' }]}>{sparkle(14)}</View>
+      <View style={[styles.deco, { top: 64, right: '2%' }]}>
+        <Heart color={colors.flower} size={12} />
+      </View>
+      <View style={[styles.deco, { top: 70, left: '1%' }]}>
+        <Flower colors={colors} size={12} />
+      </View>
+    </View>
+  );
+}
+
+/** 画面の見出し。ハートで挟んだピンクのリボン */
+export function Ribbon({ colors, text }: { colors: Colors; text: string }) {
+  return (
+    <View style={[styles.ribbon, { backgroundColor: colors.pink, boxShadow: colors.shadow }]}>
+      <Heart color={colors.onPink} size={12} />
+      <Text accessibilityRole="header" style={[styles.ribbonText, { color: colors.onPink }]}>
         {text}
       </Text>
-      <Heart color={colors.rose} />
+      <Heart color={colors.onPink} size={12} />
+    </View>
+  );
+}
+
+/** カードの中の見出し。お花とハートで挟んだ淡いピンクのカプセル */
+export function PillHeading({ colors, text }: { colors: Colors; text: string }) {
+  return (
+    <View style={[styles.pill, { backgroundColor: colors.pinkSoft }]}>
+      <Flower colors={colors} size={14} />
+      <Text accessibilityRole="header" style={[styles.pillText, { color: colors.pinkText }]}>
+        {text}
+      </Text>
+      <Heart color={colors.heart} />
+    </View>
+  );
+}
+
+/** ナビゲーター役の女の子（assets/mascot.png）。飾りなので読み上げない */
+export function Mascot({ size }: { size: number }) {
+  return <Image {...hidden} source={require('../../assets/mascot.png')} style={{ width: size, height: size }} />;
+}
+
+/** 女の子と吹き出し。吹き出しの文だけ読み上げる */
+export function MascotSays({ colors, text, size = 76 }: { colors: Colors; text: string; size?: number }) {
+  return (
+    <View style={styles.mascotRow}>
+      <Mascot size={size} />
+      <View style={[styles.bubble, { backgroundColor: colors.surface, borderColor: colors.line, boxShadow: colors.shadow }]}>
+        <Text style={[styles.body, { color: colors.text }]}>{text}</Text>
+      </View>
     </View>
   );
 }
@@ -48,8 +146,7 @@ export function AlertMark({ colors, strong, size = 16 }: { colors: Colors; stron
   const tone = strong ? colors.alertStrong : colors.alertMild;
   return (
     <View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...hidden}
       style={[
         styles.mark,
         { width: size, height: size, borderColor: tone, backgroundColor: strong ? tone : 'transparent' },
@@ -75,7 +172,7 @@ export function Notice({
   action?: { label: string; onPress: () => void };
 }) {
   return (
-    <View style={[styles.notice, { backgroundColor: colors.roseSoft }]}>
+    <View style={[styles.notice, { backgroundColor: colors.surface, borderColor: colors.line }]}>
       <Text style={[styles.body, { color: colors.text }]}>{text}</Text>
       {action && (
         <Pressable accessibilityRole="button" onPress={action.onPress} hitSlop={8} style={styles.link}>
@@ -100,7 +197,7 @@ export function Button({
   disabled?: boolean;
 }) {
   const filled = kind === 'primary';
-  const tone = disabled ? colors.muted : kind === 'danger' ? colors.danger : colors.accent;
+  const tone = disabled ? colors.muted : kind === 'danger' ? colors.danger : filled ? colors.pink : colors.pinkText;
   return (
     <Pressable
       accessibilityRole="button"
@@ -111,10 +208,15 @@ export function Button({
         styles.button,
         disabled
           ? { backgroundColor: colors.disabledSurface, borderColor: colors.disabledSurface }
-          : { backgroundColor: filled ? tone : colors.surface, borderColor: tone, opacity: pressed ? 0.7 : 1 },
+          : {
+              backgroundColor: filled ? tone : colors.surface,
+              borderColor: filled ? tone : kind === 'danger' ? tone : colors.line,
+              boxShadow: filled ? colors.shadow : undefined,
+              opacity: pressed ? 0.7 : 1,
+            },
       ]}
     >
-      <Text style={[styles.buttonLabel, { color: filled && !disabled ? colors.onAccent : tone }]}>{label}</Text>
+      <Text style={[styles.buttonLabel, { color: filled && !disabled ? colors.onPink : tone }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -129,7 +231,19 @@ export function Section({ colors, title, children }: { colors: Colors; title: st
 }
 
 export const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg, padding: 16, gap: 10 },
+  card: { borderWidth: 2, borderRadius: radius.card, padding: 16, gap: 10 },
+  decorations: { position: 'absolute', top: 0, left: 0, right: 0, height: 90 },
+  deco: { position: 'absolute' },
+  ribbon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 8,
+    borderRadius: radius.pill,
+    paddingHorizontal: 22,
+    paddingVertical: 8,
+  },
+  ribbonText: { fontSize: 19, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -140,12 +254,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   pillText: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  mascotRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bubble: { flex: 1, borderWidth: 2, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
   mark: { borderRadius: radius.pill, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   markText: { fontWeight: '700', textAlign: 'center' },
-  notice: { borderRadius: radius.lg, padding: 14, gap: 6 },
+  notice: { borderWidth: 2, borderRadius: 18, padding: 14, gap: 6 },
   body: { fontSize: 14, lineHeight: 21 },
   link: { minHeight: 44, justifyContent: 'center' },
   linkLabel: { fontSize: 15, fontWeight: '600' },
-  button: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1.5, alignItems: 'center' },
+  button: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 2, alignItems: 'center' },
   buttonLabel: { fontSize: 16, fontWeight: '600' },
 });

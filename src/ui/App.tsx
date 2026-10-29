@@ -18,7 +18,7 @@ import {
 import { DateKey, toDateKey } from '../engine';
 import AlertsScreen from './AlertsScreen';
 import CalendarScreen from './CalendarScreen';
-import { Notice, Text } from './components';
+import { Heart, Notice, Text } from './components';
 import OnboardingScreen from './OnboardingScreen';
 import SettingsScreen from './SettingsScreen';
 import { fonts, radius, useColors } from './theme';
@@ -80,7 +80,7 @@ export function Main({
           {tab === 'alerts' && <AlertsScreen k={k} today={day} alerts={upcoming} />}
           {tab === 'settings' && <SettingsScreen k={k} />}
         </View>
-        <View accessibilityRole="tablist" style={[styles.tabs, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+        <View accessibilityRole="tablist" style={[styles.tabs, { backgroundColor: colors.surface, boxShadow: colors.shadow }]}>
           <TabButton label="カレンダー" active={tab === 'calendar'} onPress={() => setTab('calendar')} />
           <TabButton
             label={upcoming.length ? `お知らせ（${upcoming.length}）` : 'お知らせ'}
@@ -94,7 +94,7 @@ export function Main({
   }
 
   return (
-    <SafeAreaView style={[styles.flex, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.flex, { backgroundColor: colors.background, backgroundImage: colors.backdrop }]}>
       {body}
       <StatusBar style="auto" />
     </SafeAreaView>
@@ -110,16 +110,15 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
       onPress={onPress}
       style={styles.tab}
     >
-      <Text
-        maxFontSizeMultiplier={1.6}
-        style={[
-          styles.tabLabel,
-          { color: active ? colors.accent : colors.muted },
-          active && [styles.tabActive, { backgroundColor: colors.pms }],
-        ]}
-      >
-        {label}
-      </Text>
+      <View style={[styles.tabPill, active && { backgroundColor: colors.pinkSoft }]}>
+        {active && <Heart color={colors.heart} />}
+        <Text
+          maxFontSizeMultiplier={1.6}
+          style={[styles.tabLabel, { color: active ? colors.pinkText : colors.muted }, active && styles.tabActive]}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -128,8 +127,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1 },
   padded: { padding: 16 },
-  tabs: { flexDirection: 'row', borderTopWidth: 1, paddingVertical: 6 },
+  tabs: { flexDirection: 'row', paddingVertical: 8, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
-  tabLabel: { fontSize: 14, borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
+  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
+  tabLabel: { fontSize: 14, flexShrink: 1 },
   tabActive: { fontWeight: '700' },
 });
