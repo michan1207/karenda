@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Decorations, Heart, Mascot, Ribbon, Text } from './components';
+import { Button, Card, Decorations, Heart, Mascot, MASCOT_NAME, Ribbon, Text } from './components';
 import { useColors } from './theme';
 
 const POINTS = [
@@ -28,7 +28,10 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
     <ScrollView contentContainerStyle={styles.content}>
       <Decorations colors={colors} />
       <View style={styles.hero}>
-        <Mascot size={150} />
+        <Mascot colors={colors} size={150} />
+        <Text style={[styles.name, { color: colors.pinkText, backgroundColor: colors.surface }]}>
+          案内役の{MASCOT_NAME}だよ。よろしくね
+        </Text>
         <Ribbon colors={colors} text="Cocomia" />
       </View>
       <Text style={[styles.lead, { color: colors.text }]}>体調の波に合わせて、予定を守るカレンダー</Text>
@@ -49,6 +52,7 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
 const styles = StyleSheet.create({
   content: { padding: 24, gap: 14 },
   hero: { alignItems: 'center', gap: 8, marginTop: 16 },
+  name: { fontSize: 14, fontWeight: '700', borderRadius: 999, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 4 },
   lead: { fontSize: 17, marginBottom: 8, textAlign: 'center' },
   point: { gap: 4 },
   pointHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },

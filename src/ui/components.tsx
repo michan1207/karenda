@@ -124,17 +124,25 @@ export function PillHeading({ colors, text }: { colors: Colors; text: string }) 
   );
 }
 
-/** 案内役のうさぎ（assets/mascot.png）。飾りなので読み上げない */
-export function Mascot({ size }: { size: number }) {
-  return <Image {...hidden} source={require('../../assets/mascot.png')} style={{ width: size, height: size }} />;
+/** 案内役のクマ「ミア」の名前（2026-10-29 オーナー命名） */
+export const MASCOT_NAME = 'ミア';
+
+/** ミアの丸い絵（assets/mascot.png。アイコンと同じ絵から切り出し）。飾りなので読み上げない */
+export function Mascot({ colors, size }: { colors: Colors; size: number }) {
+  return (
+    <View {...hidden} style={[styles.avatar, { width: size, height: size, borderColor: colors.line, boxShadow: colors.shadow }]}>
+      <Image source={require('../../assets/mascot.png')} style={{ width: size - 6, height: size - 6 }} />
+    </View>
+  );
 }
 
-/** うさぎと吹き出し。吹き出しの文だけ読み上げる */
+/** ミアと吹き出し。吹き出しの名前と文だけ読み上げる */
 export function MascotSays({ colors, text, size = 76 }: { colors: Colors; text: string; size?: number }) {
   return (
     <View style={styles.mascotRow}>
-      <Mascot size={size} />
+      <Mascot colors={colors} size={size} />
       <View style={[styles.bubble, { backgroundColor: colors.surface, borderColor: colors.line, boxShadow: colors.shadow }]}>
+        <Text style={[styles.mascotName, { color: colors.pinkText }]}>{MASCOT_NAME}</Text>
         <Text style={[styles.body, { color: colors.text }]}>{text}</Text>
       </View>
     </View>
@@ -255,6 +263,8 @@ export const styles = StyleSheet.create({
   },
   pillText: { fontSize: 15, fontWeight: '700', flexShrink: 1 },
   mascotRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  avatar: { borderRadius: radius.pill, borderWidth: 3, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  mascotName: { fontSize: 13, fontWeight: '700' },
   bubble: { flex: 1, borderWidth: 2, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
   mark: { borderRadius: radius.pill, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   markText: { fontWeight: '700', textAlign: 'center' },

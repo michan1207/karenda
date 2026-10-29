@@ -10,7 +10,7 @@
 - 警告は `alertStrong`（くすみブルー）/ `alertMild`、カードの地は `alertStrongSoft` / `alertMildSoft`。削除は `danger`。強調 `accent`
 - 色を直書きせず、必ず `useColors()` のトークンを使う。新しい色はライトとダーク両方に足す
 - 文字は `components.tsx` の `Text` を使う（react-native の `Text` は直接使わない）。丸ゴシック Zen Maru Gothic を同梱し、太さ600/700はBold書体に切り替わる。入力欄は `fontFamily: fonts.regular`
-- 2026-10-29 v1.3.0 パステル: 画面の地はグラデーション（`backdrop`）、見出しは `Ribbon`、上部に `Decorations`、案内役のうさぎ `MascotSays`（`assets/mascot.png`。人の顔は怖くなるので点の目のゆるかわにする）。値は AMIEL_DESIGN_SYSTEM.md §3.5
+- 2026-10-29 v1.3.0 パステル: 画面の地はグラデーション（`backdrop`）、見出しは `Ribbon`、上部に `Decorations`、案内役のクマ「ミア」`MascotSays`（`assets/mascot.png`＝アイコンの絵を丸く切り出したもの。名前は `MASCOT_NAME`）。値は AMIEL_DESIGN_SYSTEM.md §3.5
 - 見た目はAmicuna流（2026-10-29）: カード状のものは `Card`（白・角丸16・プラム色の影）、見出しは `PillHeading`（ハート付きカプセル）、予定と重なる印は `AlertMark`（⚠絵文字は使わない）
 - 値と役割の仕様は `AMIEL_DESIGN_SYSTEM.md`（2026-10-27決定: アイコンのローズ`#c44c74`=ブランド色、しっかり注意=くすみブルー`#4a5ead`（女性が好む・幅広い世代向けの色として選定。朱色・ミント・そらいろ等は見送り）、削除ボタンは`danger`（赤のまま）。実装は同書§9の順）
 
