@@ -23,3 +23,12 @@ const ALLOWED = [
 it('ships only libraries that were checked for network use', () => {
   expect(Object.keys(pkg.dependencies).sort()).toEqual([...ALLOWED].sort());
 });
+
+// expo-font / expo-asset は expo に組み込みの版と同じにする。新しい版は別の ExpoModulesCore 向けに作られていて、
+// iPhone で起動直後に落ちた（2026-10-29、1.0.2 ビルド7〜9「DYLD Symbol missing」）
+it('pins expo-font and expo-asset to the versions bundled with expo', () => {
+  const bundled = require('expo/bundledNativeModules.json');
+  for (const name of ['expo-font', 'expo-asset'] as const) {
+    expect(pkg.dependencies[name]).toBe(bundled[name].replace(/^~/, ''));
+  }
+});
