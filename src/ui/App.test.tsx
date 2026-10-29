@@ -10,6 +10,8 @@ import { Main } from './App';
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 jest.mock('expo-calendar/legacy', () => ({}));
 jest.mock('expo-store-review', () => ({}));
+// 最初の1件は画面全体の読み込みを含むため、遅いPCでは既定の5秒を超える
+jest.setTimeout(20_000);
 
 // 次の生理は 10-26（ヘビー期 10-26〜28）、PMS期 10-19〜25。今日は 10-24
 const REGULAR = ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'];
