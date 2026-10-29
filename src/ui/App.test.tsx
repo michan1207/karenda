@@ -95,7 +95,7 @@ describe('calendar', () => {
   it('shows the events and advice for a tapped day', async () => {
     await setup();
     await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています'));
-    expect(screen.getByText('⚠ 福岡出張')).toBeTruthy();
+    expect(screen.getByText('福岡出張')).toBeTruthy();
     expect(screen.getByText(/生理2日目と重なる見込みです/)).toBeTruthy();
     expect(screen.getByText('買い物')).toBeTruthy();
   });

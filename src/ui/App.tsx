@@ -1,6 +1,7 @@
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -17,10 +18,10 @@ import {
 import { DateKey, toDateKey } from '../engine';
 import AlertsScreen from './AlertsScreen';
 import CalendarScreen from './CalendarScreen';
-import { Notice } from './components';
+import { Notice, Text } from './components';
 import OnboardingScreen from './OnboardingScreen';
 import SettingsScreen from './SettingsScreen';
-import { useColors } from './theme';
+import { fonts, radius, useColors } from './theme';
 import { useKarenda } from './useKarenda';
 import { useNotificationSync } from './useNotificationSync';
 import { useUpcomingAlerts } from './useUpcomingAlerts';
@@ -38,11 +39,12 @@ type Props = {
 const currentDay = () => toDateKey(new Date());
 
 export default function App(props: Props) {
-  return (
-    <SafeAreaProvider>
-      <Main {...props} />
-    </SafeAreaProvider>
-  );
+  // 同梱の丸ゴシックを読む。読めなかった時は端末の標準フォントのまま進める
+  const [fontsLoaded, fontError] = useFonts({
+    [fonts.regular]: require('../../assets/fonts/ZenMaruGothic-Regular.ttf'),
+    [fonts.bold]: require('../../assets/fonts/ZenMaruGothic-Bold.ttf'),
+  });
+  return <SafeAreaProvider>{(fontsLoaded || fontError) && <Main {...props} />}</SafeAreaProvider>;
 }
 
 export function Main({
@@ -110,7 +112,11 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
     >
       <Text
         maxFontSizeMultiplier={1.6}
-        style={[styles.tabLabel, { color: active ? colors.accent : colors.muted }, active && styles.tabActive]}
+        style={[
+          styles.tabLabel,
+          { color: active ? colors.accent : colors.muted },
+          active && [styles.tabActive, { backgroundColor: colors.pms }],
+        ]}
       >
         {label}
       </Text>
@@ -122,8 +128,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1 },
   padded: { padding: 16 },
-  tabs: { flexDirection: 'row', borderTopWidth: 1 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 12 },
-  tabLabel: { fontSize: 14 },
+  tabs: { flexDirection: 'row', borderTopWidth: 1, paddingVertical: 6 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
+  tabLabel: { fontSize: 14, borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
   tabActive: { fontWeight: '700' },
 });

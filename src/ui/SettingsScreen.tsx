@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { RiskKeywords, ZoneSettings } from '../engine';
-import { Button, Notice, Section } from './components';
+import { Button, Notice, Section, Text } from './components';
 import { dayTitle } from './format';
-import { Colors, useColors } from './theme';
+import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda };
@@ -95,7 +95,7 @@ export default function SettingsScreen({ k }: Props) {
                 onPress={() => k.removeStart(start)}
                 hitSlop={8}
               >
-                <Text style={[styles.remove, { color: colors.red }]}>消す</Text>
+                <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
               </Pressable>
             </View>
           ))
@@ -107,7 +107,7 @@ export default function SettingsScreen({ k }: Props) {
           データはこの端末の中だけに保存しています。機種変更のときは書き出して保管してください。
         </Text>
         <Button colors={colors} kind="secondary" label="データを書き出す" onPress={exportData} />
-        {exportError && <Text style={[styles.help, { color: colors.red }]}>書き出せませんでした。もう一度お試しください。</Text>}
+        {exportError && <Text style={[styles.help, { color: colors.danger }]}>書き出せませんでした。もう一度お試しください。</Text>}
         {confirmDelete ? (
           <View style={styles.confirm}>
             <Text style={[styles.help, { color: colors.text }]}>
@@ -160,8 +160,9 @@ function Stepper({
           disabled={value <= min}
           onPress={() => step(-1)}
           hitSlop={8}
+          style={[styles.stepButton, { backgroundColor: value <= min ? colors.disabledSurface : colors.pms }]}
         >
-          <Text style={[styles.stepButton, { color: value <= min ? colors.line : colors.accent }]}>－</Text>
+          <Text style={[styles.stepText, { color: value <= min ? colors.muted : colors.accent }]}>－</Text>
         </Pressable>
         <Text style={[styles.stepValue, { color: colors.text }]}>
           {value}
@@ -173,8 +174,9 @@ function Stepper({
           disabled={value >= max}
           onPress={() => step(1)}
           hitSlop={8}
+          style={[styles.stepButton, { backgroundColor: value >= max ? colors.disabledSurface : colors.pms }]}
         >
-          <Text style={[styles.stepButton, { color: value >= max ? colors.line : colors.accent }]}>＋</Text>
+          <Text style={[styles.stepText, { color: value >= max ? colors.muted : colors.accent }]}>＋</Text>
         </Pressable>
       </View>
     </View>
@@ -219,7 +221,7 @@ function KeywordList({
             accessibilityRole="button"
             accessibilityLabel={`「${word}」を${label}から外す`}
             onPress={() => onChange({ ...keywords, [level]: words.filter((existing) => existing !== word) })}
-            style={[styles.chip, { borderColor: colors.line }]}
+            style={[styles.chip, { backgroundColor: colors.roseSoft }]}
           >
             <Text style={[styles.chipText, { color: colors.text }]}>{word} ×</Text>
           </Pressable>
@@ -234,7 +236,7 @@ function KeywordList({
           placeholder="言葉を追加"
           placeholderTextColor={colors.muted}
           returnKeyType="done"
-          style={[styles.input, { color: colors.text, borderColor: colors.line }]}
+          style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
         />
         <Pressable accessibilityRole="button" accessibilityLabel={`${label}に追加`} onPress={add} hitSlop={8}>
           <Text style={[styles.addLabel, { color: colors.accent }]}>追加</Text>
@@ -251,15 +253,24 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   rowLabel: { fontSize: 15, flexShrink: 1 },
   remove: { fontSize: 14, fontWeight: '600' },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepButton: { fontSize: 22, fontWeight: '700', paddingHorizontal: 4 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepButton: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  stepText: { fontSize: 20, fontWeight: '700' },
   stepValue: { fontSize: 15, minWidth: 48, textAlign: 'center' },
   keywordBlock: { gap: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  chip: { borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  input: { flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 15 },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: fonts.regular,
+  },
   addLabel: { fontSize: 15, fontWeight: '600' },
   confirm: { gap: 8 },
 });

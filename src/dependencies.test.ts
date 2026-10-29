@@ -6,7 +6,9 @@ import pkg from '../package.json';
  */
 const ALLOWED = [
   'expo',
+  'expo-asset', // expo-font が使う。同梱ファイルを読むだけで、URLを渡さない限り通信しない
   'expo-calendar',
+  'expo-font', // 同梱の丸ゴシック（assets/fonts）を読むだけ
   'expo-notifications',
   'expo-splash-screen',
   'expo-sqlite',

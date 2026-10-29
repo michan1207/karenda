@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 
 import { addDays, ConflictAlert, DateKey } from '../engine';
-import { Button, Notice } from './components';
+import { AlertMark, Button, Card, Notice, PillHeading, Text } from './components';
 import { dayTitle } from './format';
-import { Colors, useColors } from './theme';
+import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
 
@@ -41,8 +41,8 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
       <Text style={[styles.sub, { color: colors.muted }]}>
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
       </Text>
-      <View style={[styles.share, { backgroundColor: colors.surface, borderColor: colors.line }]}>
-        <Text style={[styles.sub, { color: colors.muted }]}>パートナーに送る文の見本</Text>
+      <Card colors={colors}>
+        <PillHeading colors={colors} text="パートナーに送る文の見本" />
         <Chips
           colors={colors}
           options={TEMPLATES}
@@ -57,7 +57,7 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
           value={text}
           onChangeText={setEdited}
           multiline
-          style={[styles.input, { color: colors.text, borderColor: colors.line }]}
+          style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
         />
         {/* 送る前に開けなかっただけなので、失うものは無い */}
         <Button
@@ -70,7 +70,7 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
         <Text style={[styles.sub, { color: colors.muted }]}>
           文は自由に書き換えられます。見本を押すと元の文に戻ります。LINEなどで送れて、予定の中身は送りません。
         </Text>
-      </View>
+      </Card>
 
       {k.access === 'denied' && (
         <Notice
@@ -117,9 +117,16 @@ function Chips<T extends string>({
             accessibilityState={{ selected }}
             onPress={() => onPick(id)}
             hitSlop={4}
-            style={[styles.chip, { borderColor: selected ? colors.accent : colors.line }]}
+            style={[
+              styles.chip,
+              selected
+                ? { borderColor: colors.accent, backgroundColor: colors.pms }
+                : { borderColor: colors.line, backgroundColor: colors.surface },
+            ]}
           >
-            <Text style={[styles.chipText, { color: selected ? colors.accent : colors.text }]}>{label}</Text>
+            <Text style={[styles.chipText, { color: selected ? colors.accent : colors.text }, selected && styles.chipSelected]}>
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -129,13 +136,23 @@ function Chips<T extends string>({
 
 function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () => void }) {
   const colors = useColors();
-  const tone = alert.level === 'red' ? colors.red : colors.yellow;
+  const strong = alert.level === 'red';
+  const tone = strong ? colors.alertStrong : colors.alertMild;
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line, borderLeftColor: tone }]}>
+    <Card colors={colors} style={{ backgroundColor: strong ? colors.alertStrongSoft : colors.alertMildSoft }}>
       <View style={styles.cardHead}>
-        <Text style={[styles.badge, { color: tone, borderColor: tone }]}>
-          {alert.level === 'red' ? 'しっかり注意' : '少し注意'}
-        </Text>
+        <View style={styles.badgeRow}>
+          <AlertMark colors={colors} strong={strong} />
+          <Text
+            style={[
+              styles.badge,
+              { borderColor: tone },
+              strong ? { color: colors.onAccent, backgroundColor: tone } : { color: tone },
+            ]}
+          >
+            {strong ? 'しっかり注意' : '少し注意'}
+          </Text>
+        </View>
         <Text style={[styles.date, { color: colors.muted }]}>{dayTitle(alert.date)}</Text>
       </View>
       <Text style={[styles.eventTitle, { color: colors.text }]}>{alert.title || '（タイトルなし）'}</Text>
@@ -143,7 +160,7 @@ function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () =
       <View style={styles.actions}>
         <Button colors={colors} kind="secondary" label="わかった" onPress={onDismiss} />
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -151,14 +168,30 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
   title: { fontSize: 22, fontWeight: '700', marginTop: 8 },
   sub: { fontSize: 13 },
-  share: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  chip: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
-  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 15, lineHeight: 22 },
-  card: { borderWidth: 1, borderLeftWidth: 4, borderRadius: 12, padding: 14, gap: 6 },
+  chipSelected: { fontWeight: '700' },
+  input: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: fonts.regular,
+  },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  badge: { fontSize: 12, fontWeight: '700', borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  badge: {
+    fontSize: 12,
+    fontWeight: '700',
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+  },
   date: { fontSize: 13 },
   eventTitle: { fontSize: 16, fontWeight: '700' },
   message: { fontSize: 14, lineHeight: 21 },
