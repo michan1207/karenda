@@ -20,7 +20,7 @@ import CalendarScreen from './CalendarScreen';
 import { Notice } from './components';
 import OnboardingScreen from './OnboardingScreen';
 import SettingsScreen from './SettingsScreen';
-import { useColors } from './theme';
+import { radius, useColors } from './theme';
 import { useKarenda } from './useKarenda';
 import { useNotificationSync } from './useNotificationSync';
 import { useUpcomingAlerts } from './useUpcomingAlerts';
@@ -110,7 +110,11 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
     >
       <Text
         maxFontSizeMultiplier={1.6}
-        style={[styles.tabLabel, { color: active ? colors.accent : colors.muted }, active && styles.tabActive]}
+        style={[
+          styles.tabLabel,
+          { color: active ? colors.accent : colors.muted },
+          active && [styles.tabActive, { backgroundColor: colors.pms }],
+        ]}
       >
         {label}
       </Text>
@@ -122,8 +126,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1 },
   padded: { padding: 16 },
-  tabs: { flexDirection: 'row', borderTopWidth: 1 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 12 },
-  tabLabel: { fontSize: 14 },
+  tabs: { flexDirection: 'row', borderTopWidth: 1, paddingVertical: 6 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
+  tabLabel: { fontSize: 14, borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
   tabActive: { fontWeight: '700' },
 });

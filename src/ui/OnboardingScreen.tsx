@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Button } from './components';
+import { Button, Card, Heart } from './components';
 import { useColors } from './theme';
 
 const POINTS = [
@@ -26,15 +26,22 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
   const colors = useColors();
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.accent }]}>
-        Cocomia
-      </Text>
+      <View style={styles.titleRow}>
+        <Heart color={colors.rose} size={18} />
+        <Text accessibilityRole="header" style={[styles.title, { color: colors.accent }]}>
+          Cocomia
+        </Text>
+        <Heart color={colors.rose} size={18} />
+      </View>
       <Text style={[styles.lead, { color: colors.text }]}>体調の波に合わせて、予定を守るカレンダー</Text>
       {POINTS.map((point) => (
-        <View key={point.title} style={[styles.point, { borderColor: colors.line, backgroundColor: colors.surface }]}>
-          <Text style={[styles.pointTitle, { color: colors.text }]}>{point.title}</Text>
+        <Card key={point.title} colors={colors} style={styles.point}>
+          <View style={styles.pointHead}>
+            <Heart color={colors.rose} />
+            <Text style={[styles.pointTitle, { color: colors.text }]}>{point.title}</Text>
+          </View>
           <Text style={[styles.pointBody, { color: colors.muted }]}>{point.body}</Text>
-        </View>
+        </Card>
       ))}
       <Button colors={colors} label="はじめる" onPress={onDone} />
     </ScrollView>
@@ -43,9 +50,11 @@ export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
 
 const styles = StyleSheet.create({
   content: { padding: 24, gap: 14 },
-  title: { fontSize: 34, fontWeight: '700', marginTop: 24 },
-  lead: { fontSize: 17, marginBottom: 8 },
-  point: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 4 },
-  pointTitle: { fontSize: 16, fontWeight: '700' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 24 },
+  title: { fontSize: 32, fontWeight: '700' },
+  lead: { fontSize: 17, marginBottom: 8, textAlign: 'center' },
+  point: { gap: 4 },
+  pointHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pointTitle: { fontSize: 16, fontWeight: '700', flexShrink: 1 },
   pointBody: { fontSize: 14, lineHeight: 21 },
 });

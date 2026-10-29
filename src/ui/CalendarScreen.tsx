@@ -15,10 +15,10 @@ import {
   shiftMonth,
   ZoneDay,
 } from '../engine';
-import { Button, Notice } from './components';
+import { AlertMark, Button, Card, Notice, PillHeading } from './components';
 import { dayTitle, WEEKDAYS, zoneLabel } from './format';
 import { MOOD_NOTES } from './moodNotes';
-import { Colors, useColors } from './theme';
+import { Colors, radius, useColors } from './theme';
 import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
 
@@ -63,14 +63,26 @@ export default function CalendarScreen({ k, today }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="前の月" onPress={() => goMonth(-1)} hitSlop={12}>
-          <Text style={[styles.nav, { color: colors.accent }]}>‹</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="前の月"
+          onPress={() => goMonth(-1)}
+          hitSlop={4}
+          style={[styles.nav, { backgroundColor: colors.pms }]}
+        >
+          <Text style={[styles.navText, { color: colors.accent }]}>‹</Text>
         </Pressable>
         <Text accessibilityRole="header" style={[styles.month, { color: colors.text }]}>
           {year}年{month}月
         </Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="次の月" onPress={() => goMonth(1)} hitSlop={12}>
-          <Text style={[styles.nav, { color: colors.accent }]}>›</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="次の月"
+          onPress={() => goMonth(1)}
+          hitSlop={4}
+          style={[styles.nav, { backgroundColor: colors.pms }]}
+        >
+          <Text style={[styles.navText, { color: colors.accent }]}>›</Text>
         </Pressable>
       </View>
 
@@ -88,40 +100,45 @@ export default function CalendarScreen({ k, today }: Props) {
         <Notice colors={colors} text="記録がまだ少ないため、28日周期を仮定した仮の予測です。" />
       )}
 
-      <View style={styles.weekRow}>
-        {WEEKDAYS.map((label) => (
-          <Text key={label} maxFontSizeMultiplier={1.4} style={[styles.weekday, { color: colors.muted }]}>
-            {label}
-          </Text>
-        ))}
-      </View>
-      {grid.weeks.map((week) => (
-        <View key={week[0]} style={styles.weekRow}>
-          {week.map((day) => (
-            <DayCell
-              key={day}
-              day={day}
-              colors={colors}
-              zone={guard.zones.get(day)}
-              alerts={alertsByDay.get(day) ?? []}
-              inMonth={isInMonth(day, year, month)}
-              isToday={day === today}
-              isSelected={day === selected}
-              onPress={() => setSelected(day)}
-            />
+      <Card colors={colors} style={styles.grid}>
+        <View style={styles.weekRow}>
+          {WEEKDAYS.map((label) => (
+            <Text key={label} maxFontSizeMultiplier={1.4} style={[styles.weekday, { color: colors.muted }]}>
+              {label}
+            </Text>
           ))}
         </View>
-      ))}
+        {grid.weeks.map((week) => (
+          <View key={week[0]} style={styles.weekRow}>
+            {week.map((day) => (
+              <DayCell
+                key={day}
+                day={day}
+                colors={colors}
+                zone={guard.zones.get(day)}
+                alerts={alertsByDay.get(day) ?? []}
+                inMonth={isInMonth(day, year, month)}
+                isToday={day === today}
+                isSelected={day === selected}
+                onPress={() => setSelected(day)}
+              />
+            ))}
+          </View>
+        ))}
 
-      <View style={styles.legend}>
-        <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
-        <LegendItem color={colors.pms} label="PMS警戒期" textColor={colors.muted} />
-        <Text style={[styles.legendText, { color: colors.muted }]}>⚠ 予定と重なる日</Text>
-      </View>
+        <View style={styles.legend}>
+          <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
+          <LegendItem color={colors.pms} label="PMS警戒期" textColor={colors.muted} />
+          <View style={styles.legendItem}>
+            <AlertMark colors={colors} strong size={12} />
+            <Text style={[styles.legendText, { color: colors.muted }]}>予定と重なる日</Text>
+          </View>
+        </View>
+      </Card>
 
-      <View style={[styles.detail, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+      <Card colors={colors}>
         <Text style={[styles.detailTitle, { color: colors.text }]}>{dayTitle(selected)}</Text>
-        <Text style={[styles.detailZone, { color: colors.muted }]}>{zoneLabel(guard.zones.get(selected))}</Text>
+        <ZoneBadge colors={colors} zone={guard.zones.get(selected)} />
         {selectedEvents.length === 0 ? (
           <Text style={[styles.detailText, { color: colors.muted }]}>
             {k.access === 'granted' ? 'この日の予定はありません' : '予定は表示できません'}
@@ -131,12 +148,12 @@ export default function CalendarScreen({ k, today }: Props) {
             const alert = alertFor(event.id);
             return (
               <View key={event.id} style={styles.eventRow}>
-                <Text style={[styles.eventTitle, { color: colors.text }]}>
-                  {alert ? '⚠ ' : ''}
-                  {event.title || '（タイトルなし）'}
-                </Text>
+                <View style={styles.eventHead}>
+                  {alert && <AlertMark colors={colors} strong={alert.level === 'red'} />}
+                  <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title || '（タイトルなし）'}</Text>
+                </View>
                 {alert && (
-                  <Text style={[styles.detailText, { color: alert.level === 'red' ? colors.red : colors.yellow }]}>
+                  <Text style={[styles.detailText, { color: alert.level === 'red' ? colors.alertStrong : colors.alertMild }]}>
                     {alert.message}
                   </Text>
                 )}
@@ -149,7 +166,7 @@ export default function CalendarScreen({ k, today }: Props) {
         ) : selected <= today ? (
           <Button colors={colors} label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
         ) : null}
-      </View>
+      </Card>
 
       {phase && <MoodNotes phase={phase} colors={colors} />}
 
@@ -203,9 +220,7 @@ function DayCell({
       >
         {fromDateKey(day).getDate()}
       </Text>
-      <Text maxFontSizeMultiplier={1.4} style={[styles.cellMark, { color: red ? colors.red : colors.yellow }]}>
-        {alerts.length ? '⚠' : ' '}
-      </Text>
+      <View style={styles.cellMark}>{alerts.length > 0 && <AlertMark colors={colors} strong={red} size={12} />}</View>
     </Pressable>
   );
 }
@@ -219,13 +234,22 @@ function LegendItem({ color, label, textColor }: { color: string; label: string;
   );
 }
 
+/** 選んだ日の時期。生理・PMSの日はカレンダーと同じ色のカプセルで見せる */
+function ZoneBadge({ colors, zone }: { colors: Colors; zone: ZoneDay | undefined }) {
+  const background = zone?.zone === 'heavy' ? colors.heavy : zone?.zone === 'pms' ? colors.pms : undefined;
+  if (!background) return <Text style={[styles.detailZone, { color: colors.muted }]}>{zoneLabel(zone)}</Text>;
+  return (
+    <Text style={[styles.detailZone, styles.zoneBadge, { color: colors.text, backgroundColor: background }]}>
+      {zoneLabel(zone)}
+    </Text>
+  );
+}
+
 function MoodNotes({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
   const note = MOOD_NOTES[phase];
   return (
-    <View style={[styles.detail, { backgroundColor: colors.surface, borderColor: colors.line }]}>
-      <Text accessibilityRole="header" style={[styles.detailTitle, { color: colors.text }]}>
-        {note.title}
-      </Text>
+    <Card colors={colors}>
+      <PillHeading colors={colors} text={note.title} />
       <Text style={[styles.detailText, { color: colors.text }]}>{note.summary}</Text>
       <View>
         {note.feelings.map((feeling) => (
@@ -245,37 +269,40 @@ function MoodNotes({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
       <Text style={[styles.detailZone, { color: colors.muted }]}>
         感じ方には個人差があり、ここに書いたことは目安です。つらさが続く時や生活に支障がある時は、婦人科や心療内科に相談してみてください。
       </Text>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 8 },
+  content: { padding: 16, gap: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-  nav: { fontSize: 32, paddingHorizontal: 12 },
+  nav: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  navText: { fontSize: 26, lineHeight: 30, fontWeight: '700' },
   month: { fontSize: 22, fontWeight: '700' },
+  grid: { padding: 12, gap: 4 },
   weekRow: { flexDirection: 'row', gap: 4 },
   weekday: { flex: 1, textAlign: 'center', fontSize: 12 },
   cell: {
     flex: 1,
     aspectRatio: 1,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     borderWidth: 2,
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cellDay: { fontSize: 16 },
-  cellMark: { fontSize: 12, lineHeight: 14 },
+  cellMark: { height: 12 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  swatch: { width: 12, height: 12, borderRadius: 3 },
+  swatch: { width: 12, height: 12, borderRadius: radius.pill },
   legendText: { fontSize: 12 },
-  detail: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 8, marginTop: 8 },
   detailTitle: { fontSize: 17, fontWeight: '700' },
   detailZone: { fontSize: 13 },
   detailText: { fontSize: 14, lineHeight: 21 },
+  zoneBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 3 },
   eventRow: { gap: 2 },
+  eventHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   eventTitle: { fontSize: 15, fontWeight: '600' },
   moodLabel: { fontSize: 13, fontWeight: '600' },
   footnote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
