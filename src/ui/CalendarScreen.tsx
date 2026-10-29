@@ -24,7 +24,7 @@ import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda; today: DateKey };
 
-/** 女の子が選んだ日について話す一言。時期は予測なので「かも」「と言われている」で言い切らない */
+/** うさぎが選んだ日について話す一言。時期は予測なので「かも」「と言われている」で言い切らない */
 function mascotLine(phase: PeriodPhase | undefined, who: string, recorded: boolean): string {
   if (!recorded) return 'はじめまして！生理が始まった日を選んで、記録してみてね';
   if (phase === 'before') return `${who}PMSの時期かも。ゆっくり過ごしてね`;

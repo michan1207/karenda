@@ -124,12 +124,12 @@ export function PillHeading({ colors, text }: { colors: Colors; text: string }) 
   );
 }
 
-/** ナビゲーター役の女の子（assets/mascot.png）。飾りなので読み上げない */
+/** 案内役のうさぎ（assets/mascot.png）。飾りなので読み上げない */
 export function Mascot({ size }: { size: number }) {
   return <Image {...hidden} source={require('../../assets/mascot.png')} style={{ width: size, height: size }} />;
 }
 
-/** 女の子と吹き出し。吹き出しの文だけ読み上げる */
+/** うさぎと吹き出し。吹き出しの文だけ読み上げる */
 export function MascotSays({ colors, text, size = 76 }: { colors: Colors; text: string; size?: number }) {
   return (
     <View style={styles.mascotRow}>
