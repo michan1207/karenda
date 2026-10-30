@@ -35,14 +35,14 @@ describe('detectConflicts', () => {
     ['a normal event on period day 1', '定例会議', '2026-10-26', 'B', 40],
     ['a heavy event in the PMS week', 'プレゼン', '2026-10-22', 'A', 70],
     ['a heavy event on a day the period may come', '発表', '2026-10-29', 'B', 60],
-    ['a heavy event near the end of the period', '出張', '2026-10-31', 'B', 60],
   ])('grades %s', (_, title, day, grade, score) => {
     expect(detect([ev('1', title, day)])[0]).toMatchObject({ grade, score });
   });
 
   it.each([
     ['a normal event in the PMS week', '会議', '2026-10-20'],
-    ['a normal event near the end of the period', '飲み会', '2026-10-31'],
+    ['a heavy event right after the period', '出張', '2026-10-31'],
+    ['a normal event right after the period', '飲み会', '2026-10-31'],
     ['an event without weighty words', '買い物', '2026-10-27'],
   ])('only notes %s as C, so leaves it out', (_, title, day) => {
     expect(detect([ev('1', title, day)])).toEqual([]);
@@ -61,6 +61,47 @@ describe('detectConflicts', () => {
   it('keeps the heaviest day of an event spanning several days', () => {
     const [alert] = detect([ev('1', '家族旅行', '2026-10-24', { end: '2026-10-27', allDay: true })]);
     expect(alert).toMatchObject({ date: '2026-10-26', grade: 'A', score: 100 });
+  });
+
+  it('makes one alert for a run of same-titled days, on the hardest day', () => {
+    const alerts = detect([ev('a', '大阪出張', '2026-10-25'), ev('b', '大阪出張', '2026-10-26'), ev('c', '大阪出張', '2026-10-27')]);
+    expect(alerts).toHaveLength(1);
+    const [alert] = alerts;
+    expect(alert).toMatchObject({ date: '2026-10-26', grade: 'A', score: 100 });
+    expect(alert.reasons).toContain('seriesPeak');
+    expect(alert.reasonText).toBe('3日間の予定で、いちばんきついのは10月26日（2日目）。生理1日目と重なる見込みです。');
+    expect(alert.series).toEqual({
+      peakDate: '2026-10-26',
+      days: [
+        { date: '2026-10-25', score: 69, label: '生理かも', note: '生理の時期かもしれない日です' },
+        { date: '2026-10-26', score: 100, label: '生理1日目', note: '生理1日目と重なる見込みです' },
+        { date: '2026-10-27', score: 100, label: '生理2日目', note: '生理2日目と重なる見込みです' },
+      ],
+    });
+  });
+
+  it('finds the one hard day of a trip that touches the PMS days only at its end', () => {
+    const [alert] = detect([ev('t', '家族旅行', '2026-10-14', { end: '2026-10-18', allDay: true })]);
+    expect(alert).toMatchObject({ date: '2026-10-18', grade: 'A' });
+    expect(alert.reasons).toContain('seriesPeak');
+    expect(alert.series?.days.map((d) => d.label)).toEqual(['おだやか', 'おだやか', 'おだやか', 'おだやか', 'PMS']);
+  });
+
+  it('does not warn about the days right after a period, and says so day by day', () => {
+    const [alert] = detect([ev('t', '旅行', '2026-10-28', { end: '2026-10-31', allDay: true })]);
+    expect(alert.date).toBe('2026-10-28');
+    expect(alert.series?.days.map((d) => `${d.date} ${d.score} ${d.note}`)).toEqual([
+      '2026-10-28 100 生理3日目と重なる見込みです',
+      '2026-10-29 94 生理の時期かもしれない日です',
+      '2026-10-30 16 生理のあとで、落ち着いてくる時期です',
+      '2026-10-31 16 生理のあとで、落ち着いてくる時期です',
+    ]);
+  });
+
+  it('treats the 4th day of a longer period and later as lighter', () => {
+    const long = buildZones(prediction, { from: '2026-09-20', until: '2026-10-10' }, { heavyDays: 5, pmsDays: 7 }, starts);
+    const [alert] = detectConflicts([ev('1', '出張', '2026-10-01')], long, undefined, prediction);
+    expect(alert).toMatchObject({ grade: 'B', score: 60, reasons: ['phaseLatePeriod'], reasonText: '生理4日目と重なる見込みです。' });
   });
 
   it('says when the prediction is too uncertain to rely on', () => {

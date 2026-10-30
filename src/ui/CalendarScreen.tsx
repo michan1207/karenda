@@ -8,6 +8,7 @@ import {
   ConflictAlert,
   DateKey,
   fromDateKey,
+  gradeOf,
   Guard,
   isInMonth,
   monthGrid,
@@ -120,13 +121,23 @@ export default function CalendarScreen({ k, today }: Props) {
 
   const alertsByDay = useMemo(() => {
     const map = new Map<DateKey, ConflictAlert[]>();
-    for (const alert of guard.alerts) map.set(alert.date, [...(map.get(alert.date) ?? []), alert]);
+    const add = (day: DateKey, alert: ConflictAlert) => map.set(day, [...(map.get(day) ?? []), alert]);
+    for (const alert of guard.alerts) {
+      // 何日も続く予定は、いちばんきつい日だけでなく、注意したい日（A/B）すべてに、その日の重さで印を付ける
+      const days = alert.series?.days ?? [{ date: alert.date, score: alert.score }];
+      for (const day of days) {
+        const grade = gradeOf(day.score);
+        if (grade !== 'C') add(day.date, { ...alert, grade });
+      }
+    }
     return map;
   }, [guard.alerts]);
 
   const goMonth = (delta: number) => setMonth(shiftMonth(year, month, delta));
   const selectedEvents = events.filter((event) => event.start <= selected && event.end >= selected);
-  const alertFor = (eventId: string) => guard.alerts.find((alert) => alert.eventId === eventId);
+  // 同じ名前で続く予定はまとめて1件のお知らせになるので、元の予定のどれからでも引けるようにする
+  const alertFor = (eventId: string) =>
+    guard.alerts.find((alert) => (alert.event.memberIds ?? [alert.eventId]).includes(eventId));
   const isRecorded = k.starts.includes(selected);
   const phase = periodPhase(selected, guard.zones);
   const selectedZone = guard.zones.get(selected);
@@ -243,7 +254,12 @@ export default function CalendarScreen({ k, today }: Props) {
           </Text>
         ) : (
           selectedEvents.map((event) => {
-            const alert = alertFor(event.id);
+            const found = alertFor(event.id);
+            // 何日も続く予定は、押した日の重さと説明を出す。いちばんきつい日だけ、提案の文を出す
+            const day = found?.series?.days.find((d) => d.date === selected);
+            const dayGrade = day ? gradeOf(day.score) : found?.grade;
+            const alert = found && dayGrade && dayGrade !== 'C' ? { ...found, grade: dayGrade } : undefined;
+            const note = found && day && selected !== found.date ? `${day.note}。いちばんきついのは${dayTitle(found.date)}です。` : null;
             return (
               <View key={event.id} style={styles.eventRow}>
                 <View style={styles.eventHead}>
@@ -255,10 +271,14 @@ export default function CalendarScreen({ k, today }: Props) {
                     </Text>
                   )}
                 </View>
-                {alert && (
-                  <Text style={[styles.detailText, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
-                    {alert.message}
-                  </Text>
+                {note ? (
+                  <Text style={[styles.detailText, { color: colors.text }]}>{note}</Text>
+                ) : (
+                  alert && (
+                    <Text style={[styles.detailText, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
+                      {alert.message}
+                    </Text>
+                  )
                 )}
               </View>
             );

@@ -325,6 +325,39 @@ describe('alerts', () => {
     expect(screen.getByText('ずらすなら：11月3日（火）、11月4日（水）、11月5日（木）')).toBeTruthy();
   });
 
+  it('shows how hard each day of a run of events is, and plans around the hardest', async () => {
+    const osaka = ['2026-10-25', '2026-10-26', '2026-10-27'].map((day, i) => ({
+      id: `osaka${i}`,
+      title: '大阪出張',
+      start: day,
+      end: day,
+      allDay: false,
+    }));
+    await setup({ calendar: fakeCalendar(true, [...EVENTS, ...osaka]) });
+    // カレンダーでは、いちばんきつい日だけでなく、注意したい日すべてに印を付ける
+    expect(await screen.findByLabelText('10月25日（日）、生理の時期（予測）、予定と重なっています')).toBeTruthy();
+    expect(screen.getByLabelText('10月26日（月）、生理1日目（予測）、予定と重なっています')).toBeTruthy();
+    await fireEvent.press(await screen.findByText('お知らせ（3）'));
+    expect(screen.getByText('10月25日（日）〜10月27日（火）')).toBeTruthy();
+    expect(screen.getByText('3日間の予定で、いちばんきついのは10月26日（2日目）。生理1日目と重なる見込みです。')).toBeTruthy();
+    expect(screen.getByText('日ごとのきつさ（色のついた日がいちばんきつい日）')).toBeTruthy();
+    expect(screen.getByLabelText('10月26日（月） 生理1日目 いちばんきつい日')).toBeTruthy();
+    expect(screen.getByLabelText('10月25日（日） 生理かも')).toBeTruthy();
+    expect(screen.getByText('・いちばんきついのは2日目。予定は1日目に寄せて、2日目は移動や予定を少なめに')).toBeTruthy();
+  });
+
+  it('does not mark the days after a period, and explains each day of a trip on the calendar', async () => {
+    // 生理は 10-25〜29（10-28 が3日目）。10-30 からは生理のあと
+    const trip = { id: 'trip2', title: '旅行', start: '2026-10-28', end: '2026-10-31', allDay: true };
+    await setup({ calendar: fakeCalendar(true, [trip]) });
+    expect(await screen.findByLabelText('10月28日（水）、生理3日目（予測）、予定と重なっています')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('10月30日（金）'));
+    expect(screen.getByText('生理のあとで、落ち着いてくる時期です。いちばんきついのは10月28日（水）です。')).toBeTruthy();
+    expect(screen.queryByText('A 要注意')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('10月28日（水）、生理3日目（予測）、予定と重なっています'));
+    expect(screen.getByText(/「旅行」は生理3日目と重なる見込みです/)).toBeTruthy();
+  });
+
   it('sends a polite message to change plans, without health words', async () => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     await setup();

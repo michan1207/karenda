@@ -42,9 +42,20 @@ const DEADLINE_TEXT: Record<Impact, (day: string) => string> = {
 /** 生理の時期でも、終わりごろでもない日 */
 const isCalm = (day: DateKey, zones: ZoneMap) => !zones.has(day) && periodPhase(day, zones) !== 'after';
 
+/** 何日も続く予定は、いちばんきつい日を軸に段取りを決める */
+function seriesTask(alert: ConflictAlert): string | null {
+  if (!alert.series) return null;
+  const index = diffDays(alert.event.start, alert.date);
+  if (index === 0) return 'いちばんきついのは初日。初日はゆっくりにして、予定は2日目以降に';
+  const before = index === 1 ? '1日目' : `${index}日目まで`;
+  return `いちばんきついのは${index + 1}日目。予定は${before}に寄せて、${index + 1}日目は移動や予定を少なめに`;
+}
+
 function prepTasks(alert: ConflictAlert, zones: ZoneMap): string[] {
   const zone = zones.get(alert.date);
   const tasks: string[] = [];
+  const series = seriesTask(alert);
+  if (series) tasks.push(series);
   if (alert.reasons.includes('allDayMobility')) tasks.push('移動の時間にゆとりを持たせる');
   if (zone?.zone === 'pms') tasks.push(`準備を${monthDay(addDays(zone.windowStart, -1))}までに終わらせる`);
   else if (zone?.zone === 'heavy') tasks.push('鎮痛剤や着替えを用意しておく');

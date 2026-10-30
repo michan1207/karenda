@@ -1,6 +1,7 @@
 import type { CyclePrediction } from './cycle';
-import { addDays, DateKey, fromDateKey } from './date';
+import { addDays, DateKey, diffDays, fromDateKey } from './date';
 import { classifyRisk, DEFAULT_KEYWORDS, normalizeTitle, Risk, RiskKeywords } from './risk';
+import { groupSeries } from './series';
 import { periodPhase, ZoneMap } from './zones';
 
 export type CalendarEvent = {
@@ -14,7 +15,12 @@ export type CalendarEvent = {
   startMinutes?: number;
   /** 時刻のある予定の長さ（分） */
   durationMinutes?: number;
+  /** 同じ名前の続く予定をまとめた時の、元の予定のID */
+  memberIds?: string[];
 };
+
+/** 何日も続く予定の1日ぶん。label は棒に添える短い名前、note はその日の説明 */
+export type SeriesDay = { date: DateKey; score: number; label: string; note: string };
 
 /** A=要注意 / B=注意 / C=参考。C はお知らせにも通知にも出さない */
 export type Grade = 'A' | 'B' | 'C';
@@ -24,10 +30,12 @@ export type Impact = 'moveable' | 'fixed' | 'mitigable';
 
 export type ReasonCode =
   | 'phaseMostSevere'
+  | 'phaseLatePeriod'
   | 'phasePeriodEdge'
   | 'phaseAfter'
   | 'phasePms'
   | 'allDayMobility'
+  | 'seriesPeak'
   | 'earlyMorning'
   | 'longDuration'
   | 'windowWide';
@@ -47,6 +55,8 @@ export type ConflictAlert = {
   reasonText: string;
   /** 予測の幅が広くて当てにしにくい時の注記 */
   confidenceNote?: string;
+  /** 何日も続く予定の、日ごとのきつさ。いちばんきつい日が date（peakDate） */
+  series?: { peakDate: DateKey; days: SeriesDay[] };
   risk: Risk;
   impact: Impact;
   /** どう備えるかの提案 */
@@ -54,10 +64,12 @@ export type ConflictAlert = {
 };
 
 // 点数の係数。設定画面には出さず、ここでだけ変える（境目はテストで固定している）
-const PHASE_SEVERITY = { mostSevere: 1.0, edge: 0.6, after: 0.6, pms: 0.7, other: 0.1 } as const;
+// 生理4日目以降は軽めにする。生理のあと（ヘビー期の翌日から）は、落ち着いてくる時期なので「その他」と同じ（2026-10-30 オーナー確認）
+const PHASE_SEVERITY = { mostSevere: 1.0, latePeriod: 0.6, edge: 0.6, after: 0.1, pms: 0.7, other: 0.1 } as const;
+const MOST_SEVERE_DAYS = 3;
 const EVENT_WEIGHT: Record<Risk, number> = { high: 1.0, medium: 0.4, low: 0 };
 const ALL_DAY_BONUS = 0.2;
-const MODIFIERS = { allDayMobility: 0.15, earlyMorning: 0.05 } as const;
+const MODIFIERS = { allDayMobility: 0.15, seriesPeak: 0.15, earlyMorning: 0.05 } as const;
 export const GRADE_A = 70;
 export const GRADE_B = 40;
 /** 移動や泊まりを伴う予定の言葉 */
@@ -110,6 +122,25 @@ function monthDay(day: DateKey): string {
   return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
+/** 日ごとの棒に添える短い名前 */
+function dayLabel(phase: Phase): string {
+  if (phase.kind === 'mostSevere') return `生理${phase.periodDay}日目`;
+  return { edge: '生理かも', after: '生理のあと', pms: 'PMS', other: 'おだやか' }[phase.kind];
+}
+
+/** カレンダーでその日を押した時の説明 */
+function dayNote(phase: Phase): string {
+  if (phase.kind === 'mostSevere') return `生理${phase.periodDay}日目と重なる見込みです`;
+  return {
+    edge: '生理の時期かもしれない日です',
+    pms: 'PMSの時期と重なる見込みです',
+    after: '生理のあとで、落ち着いてくる時期です',
+    other: '落ち着いている時期です',
+  }[phase.kind];
+}
+
+const isLatePeriod = (phase: Phase) => phase.kind === 'mostSevere' && phase.periodDay > MOST_SEVERE_DAYS;
+
 function phaseText(phase: Exclude<Phase, { kind: 'other' }>): string {
   if (phase.kind === 'mostSevere') return `生理${phase.periodDay}日目と重なる見込みです`;
   if (phase.kind === 'edge') return '生理の時期かもしれない日と重なります';
@@ -140,13 +171,17 @@ function measure(event: CalendarEvent, day: DateKey, risk: Risk, zones: ZoneMap)
   const phase = phaseOn(day, zones);
   const modifiers: ReasonCode[] = [];
   if (event.allDay && MOBILITY.some((word) => normalizeTitle(event.title).includes(word))) modifiers.push('allDayMobility');
+  // 何日も続く予定は、いちばんきつい日がさらにきつくなる
+  if (event.end > event.start) modifiers.push('seriesPeak');
   if (day === event.start && event.startMinutes !== undefined && event.startMinutes < EARLY_MORNING_BEFORE) {
     modifiers.push('earlyMorning');
   }
   const weight = EVENT_WEIGHT[risk] + (event.allDay ? ALL_DAY_BONUS : 0);
   const bonus = modifiers.reduce((sum, code) => sum + (MODIFIERS as Partial<Record<ReasonCode, number>>)[code]!, 0);
-  const score = Math.min(100, Math.max(0, Math.round(100 * PHASE_SEVERITY[phase.kind] * weight * (1 + bonus))));
-  return { phase, modifiers, score };
+  // raw は丸める前の値。100 を超える日どうしでも、どちらがきついかを比べられる
+  const severity = isLatePeriod(phase) ? PHASE_SEVERITY.latePeriod : PHASE_SEVERITY[phase.kind];
+  const raw = 100 * severity * weight * (1 + bonus);
+  return { phase, modifiers, raw, score: Math.min(100, Math.max(0, Math.round(raw))) };
 }
 
 /** その予定がこの日にあった時の点数（0〜100）。別の日を勧める時に使う */
@@ -170,7 +205,13 @@ function judgeDay(
   if ((event.durationMinutes ?? 0) >= LONG_DURATION) notes.push('longDuration');
   const wide = phase.predicted && prediction?.confidence === 'low';
   if (wide) notes.push('windowWide');
-  const reasons = [PHASE_CODE[phase.kind], ...modifiers, ...notes];
+  const reasons = [isLatePeriod(phase) ? 'phaseLatePeriod' : PHASE_CODE[phase.kind], ...modifiers, ...notes] as ReasonCode[];
+  const prefix = reasons.map((code) => MODIFIER_TEXT[code] ?? '').join('');
+  const length = diffDays(event.start, event.end) + 1;
+  const reasonText =
+    length > 1
+      ? `${prefix}${length}日間の予定で、いちばんきついのは${monthDay(day)}（${diffDays(event.start, day) + 1}日目）。${phaseText(phase)}。`
+      : `${prefix}${phaseText(phase)}。`;
 
   return {
     eventId: event.id,
@@ -180,7 +221,7 @@ function judgeDay(
     grade,
     score,
     reasons,
-    reasonText: `${reasons.map((code) => MODIFIER_TEXT[code] ?? '').join('')}${phaseText(phase)}。`,
+    reasonText,
     ...(wide ? { confidenceNote: '周期のばらつきが大きく、予測がずれることがあります。' } : {}),
     risk,
     impact: impactOf(event.title),
@@ -188,7 +229,10 @@ function judgeDay(
   };
 }
 
-/** 予定ごとに、体調の時期と重なる日の点数を出し、A/B のものを返す。何日も続く予定は、いちばん重い日を1件だけ */
+/**
+ * 予定ごとに、体調の時期と重なる日の点数を出し、A/B のものを返す。
+ * 同じ名前で続く予定はまとめ、何日も続く予定は、いちばん重い日を1件だけにして日ごとのきつさを添える
+ */
 export function detectConflicts(
   events: CalendarEvent[],
   zones: ZoneMap,
@@ -196,15 +240,18 @@ export function detectConflicts(
   prediction: CyclePrediction | null = null,
 ): ConflictAlert[] {
   const alerts: ConflictAlert[] = [];
-  for (const event of events) {
+  for (const event of groupSeries(events)) {
     const risk = classifyRisk(event, keywords);
     if (risk === 'low') continue;
-    let found: ConflictAlert | null = null;
+    let peak: { day: DateKey; raw: number } | null = null;
+    const days: SeriesDay[] = [];
     for (let day = event.start; day <= event.end; day = addDays(day, 1)) {
-      const alert = judgeDay(event, day, risk, zones, prediction);
-      if (alert && (!found || alert.score > found.score)) found = alert;
+      const { phase, raw, score } = measure(event, day, risk, zones);
+      days.push({ date: day, score, label: dayLabel(phase), note: dayNote(phase) });
+      if (phase.kind !== 'other' && (!peak || raw > peak.raw)) peak = { day, raw };
     }
-    if (found) alerts.push(found);
+    const found = peak && judgeDay(event, peak.day, risk, zones, prediction);
+    if (found) alerts.push(days.length > 1 ? { ...found, series: { peakDate: found.date, days } } : found);
   }
   return alerts.sort((a, b) => (a.grade === b.grade ? a.date.localeCompare(b.date) : a.grade === 'A' ? -1 : 1));
 }
