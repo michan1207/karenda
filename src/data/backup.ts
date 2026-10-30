@@ -4,9 +4,13 @@ import { pbkdf2Async } from '@noble/hashes/pbkdf2.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { getRandomBytes } from 'expo-crypto';
 
-/** パスワードから鍵を作る回数。ファイルに書くので、あとで変えても古いファイルは開ける */
-// shortcut: OWASP の目安は 60万回だが、JavaScript だけの計算は PC の Node でも 60万回で約1.7秒かかり、iPhone ではその数倍になる。実機で測ってから上げる
-export const ITERATIONS = 100_000;
+// パスワードから鍵を作る回数は、この端末で約2秒かかる回数にする。ファイルに回数を書くので、開くときも同じ回数になる。
+// JavaScript だけの計算は iPhone で遅く、10万回で約19秒かかった（2026-10-30、Expo Go の開発モード）
+const TARGET_MS = 2_000;
+/** 遅い端末でも、これより少なくはしない */
+export const MIN_ROUNDS = 10_000;
+/** OWASP の PBKDF2-SHA256 の目安。速い端末でもこれより多くはしない */
+export const MAX_ROUNDS = 600_000;
 const MIN_ITERATIONS = 1_000;
 // 細工したファイルで何分も固まらないよう、読むときの上限を決めておく
 const MAX_ITERATIONS = 5_000_000;
@@ -27,6 +31,15 @@ export type OpenBackup =
   | { ok: true; text: string }
   | { ok: false; reason: 'broken' | 'notCocomia' | 'notEncrypted' | 'newer' | 'wrongPassphrase' };
 
+/** 少しだけ計算して、約2秒で終わる回数を見積もる */
+async function calibrateRounds(): Promise<number> {
+  const probe = 2_000;
+  const started = Date.now();
+  await pbkdf2Async(sha256, 'probe', new Uint8Array(16), { c: probe, dkLen: 32 });
+  const rounds = Math.round((probe * TARGET_MS) / Math.max(1, Date.now() - started) / 1_000) * 1_000;
+  return Math.min(MAX_ROUNDS, Math.max(MIN_ROUNDS, rounds));
+}
+
 // 全角と半角の違いで開けなくならないよう、そろえてから鍵にする
 const deriveKey = (passphrase: string, salt: Uint8Array, iterations: number) =>
   pbkdf2Async(sha256, utf8ToBytes(passphrase.normalize('NFKC')), salt, { c: iterations, dkLen: 32 });
@@ -38,8 +51,9 @@ const bytesToUtf8 = (bytes: Uint8Array) => decodeURIComponent(Array.from(bytes, 
 export async function encryptBackup(
   text: string,
   passphrase: string,
-  { random = getRandomBytes, iterations = ITERATIONS }: { random?: (n: number) => Uint8Array; iterations?: number } = {},
+  { random = getRandomBytes, iterations }: { random?: (n: number) => Uint8Array; iterations?: number } = {},
 ): Promise<string> {
+  iterations ??= await calibrateRounds();
   const salt = random(16);
   const nonce = random(12);
   const key = await deriveKey(passphrase, salt, iterations);
@@ -54,6 +68,16 @@ export async function encryptBackup(
     ciphertext: bytesToHex(gcm(key, nonce).encrypt(utf8ToBytes(text))),
   };
   return JSON.stringify(envelope);
+}
+
+/** パスワードが要るファイルかどうか。鍵のかかっていない古い書き出しは、パスワードを聞かずに読む */
+export function isEncryptedBackup(fileText: string): boolean {
+  try {
+    const raw = JSON.parse(fileText);
+    return typeof raw === 'object' && raw !== null && raw.app === 'karenda' && raw.kind === 'encrypted-backup';
+  } catch {
+    return false;
+  }
 }
 
 const isHex = (value: unknown, bytes?: number): value is string =>
