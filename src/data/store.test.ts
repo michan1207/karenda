@@ -9,7 +9,9 @@ import {
   addPeriodStart,
   answerReview,
   deleteAllData,
+  dismissConsult,
   getConflictStatuses,
+  getConsultDismissed,
   isMetricsEnabled,
   listMetricEvents,
   listResolutions,
@@ -163,6 +165,16 @@ describe('hide mode', () => {
     expect((await loadState(db)).hideMode).toBe(true);
     await deleteAllData(db);
     expect(await isHideMode(db)).toBe(false);
+  });
+});
+
+describe('consult card', () => {
+  it('remembers the month it was closed until all data is deleted', async () => {
+    expect(await getConsultDismissed(db)).toBeNull();
+    await dismissConsult(db, '2026-10');
+    expect((await loadState(db)).consultDismissed).toBe('2026-10');
+    await deleteAllData(db);
+    expect(await getConsultDismissed(db)).toBeNull();
   });
 });
 

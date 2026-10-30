@@ -13,6 +13,7 @@
 - 「どうだった？」の答え（版5の `event_reviews(event_id, date, phase, answer, answered_at)`、answer NULL＝答えない）: `answerReview` が1トランザクションで残して学ぶ（同じ予定は最初の1回だけ）。`loadState` の `reviewed`。全削除で消える
 - PMS の日数の決め方（settings の `pms` 行、PmsEstimate の JSON）: `loadState` が毎回 `nextPmsEstimate` で計算し直し、変われば保存。`loadState().settings` は推定を反映した帯用の設定、手動の日数は zone の pmsDays（書き出しに入る）。`pms` 行が無い時は zone の pmsDays が7なら自動、それ以外は手動。バックアップを設定ごと戻すと `pms` 行を消す
 - 予測の当たり具合（版6の `prediction_records(based_on PK, predicted_start, earliest, latest, confidence, actual_start, abs_error_days)`）: `loadState` が毎回、まだ比べていない予測を今の予測に合わせる（幅が過ぎていたら残さない）。画面からの記録は `recordPeriodStart`（いちばん新しい開始日なら直前の予測と1回だけ比べる。復元は `addPeriodStart` で比べない）。比べた行は upsert の WHERE で書き換えない。`removePeriodStart` はその日から出した予測を消し、その日と比べた予測を待ちに戻す。全削除で消える。バックアップには入れていない
+- 受診の目安カードを閉じた月: settings の `consult_dismissed`（YYYY-MM）。`loadState` の `consultDismissed`。全削除で消える
 - お知らせの状態は engine の `advanceStatus`（未確認→確認済み→対応済みだけ）を通してから `saveConflictStatus` で保存。未確認は行を持たない。確認済み・対応済みは一覧と通知から外す
 - 表の変更は `migrations.ts` の `MIGRATIONS` 配列に関数を足すだけ。既存の要素は書き換えない。版は `PRAGMA user_version`
 - 読み書きは `store.ts` の関数に集める（export/全削除もここ）

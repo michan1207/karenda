@@ -252,6 +252,8 @@ export type StoredState = {
   pms: PmsEstimate;
   /** 予測の当たり具合（直近6回） */
   accuracy: AccuracyReport;
+  /** 受診の目安カードを閉じた月（YYYY-MM） */
+  consultDismissed: string | null;
   /** 覚えた重さ（learned）も入れてある */
   keywords: RiskKeywords;
   /** 覚えた予定の重さ（設定の一覧用） */
@@ -295,6 +297,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     settings: pmsZoneSettings(settings, pms),
     pms,
     accuracy: buildReport(await listPredictionRecords(db)),
+    consultDismissed: await getConsultDismissed(db),
     keywords,
     titleWeights,
     reviewed,
@@ -468,6 +471,16 @@ export async function isMetricsEnabled(db: Database): Promise<boolean> {
 
 export async function setMetricsEnabled(db: Database, on: boolean): Promise<void> {
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('metrics', ?)", on ? '1' : '0');
+}
+
+/** 受診の目安カードを閉じた月（YYYY-MM）。同じ月にはもう出さない */
+export async function getConsultDismissed(db: Database): Promise<string | null> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'consult_dismissed'");
+  return row?.value ?? null;
+}
+
+export async function dismissConsult(db: Database, month: string): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('consult_dismissed', ?)", month);
 }
 
 export type MetricProps = Record<string, string | number | boolean>;
