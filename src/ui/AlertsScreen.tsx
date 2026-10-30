@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 
-import { addDays, ConflictAlert, DateKey, Impact, planActions, Resolution, statusOf } from '../engine';
+import { addDays, ConflictAlert, DateKey, Impact, monthlyReflection, planActions, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, shortDate } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
@@ -74,7 +74,13 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
           colors={colors}
           label="パートナーに伝える"
           disabled={!text.trim()}
-          onPress={() => Share.share({ message: text }).catch(() => {})}
+          onPress={async () => {
+            const result = await Share.share({ message: text }).catch(() => null);
+            // どの見本を使ったかだけ数える。文そのものは残さない
+            if (result?.action === Share.sharedAction) {
+              k.track('partner_message_sent', { template: edited === null ? (TEMPLATES.find(([body]) => body === template)?.[1] ?? '') : '書き換え' });
+            }
+          }}
         />
         <Text style={[styles.sub, { color: colors.muted }]}>
           文は自由に書き換えられます。見本を押すと元の文に戻ります。LINEなどで送れて、予定の中身は送りません。
@@ -100,6 +106,8 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
       {alerts.map((alert) => (
         <AlertCard key={`${alert.eventId}|${alert.date}`} alert={alert} k={k} today={today} />
       ))}
+
+      <ReflectionCard k={k} today={today} />
     </ScrollView>
   );
 }
@@ -167,6 +175,33 @@ function SeriesBars({ colors, tone, series }: { colors: Colors; tone: string; se
         })}
       </View>
     </View>
+  );
+}
+
+/** 今月、お知らせで何をしたかの数。段取りできた数（ずらした・準備した・断った）を目立たせる。責める言い方はしない */
+function ReflectionCard({ k, today }: { k: Karenda; today: DateKey }) {
+  const colors = useColors();
+  const reflection = monthlyReflection(k.resolutions, today.slice(0, 7));
+  return (
+    <Card colors={colors}>
+      <PillHeading colors={colors} text={`${Number(today.slice(5, 7))}月のふりかえり`} />
+      {reflection.total === 0 ? (
+        <Text style={[styles.message, { color: colors.muted }]}>
+          今月はまだ、対応した予定はありません。お知らせのカードで「ずらした」「準備した」などを押すと、ここで数えます。
+        </Text>
+      ) : (
+        <>
+          {RESOLUTIONS.map(([resolution, label]) => (
+            <Text key={resolution} style={[styles.message, { color: colors.text }]}>
+              {label} {reflection.byResolution[resolution]}件
+            </Text>
+          ))}
+          <Text style={[styles.message, styles.strongText, { color: colors.pinkText }]}>
+            段取りできた予定 {reflection.actionCount}件
+          </Text>
+        </>
+      )}
+    </Card>
   );
 }
 

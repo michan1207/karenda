@@ -15,10 +15,13 @@ import {
   getZoneSettings,
   isHideMode,
   isLockEnabled,
+  isMetricsEnabled,
+  listMetricEvents,
   listPeriodStarts,
   migrate,
   Notifier,
   openBackup,
+  saveConflictStatus,
   setLockEnabled,
   setOnboarded,
 } from '../data';
@@ -105,6 +108,7 @@ async function setup({
   files = fakeFiles(),
   authenticator = fakeAuthenticator(),
   lock = false,
+  prepare,
 }: {
   starts?: string[];
   onboarded?: boolean;
@@ -115,12 +119,14 @@ async function setup({
   files?: ReturnType<typeof fakeFiles>;
   authenticator?: ReturnType<typeof fakeAuthenticator>;
   lock?: boolean;
+  prepare?: (db: Database) => Promise<void>;
 } = {}) {
   const db: Database = createTestDatabase();
   await migrate(db);
   if (onboarded) await setOnboarded(db);
   for (const start of starts) await addPeriodStart(db, start);
   if (lock) await setLockEnabled(db, true);
+  await prepare?.(db);
   await render(
     <SafeAreaProvider initialMetrics={METRICS}>
       <Main
@@ -388,6 +394,23 @@ describe('alerts', () => {
     share.mockRestore();
   });
 
+  it('reflects this month: what was done, and how many were steps taken', async () => {
+    await setup({
+      prepare: (db) =>
+        saveConflictStatus(db, 'trip', '2026-10-27', { state: 'resolved', resolution: 'prepared' }, new Date(2026, 9, 20, 12)),
+    });
+    await fireEvent.press(await screen.findByText('お知らせ（1）'));
+    expect(screen.getByText('10月のふりかえり')).toBeTruthy();
+    expect(screen.getByText('準備した 1件')).toBeTruthy();
+    expect(screen.getByText('段取りできた予定 1件')).toBeTruthy();
+  });
+
+  it('says this month has nothing reflected yet', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByText('お知らせ（2）'));
+    expect(screen.getByText(/今月はまだ、対応した予定はありません/)).toBeTruthy();
+  });
+
   it('remembers what was done for an alert', async () => {
     const { db } = await setup();
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
@@ -602,6 +625,22 @@ describe('settings', () => {
     expect(await listPeriodStarts(db)).toEqual([]);
     // 予定名の入った予約が、削除のあとに届かない
     expect(notifier.replaceAll).toHaveBeenLastCalledWith([]);
+  });
+});
+
+describe('usage records', () => {
+  it('counts a recorded period start on this phone', async () => {
+    const { db } = await setup({ starts: [] });
+    await fireEvent.press(await screen.findByLabelText(/^10月20日（火）/));
+    await fireEvent.press(screen.getByText('この日を生理開始日として記録'));
+    await waitFor(async () => expect((await listMetricEvents(db)).map((e) => e.name)).toContain('period_recorded'));
+  });
+
+  it('can be turned off in settings', async () => {
+    const { db } = await setup();
+    await fireEvent.press(await screen.findByText('設定'));
+    await fireEvent(screen.getByLabelText('利用状況をこの iPhone に記録する'), 'valueChange', false);
+    await waitFor(async () => expect(await isMetricsEnabled(db)).toBe(false));
   });
 });
 

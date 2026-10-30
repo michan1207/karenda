@@ -44,6 +44,17 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       DROP TABLE dismissed_alerts;
     `);
   },
+  // 2026-10-30: 利用状況の記録。この端末の中だけに残し、外には送らない
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE metric_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        props TEXT NOT NULL,
+        occurred_at TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

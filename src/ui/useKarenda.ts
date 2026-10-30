@@ -15,6 +15,8 @@ import {
   listPeriodStarts,
   loadState,
   Notifier,
+  MetricProps,
+  recordMetric,
   removePeriodStart,
   saveConflictStatus,
   restoreData,
@@ -22,6 +24,7 @@ import {
   ReviewPrompt,
   setHideMode as saveHideMode,
   setKeywords as saveKeywords,
+  setMetricsEnabled,
   setLockEnabled as saveLockEnabled,
   setNotifyEnabled,
   setOnboarded,
@@ -67,6 +70,9 @@ export type Karenda = StoredState & {
   setKeywords(keywords: RiskKeywords): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
   setHideMode(on: boolean): Promise<void>;
+  setMetrics(on: boolean): Promise<void>;
+  /** 利用状況をこの端末に記録する（オフの時は何もしない）。予定の名前や日付は入れない */
+  track(name: string, props?: MetricProps): void;
   authenticator: Authenticator;
   /** ロックがオンで、まだ本人確認が済んでいない */
   locked: boolean;
@@ -90,6 +96,8 @@ const INITIAL_STATE: StoredState = {
   notifyEnabled: true,
   hideMode: false,
   lockEnabled: false,
+  metricsEnabled: true,
+  resolutions: [],
   starts: [],
   settings: DEFAULT_ZONE_SETTINGS,
   keywords: DEFAULT_KEYWORDS,
@@ -110,11 +118,9 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
   }, []);
 
   const requestAccess = useCallback(async () => {
-    try {
-      setAccess((await calendar.requestAccess()) ? 'granted' : 'denied');
-    } catch {
-      setAccess('denied');
-    }
+    const granted = await calendar.requestAccess().catch(() => false);
+    setAccess(granted ? 'granted' : 'denied');
+    return granted;
   }, [calendar]);
 
   const requestNotifyAccess = useCallback(async () => {
@@ -188,6 +194,14 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     return () => subscription.remove();
   }, [unlock]);
 
+  const track = useCallback(
+    (name: string, props: MetricProps = {}) => {
+      // 数え忘れても使い方には関わらないので、失敗しても止めない
+      if (db) recordMetric(db, name, props).catch(() => {});
+    },
+    [db],
+  );
+
   const withDb = useCallback(
     async (task: (opened: Database) => Promise<void>) => {
       if (!db) return;
@@ -206,12 +220,14 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     notifyAccess,
     finishOnboarding: async () => {
       await withDb(setOnboarded);
-      await requestAccess();
+      track('onboarding_completed');
+      track('calendar_permission_result', { granted: await requestAccess() });
       await requestNotifyAccess();
     },
     addStart: (day) =>
       withDb(async (opened) => {
         await addPeriodStart(opened, day);
+        await recordMetric(opened, 'period_recorded', { source: 'app' });
         if ((await isReviewAsked(opened)) || !shouldAskReview(await listPeriodStarts(opened), day)) return;
         await setReviewAsked(opened);
         // 記録はもう済んでいるので、お願いが出せなくても止めない
@@ -225,6 +241,8 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       if (enabled) await requestNotifyAccess();
     },
     setHideMode: (on) => withDb((opened) => saveHideMode(opened, on)),
+    setMetrics: (on) => withDb((opened) => setMetricsEnabled(opened, on)),
+    track,
     authenticator,
     locked,
     unlock,
@@ -242,12 +260,14 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
         const current = statusOf(stored.statuses, eventId, date);
         if (current.state !== 'unreviewed') return;
         await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'acknowledged'));
+        await recordMetric(opened, 'conflict_acknowledged');
       }),
     resolve: (eventId, date, resolution) =>
       withDb(async (opened) => {
         let current = statusOf(stored.statuses, eventId, date);
         if (current.state === 'unreviewed') current = advanceStatus(current, 'acknowledged');
         await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'resolved', resolution));
+        await recordMetric(opened, 'conflict_resolved', { resolution });
       }),
     exportBackup: async (passphrase, today) => {
       if (!db) return;
@@ -256,9 +276,14 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       // 鍵を作る回数を決めるため、開発中だけ iPhone でかかった時間を残す
       if (__DEV__) console.log(`[backup] 暗号化 ${Date.now() - started}ms`);
       await files.share(file, `cocomia-backup-${today}.json`);
+      track('export_created');
     },
     pickBackup: () => files.pick(),
-    restoreBackup: (data, mode) => withDb((opened) => restoreData(opened, data, mode)),
+    restoreBackup: (data, mode) =>
+      withDb(async (opened) => {
+        await restoreData(opened, data, mode);
+        await recordMetric(opened, 'import_completed', { mode });
+      }),
     deleteAll: async () => {
       await withDb(deleteAllData);
       // 案内からやり直しになると予約の組み直しが止まるので、予定名入りの予約をここで消す
