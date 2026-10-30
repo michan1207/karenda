@@ -147,6 +147,10 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview }: Kare
     },
     dismiss: (eventId, date) => withDb((opened) => dismissAlert(opened, eventId, date)),
     exportJson: async () => (db ? JSON.stringify(await exportData(db), null, 2) : ''),
-    deleteAll: () => withDb(deleteAllData),
+    deleteAll: async () => {
+      await withDb(deleteAllData);
+      // 案内からやり直しになると予約の組み直しが止まるので、予定名入りの予約をここで消す
+      await notifier.replaceAll([]);
+    },
   };
 }
