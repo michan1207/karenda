@@ -6,7 +6,7 @@
 - 部品は `components.tsx`（Card / PillHeading / Heart / AlertMark / Notice / Button / Section）。日付表示・ゾーン名は `format.ts`（`dayTitle`, `zoneLabel`）
 
 ## 色（theme.ts の `useColors()`、ライト/ダーク両対応）
-- 生理ヘビー期のセル背景 `heavy`（淡いピンク）、PMS警戒期 `pms`（淡いパープル）
+- 生理ヘビー期のセル背景 `heavy`（淡いピンク）、PMS警戒期 `pms`（淡いパープル）。予測の幅のはし（periodDay の無い予測のヘビー期）は `heavyEdge`（もっと淡いピンク、凡例「生理かもしれない日」）
 - 警告は `alertStrong`（くすみブルー）/ `alertMild`、カードの地は `alertStrongSoft` / `alertMildSoft`。削除は `danger`。強調 `accent`
 - 色を直書きせず、必ず `useColors()` のトークンを使う。新しい色はライトとダーク両方に足す
 - 文字は `components.tsx` の `Text` を使う（react-native の `Text` は直接使わない）。丸ゴシック Zen Maru Gothic を同梱し、太さ600/700はBold書体に切り替わる。入力欄は `fontFamily: fonts.regular`
@@ -17,6 +17,7 @@
 ## 表示ルール
 - 衝突のある日・予定には `AlertMark`（しっかり注意＝塗りの丸、少し注意＝枠の丸）。詳細に警告メッセージを alertStrong/alertMild で表示
 - 予測には「（予測）」を付ける。医療的な断定をしない
+- 予測の日を選ぶと、詳細に「次の生理は◯/◯〜◯/◯ごろ（確信度：高/中/低）」と根拠の1行（`format.ts` の `predictionLines`）
 - カレンダーで選んだ日の時期に応じ、詳細の下に「心の変化・関係する病名」カード（文言は `moodNotes.ts`、「と言われています」「目安」＋受診の提案）
 - 警告は「ダメ出し」ではなくやさしい提案。閉じた警告は `dismissed_alerts` に保存
 - 読み上げ用に `accessibilityLabel` を付ける（日付・ゾーン・重なりの有無）

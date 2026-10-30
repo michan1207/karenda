@@ -10,13 +10,14 @@ import {
   fromDateKey,
   isInMonth,
   monthGrid,
+  nearestPeriod,
   PeriodPhase,
   periodPhase,
   shiftMonth,
   ZoneDay,
 } from '../engine';
 import { AlertMark, Button, Card, Decorations, Heart, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
-import { dayTitle, WEEKDAYS, zoneLabel } from './format';
+import { dayTitle, predictionLines, WEEKDAYS, zoneLabel } from './format';
 import { MOOD_NOTES } from './moodNotes';
 import { Colors, radius, useColors } from './theme';
 import { useEvents } from './useEvents';
@@ -68,6 +69,7 @@ export default function CalendarScreen({ k, today }: Props) {
   const alertFor = (eventId: string) => guard.alerts.find((alert) => alert.eventId === eventId);
   const isRecorded = k.starts.includes(selected);
   const phase = periodPhase(selected, guard.zones);
+  const selectedZone = guard.zones.get(selected);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -142,6 +144,7 @@ export default function CalendarScreen({ k, today }: Props) {
 
         <View style={styles.legend}>
           <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
+          <LegendItem color={colors.heavyEdge} label="生理かもしれない日" textColor={colors.muted} />
           <LegendItem color={colors.pms} label="PMS警戒期" textColor={colors.muted} />
           <View style={styles.legendItem}>
             <AlertMark colors={colors} strong size={12} />
@@ -152,7 +155,14 @@ export default function CalendarScreen({ k, today }: Props) {
 
       <Card colors={colors}>
         <PillHeading colors={colors} text={dayTitle(selected)} />
-        <ZoneBadge colors={colors} zone={guard.zones.get(selected)} />
+        <ZoneBadge colors={colors} zone={selectedZone} />
+        {guard.prediction &&
+          selectedZone?.predicted &&
+          predictionLines(guard.prediction, nearestPeriod(guard.prediction, selected)).map((line, i) => (
+            <Text key={line} style={[styles.detailText, { color: i === 0 ? colors.text : colors.muted }]}>
+              {line}
+            </Text>
+          ))}
         {selectedEvents.length === 0 ? (
           <Text style={[styles.detailText, { color: colors.muted }]}>
             {k.access === 'granted' ? 'この日の予定はありません' : '予定は表示できません'}
@@ -211,7 +221,9 @@ function DayCell({
   onPress: () => void;
 }) {
   const red = alerts.some((alert) => alert.level === 'red');
-  const zoneColor = zone?.zone === 'heavy' ? colors.heavy : zone?.zone === 'pms' ? colors.pms : 'transparent';
+  // 予測の幅のはし（中心の日からずれた日）は薄くする
+  const heavyColor = zone?.zone === 'heavy' && zone.predicted && !zone.periodDay ? colors.heavyEdge : colors.heavy;
+  const zoneColor = zone?.zone === 'heavy' ? heavyColor : zone?.zone === 'pms' ? colors.pms : 'transparent';
   const background = isToday ? colors.pink : zoneColor;
   const label = [dayTitle(day), zone ? zoneLabel(zone) : null, alerts.length ? '予定と重なっています' : null]
     .filter(Boolean)

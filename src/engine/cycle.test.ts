@@ -1,4 +1,4 @@
-import { predictCycle, predictedPeriod } from './cycle';
+import { nearestPeriod, predictCycle, predictedPeriod } from './cycle';
 import { diffDays } from './date';
 
 describe('predictCycle', () => {
@@ -76,5 +76,20 @@ describe('predictedPeriod', () => {
   it('keeps the same width for later cycles', () => {
     const p = predictCycle(['2026-06-01', '2026-06-29', '2026-07-29', '2026-08-24'])!;
     expect(predictedPeriod(p, 2)).toEqual({ expected: '2026-10-19', earliest: '2026-10-17', latest: '2026-10-21' });
+  });
+});
+
+describe('nearestPeriod', () => {
+  // 次は 9/21、その次は 10/19 ごろ
+  const p = predictCycle(['2026-06-01', '2026-06-29', '2026-07-29', '2026-08-24'])!;
+
+  it('picks the coming period for days in the week before it and in its window', () => {
+    expect(nearestPeriod(p, '2026-09-14').expected).toBe('2026-09-21');
+    expect(nearestPeriod(p, '2026-09-24').expected).toBe('2026-09-21');
+    expect(nearestPeriod(p, '2026-10-12').expected).toBe('2026-10-19');
+  });
+
+  it('never looks back before the last recorded start', () => {
+    expect(nearestPeriod(p, '2026-08-25').expected).toBe('2026-09-21');
   });
 });

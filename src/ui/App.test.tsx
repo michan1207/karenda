@@ -133,6 +133,23 @@ describe('calendar', () => {
     expect(screen.queryByText(/起こりやすい心の変化/)).toBeNull();
   });
 
+  it('shows the predicted window and how sure it is on predicted days', async () => {
+    await setup();
+    // 28日ずつの3周期 → 10/26 ごろ±1日
+    expect(await screen.findByText('次の生理は10/25〜10/27ごろ（確信度：中）')).toBeTruthy();
+    expect(screen.getByText('直近3周期のばらつきから計算した目安です。')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(/^10月25日（日）、生理の時期（予測）/));
+    expect(screen.getByText('次の生理は10/25〜10/27ごろ（確信度：中）')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('10月5日（月）'));
+    expect(screen.queryByText(/次の生理は/)).toBeNull();
+  });
+
+  it('says a prediction from too few records is an assumption', async () => {
+    await setup({ starts: ['2026-09-28'] });
+    expect(await screen.findByText('次の生理は10/24〜10/28ごろ（確信度：低）')).toBeTruthy();
+    expect(screen.getByText('記録がまだ少ないため、28日周期を仮定した目安です。')).toBeTruthy();
+  });
+
   it('records and removes a past start date picked on the calendar', async () => {
     const { db } = await setup({ starts: [] });
     expect(await screen.findByText(/生理が始まった日を選んで記録すると/)).toBeTruthy();
