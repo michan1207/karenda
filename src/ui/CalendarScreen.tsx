@@ -254,7 +254,12 @@ export default function CalendarScreen({ k, today }: Props) {
           </Text>
         ) : (
           selectedEvents.map((event) => {
-            const alert = alertFor(event.id);
+            const found = alertFor(event.id);
+            // 何日も続く予定は、押した日の重さと説明を出す。いちばんきつい日だけ、提案の文を出す
+            const day = found?.series?.days.find((d) => d.date === selected);
+            const dayGrade = day ? gradeOf(day.score) : found?.grade;
+            const alert = found && dayGrade && dayGrade !== 'C' ? { ...found, grade: dayGrade } : undefined;
+            const note = found && day && selected !== found.date ? `${day.note}。いちばんきついのは${dayTitle(found.date)}です。` : null;
             return (
               <View key={event.id} style={styles.eventRow}>
                 <View style={styles.eventHead}>
@@ -266,10 +271,14 @@ export default function CalendarScreen({ k, today }: Props) {
                     </Text>
                   )}
                 </View>
-                {alert && (
-                  <Text style={[styles.detailText, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
-                    {alert.message}
-                  </Text>
+                {note ? (
+                  <Text style={[styles.detailText, { color: colors.text }]}>{note}</Text>
+                ) : (
+                  alert && (
+                    <Text style={[styles.detailText, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
+                      {alert.message}
+                    </Text>
+                  )
                 )}
               </View>
             );

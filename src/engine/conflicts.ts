@@ -19,6 +19,9 @@ export type CalendarEvent = {
   memberIds?: string[];
 };
 
+/** 何日も続く予定の1日ぶん。label は棒に添える短い名前、note はその日の説明 */
+export type SeriesDay = { date: DateKey; score: number; label: string; note: string };
+
 /** A=要注意 / B=注意 / C=参考。C はお知らせにも通知にも出さない */
 export type Grade = 'A' | 'B' | 'C';
 
@@ -27,6 +30,7 @@ export type Impact = 'moveable' | 'fixed' | 'mitigable';
 
 export type ReasonCode =
   | 'phaseMostSevere'
+  | 'phaseLatePeriod'
   | 'phasePeriodEdge'
   | 'phaseAfter'
   | 'phasePms'
@@ -52,7 +56,7 @@ export type ConflictAlert = {
   /** 予測の幅が広くて当てにしにくい時の注記 */
   confidenceNote?: string;
   /** 何日も続く予定の、日ごとのきつさ。いちばんきつい日が date（peakDate） */
-  series?: { peakDate: DateKey; days: { date: DateKey; score: number; label: string }[] };
+  series?: { peakDate: DateKey; days: SeriesDay[] };
   risk: Risk;
   impact: Impact;
   /** どう備えるかの提案 */
@@ -60,7 +64,9 @@ export type ConflictAlert = {
 };
 
 // 点数の係数。設定画面には出さず、ここでだけ変える（境目はテストで固定している）
-const PHASE_SEVERITY = { mostSevere: 1.0, edge: 0.6, after: 0.6, pms: 0.7, other: 0.1 } as const;
+// 生理4日目以降は軽めにする。生理のあと（ヘビー期の翌日から）は、落ち着いてくる時期なので「その他」と同じ（2026-10-30 オーナー確認）
+const PHASE_SEVERITY = { mostSevere: 1.0, latePeriod: 0.6, edge: 0.6, after: 0.1, pms: 0.7, other: 0.1 } as const;
+const MOST_SEVERE_DAYS = 3;
 const EVENT_WEIGHT: Record<Risk, number> = { high: 1.0, medium: 0.4, low: 0 };
 const ALL_DAY_BONUS = 0.2;
 const MODIFIERS = { allDayMobility: 0.15, seriesPeak: 0.15, earlyMorning: 0.05 } as const;
@@ -119,8 +125,21 @@ function monthDay(day: DateKey): string {
 /** 日ごとの棒に添える短い名前 */
 function dayLabel(phase: Phase): string {
   if (phase.kind === 'mostSevere') return `生理${phase.periodDay}日目`;
-  return { edge: '生理かも', after: '生理の終わりごろ', pms: 'PMS', other: 'おだやか' }[phase.kind];
+  return { edge: '生理かも', after: '生理のあと', pms: 'PMS', other: 'おだやか' }[phase.kind];
 }
+
+/** カレンダーでその日を押した時の説明 */
+function dayNote(phase: Phase): string {
+  if (phase.kind === 'mostSevere') return `生理${phase.periodDay}日目と重なる見込みです`;
+  return {
+    edge: '生理の時期かもしれない日です',
+    pms: 'PMSの時期と重なる見込みです',
+    after: '生理のあとで、落ち着いてくる時期です',
+    other: '落ち着いている時期です',
+  }[phase.kind];
+}
+
+const isLatePeriod = (phase: Phase) => phase.kind === 'mostSevere' && phase.periodDay > MOST_SEVERE_DAYS;
 
 function phaseText(phase: Exclude<Phase, { kind: 'other' }>): string {
   if (phase.kind === 'mostSevere') return `生理${phase.periodDay}日目と重なる見込みです`;
@@ -160,7 +179,8 @@ function measure(event: CalendarEvent, day: DateKey, risk: Risk, zones: ZoneMap)
   const weight = EVENT_WEIGHT[risk] + (event.allDay ? ALL_DAY_BONUS : 0);
   const bonus = modifiers.reduce((sum, code) => sum + (MODIFIERS as Partial<Record<ReasonCode, number>>)[code]!, 0);
   // raw は丸める前の値。100 を超える日どうしでも、どちらがきついかを比べられる
-  const raw = 100 * PHASE_SEVERITY[phase.kind] * weight * (1 + bonus);
+  const severity = isLatePeriod(phase) ? PHASE_SEVERITY.latePeriod : PHASE_SEVERITY[phase.kind];
+  const raw = 100 * severity * weight * (1 + bonus);
   return { phase, modifiers, raw, score: Math.min(100, Math.max(0, Math.round(raw))) };
 }
 
@@ -185,7 +205,7 @@ function judgeDay(
   if ((event.durationMinutes ?? 0) >= LONG_DURATION) notes.push('longDuration');
   const wide = phase.predicted && prediction?.confidence === 'low';
   if (wide) notes.push('windowWide');
-  const reasons = [PHASE_CODE[phase.kind], ...modifiers, ...notes];
+  const reasons = [isLatePeriod(phase) ? 'phaseLatePeriod' : PHASE_CODE[phase.kind], ...modifiers, ...notes] as ReasonCode[];
   const prefix = reasons.map((code) => MODIFIER_TEXT[code] ?? '').join('');
   const length = diffDays(event.start, event.end) + 1;
   const reasonText =
@@ -224,10 +244,10 @@ export function detectConflicts(
     const risk = classifyRisk(event, keywords);
     if (risk === 'low') continue;
     let peak: { day: DateKey; raw: number } | null = null;
-    const days: { date: DateKey; score: number; label: string }[] = [];
+    const days: SeriesDay[] = [];
     for (let day = event.start; day <= event.end; day = addDays(day, 1)) {
       const { phase, raw, score } = measure(event, day, risk, zones);
-      days.push({ date: day, score, label: dayLabel(phase) });
+      days.push({ date: day, score, label: dayLabel(phase), note: dayNote(phase) });
       if (phase.kind !== 'other' && (!peak || raw > peak.raw)) peak = { day, raw };
     }
     const found = peak && judgeDay(event, peak.day, risk, zones, prediction);
