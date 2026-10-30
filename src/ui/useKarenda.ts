@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import {
+  addManualEvent as saveManualEvent,
   answerReview as saveReviewAnswer,
   Authenticator,
   BackupFiles,
@@ -18,10 +19,12 @@ import {
   isReviewAsked,
   listPeriodStarts,
   loadState,
+  ManualEventInput,
   Notifier,
   MetricProps,
   recordMetric,
   recordPeriodStart,
+  removeManualEvent as deleteManualEvent,
   removePeriodStart,
   removeTitleWeight,
   saveConflictStatus,
@@ -85,6 +88,9 @@ export type Karenda = StoredState & {
   finishOnboarding(): Promise<void>;
   addStart(day: DateKey): Promise<void>;
   removeStart(day: DateKey): Promise<void>;
+  /** このアプリの中だけに予定を入れる（iPhone のカレンダーには書かない） */
+  addManualEvent(event: ManualEventInput): Promise<void>;
+  removeManualEvent(eventId: string): Promise<void>;
   /** 保存してある設定に重ねる。自動の時に PMS の手動の日数を推定で上書きしないため */
   setSettings(patch: Partial<ZoneSettings>): Promise<void>;
   /** PMS の日数を手動で決めるか、記録からの推定（たまるまで7日前）にするか */
@@ -134,6 +140,7 @@ const INITIAL_STATE: StoredState = {
   accuracy: buildReport([]),
   consultDismissed: null,
   deferrals: new Map(),
+  manualEvents: [],
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
   reviewed: new Set(),
@@ -300,6 +307,8 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
         await askReview().catch(() => {});
       }),
     removeStart: (day) => withDb((opened) => removePeriodStart(opened, day)),
+    addManualEvent: (event) => withDb((opened) => saveManualEvent(opened, event)),
+    removeManualEvent: (eventId) => withDb((opened) => deleteManualEvent(opened, eventId)),
     setSettings: (patch) => withDb(async (opened) => saveZoneSettings(opened, { ...(await getZoneSettings(opened)), ...patch })),
     setPmsManual: (manual) => withDb((opened) => savePmsManual(opened, manual)),
     setKeywords: (next) => withDb((opened) => saveKeywords(opened, next)),

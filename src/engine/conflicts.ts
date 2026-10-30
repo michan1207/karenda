@@ -1,8 +1,13 @@
 import type { CyclePrediction } from './cycle';
+import type { Weight } from './learning';
 import { addDays, DateKey, diffDays, fromDateKey } from './date';
 import { classifyRisk, DEFAULT_KEYWORDS, normalizeTitle, Risk, RiskKeywords } from './risk';
 import { groupSeries } from './series';
 import { periodPhase, ZoneMap } from './zones';
+
+/** このアプリに入れた予定の色。色の値は画面（theme.ts）で決める */
+export const EVENT_COLORS = ['blue', 'green', 'orange', 'purple', 'yellow', 'gray'] as const;
+export type EventColor = (typeof EVENT_COLORS)[number];
 
 export type CalendarEvent = {
   id: string;
@@ -19,6 +24,11 @@ export type CalendarEvent = {
   durationMinutes?: number;
   /** 同じ名前の続く予定をまとめた時の、元の予定のID */
   memberIds?: string[];
+  /** このアプリの中だけに入れた予定（iPhone のカレンダーには書かない） */
+  manual?: true;
+  /** 入れる時に選んだ重さ。言葉や覚えた重さより優先する */
+  weight?: Weight;
+  color?: EventColor;
 };
 
 /** 何日も続く予定の1日ぶん。label は棒に添える短い名前、note はその日の説明 */

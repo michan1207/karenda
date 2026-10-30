@@ -7,6 +7,7 @@ import pkg from '../package.json';
 const ALLOWED = [
   '@noble/ciphers', // バックアップの暗号化（AES-GCM）。JavaScript だけで動き、通信も依存ライブラリも無い
   '@noble/hashes', // パスワードから鍵を作る（PBKDF2）。同上
+  '@react-native-community/datetimepicker', // このアプリに入れる予定の時刻を選ぶ。端末の時刻の部品を出すだけで、JS にもネイティブにも通信のコードが無い
   'expo',
   'expo-asset', // expo-font が使う。同梱ファイルを読むだけで、URLを渡さない限り通信しない
   'expo-calendar',

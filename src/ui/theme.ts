@@ -32,6 +32,8 @@ const palette = {
     disabledSurface: '#f4eef2',
     // 黒ではなくピンク寄りの、やわらかい影
     shadow: '0px 4px 14px #c93a721f',
+    // このアプリに入れた予定の色（点にだけ使い、文字には使わない）。生理のピンクとは分ける
+    event: { blue: '#4f7fd6', green: '#3b9a6a', orange: '#e07b35', purple: '#8d5fcf', yellow: '#d6a520', gray: '#8a8190' },
   },
   dark: {
     background: '#221a2a',
@@ -59,6 +61,7 @@ const palette = {
     danger: '#ff8fa8',
     disabledSurface: '#352c3c',
     shadow: '0px 4px 14px #0b081066',
+    event: { blue: '#86a8ec', green: '#72c79b', orange: '#f2a56c', purple: '#b896ea', yellow: '#e9c75c', gray: '#b0a7b8' },
   },
 };
 

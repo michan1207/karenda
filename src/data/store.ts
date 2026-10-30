@@ -2,7 +2,8 @@ import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snap
 import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '../engine/conflictState';
 import { predictCycle } from '../engine/cycle';
 import { DateKey, fromDateKey, toDateKey } from '../engine/date';
-import { Answer, learnWeight, ReviewTarget, TitleWeight } from '../engine/learning';
+import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
+import { Answer, learnWeight, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
 import { DEFAULT_PMS, nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
 import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
@@ -198,6 +199,67 @@ export async function answerReview(db: Database, target: ReviewTarget, answer: A
   });
 }
 
+const MANUAL_PREFIX = 'manual:';
+
+/** このアプリの中だけに入れた予定。カレンダーの予定と同じ形で返し、ID の頭で見分ける */
+export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
+  const rows = await db.getAllAsync<{
+    id: number;
+    title: string;
+    date: string;
+    weight: Weight;
+    color: EventColor;
+    start_minutes: number | null;
+    duration_minutes: number | null;
+  }>('SELECT id, title, date, weight, color, start_minutes, duration_minutes FROM manual_events ORDER BY date, start_minutes, id');
+  return rows.map((row) => ({
+    id: `${MANUAL_PREFIX}${row.id}`,
+    title: row.title,
+    start: row.date,
+    end: row.date,
+    allDay: false,
+    manual: true,
+    weight: row.weight,
+    color: row.color,
+    ...(row.start_minutes === null ? {} : { startMinutes: row.start_minutes }),
+    ...(row.duration_minutes === null ? {} : { durationMinutes: row.duration_minutes }),
+  }));
+}
+
+export type ManualEventInput = {
+  title: string;
+  date: DateKey;
+  weight: Weight;
+  color: EventColor;
+  /** 時刻を入れる時だけ。0時からの分 */
+  startMinutes?: number;
+  durationMinutes?: number;
+};
+
+const isMinutes = (value: number | undefined, min: number, max: number) =>
+  value === undefined || (Number.isInteger(value) && value >= min && value <= max);
+
+export async function addManualEvent(db: Database, event: ManualEventInput): Promise<void> {
+  fromDateKey(event.date);
+  const name = event.title.trim();
+  if (!name) throw new Error('title is empty');
+  if (!EVENT_COLORS.includes(event.color)) throw new Error(`unknown color: ${event.color}`);
+  if (!isMinutes(event.startMinutes, 0, 24 * 60 - 1) || !isMinutes(event.durationMinutes, 1, 24 * 60)) throw new Error('bad time');
+  await db.runAsync(
+    'INSERT INTO manual_events (title, date, weight, color, start_minutes, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+    name,
+    event.date,
+    event.weight,
+    event.color,
+    event.startMinutes ?? null,
+    event.durationMinutes ?? null,
+  );
+}
+
+export async function removeManualEvent(db: Database, eventId: string): Promise<void> {
+  if (eventId.startsWith(MANUAL_PREFIX)) await db.runAsync('DELETE FROM manual_events WHERE id = ?', Number(eventId.slice(MANUAL_PREFIX.length)));
+}
+
 /** 通知の「今日は決めない」。同じ予定は最初の1回だけ（もう一度押しても、知らせ直しは増やさない） */
 export async function deferAlert(db: Database, eventId: string, date: DateKey, remindOn: DateKey): Promise<void> {
   await db.runAsync('INSERT OR IGNORE INTO deferred_alerts (event_id, date, remind_on) VALUES (?, ?, ?)', eventId, date, remindOn);
@@ -267,6 +329,8 @@ export type StoredState = {
   consultDismissed: string | null;
   /** 通知で「今日は決めない」を押した予定（`statusKey`）と、もう一度知らせる日 */
   deferrals: Map<string, DateKey>;
+  /** このアプリの中だけに入れた予定 */
+  manualEvents: CalendarEvent[];
   /** 覚えた重さ（learned）も入れてある */
   keywords: RiskKeywords;
   /** 覚えた予定の重さ（設定の一覧用） */
@@ -312,6 +376,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     accuracy: buildReport(await listPredictionRecords(db)),
     consultDismissed: await getConsultDismissed(db),
     deferrals: await listDeferrals(db),
+    manualEvents: await listManualEvents(db),
     keywords,
     titleWeights,
     reviewed,
@@ -416,6 +481,7 @@ export async function deleteAllData(db: Database): Promise<void> {
       DELETE FROM event_reviews;
       DELETE FROM prediction_records;
       DELETE FROM deferred_alerts;
+      DELETE FROM manual_events;
     `);
     await seedDefaults(db);
   });

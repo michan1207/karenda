@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import {
   addDays,
   AFTER_PERIOD_DAYS,
   Answer,
   computeGuard,
+  CalendarEvent,
   ConflictAlert,
   consultReasons,
   consultText,
   DateKey,
+  EVENT_COLORS,
+  EventColor,
   fromDateKey,
   gradeOf,
   monthlyDigest,
@@ -18,16 +21,20 @@ import {
   monthGrid,
   MonthlyDigest,
   nearestPeriod,
+  normalizeTitle,
   PeriodPhase,
   periodPhase,
   ReviewTarget,
   shiftMonth,
+  Weight,
   ZoneDay,
 } from '../engine';
+import type { ManualEventInput } from '../data';
 import { AlertMark, Button, Card, Decorations, Heart, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
-import { dayTitle, predictionLines, WEEKDAYS, zoneLabel } from './format';
+import { dayTitle, predictionLines, timeRange, WEEKDAYS, zoneLabel } from './format';
 import { MOOD_NOTES } from './moodNotes';
-import { Colors, radius, useColors } from './theme';
+import { Colors, fonts, radius, useColors } from './theme';
+import TimeField from './TimeField';
 import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
 
@@ -108,7 +115,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
   const [selected, setSelected] = useState<DateKey>(today);
 
   const grid = useMemo(() => monthGrid(year, month), [year, month]);
-  const events = useEvents(k.calendar, k.access, grid.from, grid.until);
+  const events = useEvents(k.calendar, k.access, grid.from, grid.until, k.manualEvents);
 
   const computed = useMemo(
     () =>
@@ -140,6 +147,13 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
     }
     return map;
   }, [guard.alerts]);
+
+  // このアプリに入れた予定の色を、日のマスに点で出す（3つまで）
+  const dotsByDay = useMemo(() => {
+    const map = new Map<DateKey, EventColor[]>();
+    for (const event of events) if (event.color) map.set(event.start, [...(map.get(event.start) ?? []), event.color].slice(0, 3));
+    return map;
+  }, [events]);
 
   const goMonth = (delta: number) => setMonth(shiftMonth(year, month, delta));
   const selectedEvents = events.filter((event) => event.start <= selected && event.end >= selected);
@@ -246,6 +260,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
                 colors={colors}
                 zone={guard.zones.get(day)}
                 alerts={alertsByDay.get(day) ?? []}
+                dots={dotsByDay.get(day) ?? []}
                 inMonth={isInMonth(day, year, month)}
                 isToday={day === today}
                 isSelected={day === selected}
@@ -280,7 +295,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
           ))}
         {selectedEvents.length === 0 ? (
           <Text style={[styles.detailText, { color: colors.muted }]}>
-            {k.access === 'granted' ? 'この日の予定はありません' : '予定は表示できません'}
+            {k.access === 'granted' ? 'この日の予定はありません' : 'カレンダーは使っていません。予定はこのアプリの中だけに入れられます。'}
           </Text>
         ) : (
           selectedEvents.map((event) => {
@@ -294,13 +309,19 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
               <View key={event.id} style={styles.eventRow}>
                 <View style={styles.eventHead}>
                   {alert && <AlertMark colors={colors} strong={alert.grade === 'A'} />}
+                  {event.color && <View style={[styles.eventDot, { backgroundColor: colors.event[event.color] }]} />}
                   <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title || '（タイトルなし）'}</Text>
+                  {event.manual && <Text style={[styles.manualLabel, { color: colors.muted }]}>このアプリだけ</Text>}
                   {alert && (
                     <Text style={[styles.gradeLabel, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
                       {alert.grade === 'A' ? 'A 要注意' : 'B 注意'}
                     </Text>
                   )}
                 </View>
+                {timeRange(event) && <Text style={[styles.detailText, { color: colors.muted }]}>{timeRange(event)}</Text>}
+                {event.manual && (
+                  <Button colors={colors} kind="danger" label={`「${event.title}」を消す`} onPress={() => k.removeManualEvent(event.id)} />
+                )}
                 {note ? (
                   <Text style={[styles.detailText, { color: colors.text }]}>{note}</Text>
                 ) : (
@@ -314,6 +335,12 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
             );
           })
         )}
+        <ManualEventForm
+          colors={colors}
+          day={selected}
+          events={k.manualEvents}
+          onAdd={(event) => k.addManualEvent({ ...event, date: selected })}
+        />
         {hidden ? null : isRecorded ? (
           <Button colors={colors} kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
         ) : selected <= today ? (
@@ -337,6 +364,121 @@ const ANSWERS: [Answer, string][] = [
   ['normal', 'ふつう'],
   ['easy', '平気だった'],
 ];
+
+/** このアプリの中だけに予定を入れる。カレンダーを使わない人も、重なりのお知らせを受けられる */
+function ManualEventForm({
+  colors,
+  day,
+  events,
+  onAdd,
+}: {
+  colors: Colors;
+  day: DateKey;
+  /** 入れてある予定。同じ名前の予定は、前に選んだ色を使う（「会議」はあお、など） */
+  events: CalendarEvent[];
+  onAdd: (event: Omit<ManualEventInput, 'date'>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [weight, setWeight] = useState<Weight>('heavy');
+  const [picked, setPicked] = useState<EventColor | null>(null);
+  const [timed, setTimed] = useState(false);
+  const [start, setStart] = useState(10 * 60);
+  const [end, setEnd] = useState(11 * 60);
+  if (!open) return <Button colors={colors} kind="secondary" label="この日に予定を入れる" onPress={() => setOpen(true)} />;
+  const name = normalizeTitle(title.trim());
+  const remembered = [...events].reverse().find((event) => event.color && normalizeTitle(event.title) === name)?.color;
+  const color = picked ?? remembered ?? 'blue';
+  const changeStart = (minutes: number) => {
+    setStart(minutes);
+    if (end <= minutes) setEnd(Math.min(minutes + 60, 24 * 60 - 5));
+  };
+  const add = () => {
+    if (!title.trim()) return;
+    const time = timed ? { startMinutes: start, ...(end > start ? { durationMinutes: end - start } : {}) } : {};
+    onAdd({ title, weight, color, ...time });
+    setTitle('');
+    setPicked(null);
+    setTimed(false);
+    setOpen(false);
+  };
+  return (
+    <View style={styles.manualForm}>
+      <Text style={[styles.reviewHelp, { color: colors.muted }]}>このアプリの中だけに残し、iPhone のカレンダーには書きません。</Text>
+      <TextInput
+        accessibilityLabel={`${dayTitle(day)}に入れる予定の名前`}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="予定の名前"
+        placeholderTextColor={colors.muted}
+        returnKeyType="done"
+        style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
+      />
+      <View style={styles.reviewChips}>
+        {(
+          [
+            ['heavy', '重い予定'],
+            ['normal', 'ふつうの予定'],
+          ] as const
+        ).map(([value, label]) => (
+          <Pressable
+            key={value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: weight === value }}
+            onPress={() => setWeight(value)}
+            style={[
+              styles.reviewChip,
+              weight === value ? { borderColor: colors.pink, backgroundColor: colors.pinkSoft } : { borderColor: colors.line },
+            ]}
+          >
+            <Text style={[styles.reviewChipText, { color: weight === value ? colors.pinkText : colors.muted }]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.timeRow}>
+        <Text style={[styles.detailText, { color: colors.text }]}>時間を入れる</Text>
+        <Switch
+          accessibilityLabel="時間を入れる"
+          value={timed}
+          onValueChange={setTimed}
+          trackColor={{ true: colors.pink, false: colors.line }}
+        />
+      </View>
+      {timed && (
+        <>
+          <TimeField colors={colors} label="開始" minutes={start} onChange={changeStart} />
+          <TimeField colors={colors} label="終了" minutes={end} onChange={setEnd} />
+        </>
+      )}
+      <Text style={[styles.detailText, { color: colors.text }]}>色</Text>
+      <View style={styles.colorChips}>
+        {EVENT_COLORS.map((value) => (
+          <Pressable
+            key={value}
+            accessibilityRole="button"
+            accessibilityLabel={`色を${COLOR_NAMES[value]}にする`}
+            accessibilityState={{ selected: color === value }}
+            onPress={() => setPicked(value)}
+            hitSlop={6}
+            style={[styles.colorChip, { borderColor: color === value ? colors.text : 'transparent' }]}
+          >
+            <View style={[styles.colorFill, { backgroundColor: colors.event[value] }]} />
+          </Pressable>
+        ))}
+      </View>
+      <Button colors={colors} label="入れる" onPress={add} disabled={!title.trim()} />
+    </View>
+  );
+}
+
+const COLOR_NAMES: Record<EventColor, string> = {
+  blue: 'あお',
+  green: 'みどり',
+  orange: 'オレンジ',
+  purple: 'むらさき',
+  yellow: 'きいろ',
+  gray: 'グレー',
+};
 
 /** 終わった予定に「どうだった？」と聞く（3件まで）。答えから予定の重さを覚えていく */
 function ReviewCard({
@@ -455,6 +597,7 @@ function DayCell({
   colors,
   zone,
   alerts,
+  dots,
   inMonth,
   isToday,
   isSelected,
@@ -464,6 +607,8 @@ function DayCell({
   colors: Colors;
   zone: ZoneDay | undefined;
   alerts: ConflictAlert[];
+  /** このアプリに入れた予定の色 */
+  dots: EventColor[];
   inMonth: boolean;
   isToday: boolean;
   isSelected: boolean;
@@ -474,7 +619,7 @@ function DayCell({
   const heavyColor = zone?.zone === 'heavy' && zone.predicted && !zone.periodDay ? colors.heavyEdge : colors.heavy;
   const zoneColor = zone?.zone === 'heavy' ? heavyColor : zone?.zone === 'pms' ? colors.pms : 'transparent';
   const background = isToday ? colors.pink : zoneColor;
-  const label = [dayTitle(day), zone ? zoneLabel(zone) : null, alerts.length ? '予定と重なっています' : null]
+  const label = [dayTitle(day), zone ? zoneLabel(zone) : null, alerts.length ? '予定と重なっています' : dots.length ? 'このアプリの予定あり' : null]
     .filter(Boolean)
     .join('、');
 
@@ -496,7 +641,17 @@ function DayCell({
       >
         {fromDateKey(day).getDate()}
       </Text>
-      <View style={styles.cellMark}>{alerts.length > 0 && <AlertMark colors={colors} strong={red} size={12} />}</View>
+      <View style={styles.cellMark}>
+        {alerts.length > 0 ? (
+          <AlertMark colors={colors} strong={red} size={12} />
+        ) : (
+          <View style={styles.cellDots}>
+            {dots.map((dot, i) => (
+              <View key={i} style={[styles.cellDot, { backgroundColor: colors.event[dot] }]} />
+            ))}
+          </View>
+        )}
+      </View>
     </Pressable>
   );
 }
@@ -598,5 +753,15 @@ const styles = StyleSheet.create({
   eventRow: { gap: 2 },
   eventHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   eventTitle: { fontSize: 15, fontWeight: '600' },
+  manualLabel: { fontSize: 12 },
+  manualForm: { gap: 8 },
+  eventDot: { width: 10, height: 10, borderRadius: 5 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
+  colorChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  colorChip: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  colorFill: { width: 30, height: 30, borderRadius: 15 },
+  cellDots: { flexDirection: 'row', gap: 2 },
+  cellDot: { width: 5, height: 5, borderRadius: 2.5 },
+  input: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: fonts.regular },
   footnote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
 });

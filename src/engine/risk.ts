@@ -14,7 +14,7 @@ export const DEFAULT_KEYWORDS: RiskKeywords = {
   medium: ['会議', '打ち合わせ', '打合せ', 'ミーティング', '飲み会', '美容院', '残業', 'ワンオペ'],
 };
 
-export type RiskInput = { title: string; allDay: boolean; holiday?: boolean };
+export type RiskInput = { title: string; allDay: boolean; holiday?: boolean; weight?: Weight };
 
 // 全角・半角や大文字・小文字の違いで取りこぼさないようにそろえる
 export const normalizeTitle = (text: string) => text.normalize('NFKC').toLowerCase();
@@ -26,6 +26,7 @@ export const termOf = (title: string) => normalizeTitle(title).replace(/\s/g, ''
 const DAY_OFF = /有給|休暇|代休|\boff\b/;
 
 export function classifyRisk(event: RiskInput, keywords: RiskKeywords = DEFAULT_KEYWORDS): Risk {
+  if (event.weight) return event.weight === 'heavy' ? 'high' : 'medium';
   const learned = keywords.learned?.get(termOf(event.title));
   if (learned) return learned === 'heavy' ? 'high' : 'medium';
   const title = normalizeTitle(event.title);

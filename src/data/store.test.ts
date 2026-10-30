@@ -6,6 +6,7 @@ import { DEFAULT_ZONE_SETTINGS } from '../engine/zones';
 import type { Database } from './database';
 import { migrate, SCHEMA_VERSION } from './migrations';
 import {
+  addManualEvent,
   addPeriodStart,
   answerReview,
   deferAlert,
@@ -35,6 +36,7 @@ import {
   loadState,
   readExport,
   recordPeriodStart,
+  removeManualEvent,
   removePeriodStart,
   removeTitleWeight,
   restoreData,
@@ -186,6 +188,44 @@ describe('"今日は決めない" on a notification', () => {
     expect((await loadState(db)).deferrals).toEqual(new Map([['trip|2026-10-27', '2026-10-21']]));
     await deleteAllData(db);
     expect((await loadState(db)).deferrals.size).toBe(0);
+  });
+});
+
+describe('events put in this app only', () => {
+  it('keeps them apart from calendar events, and removes them by id or with all data', async () => {
+    await addManualEvent(db, { title: ' 発表 ', date: '2026-10-27', weight: 'heavy', color: 'orange', startMinutes: 840, durationMinutes: 90 });
+    await addManualEvent(db, { title: '面談', date: '2026-10-20', weight: 'normal', color: 'blue' });
+    const { manualEvents } = await loadState(db);
+    expect(manualEvents).toEqual([
+      { id: 'manual:2', title: '面談', start: '2026-10-20', end: '2026-10-20', allDay: false, manual: true, weight: 'normal', color: 'blue' },
+      {
+        id: 'manual:1',
+        title: '発表',
+        start: '2026-10-27',
+        end: '2026-10-27',
+        allDay: false,
+        manual: true,
+        weight: 'heavy',
+        color: 'orange',
+        startMinutes: 840,
+        durationMinutes: 90,
+      },
+    ]);
+    // カレンダーの予定のIDでは消さない
+    await removeManualEvent(db, '2');
+    await removeManualEvent(db, 'manual:2');
+    expect((await loadState(db)).manualEvents.map((event) => event.title)).toEqual(['発表']);
+    await deleteAllData(db);
+    expect((await loadState(db)).manualEvents).toEqual([]);
+  });
+
+  it('rejects an empty name, a broken date, an unknown color or a time outside the day', async () => {
+    const event = { title: '発表', date: '2026-10-27', weight: 'heavy', color: 'blue' } as const;
+    await expect(addManualEvent(db, { ...event, title: '  ' })).rejects.toThrow();
+    await expect(addManualEvent(db, { ...event, date: '2026-13-01' })).rejects.toThrow();
+    await expect(addManualEvent(db, { ...event, color: 'pink' as never })).rejects.toThrow();
+    await expect(addManualEvent(db, { ...event, startMinutes: 24 * 60 })).rejects.toThrow();
+    await expect(addManualEvent(db, { ...event, startMinutes: 600, durationMinutes: 0 })).rejects.toThrow();
   });
 });
 
