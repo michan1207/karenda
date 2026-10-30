@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
-import { AccuracyReport, DateKey, PMS_CYCLES, PmsEstimate, RiskKeywords } from '../engine';
+import { AccuracyReport, DateKey, PMS_CYCLES, PmsEstimate, predictCycle, RiskKeywords } from '../engine';
 import BackupPanel from './BackupPanel';
 import { Button, Decorations, Notice, Ribbon, Section, Text } from './components';
-import { dayTitle, shortDate } from './format';
+import { dayTitle, fullDate, shortDate } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
@@ -15,6 +15,8 @@ export default function SettingsScreen({ k, today }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const learned = k.titleWeights.filter((entry) => entry.weight);
   const { n, meanAbsErrorDays: mean, within1DayRate: rate, latest } = k.accuracy;
+  const excluded = predictCycle(k.starts)?.excluded ?? [];
+  const reasonName = (reason: 'tooShort' | 'tooLong') => (reason === 'tooShort' ? '間隔が短すぎる' : '間隔が長すぎる');
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [lockFailed, setLockFailed] = useState(false);
 
@@ -184,6 +186,20 @@ export default function SettingsScreen({ k, today }: Props) {
           ))
         )}
       </Section>
+
+      {excluded.length > 0 && (
+        <Section colors={colors} title="予測に使っていない間隔">
+          <Text style={[styles.help, { color: colors.muted }]}>
+            {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
+            ）。15日より短い・45日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。記録は消えていません。
+          </Text>
+          {excluded.map((gap) => (
+            <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>
+              {fullDate(gap.from)}〜{fullDate(gap.to)}　{gap.days}日（{reasonName(gap.reason)}）
+            </Text>
+          ))}
+        </Section>
+      )}
 
       <Section colors={colors} title="予測の当たり具合">
         {latest && <Text style={[styles.rowLabel, { color: colors.text }]}>{latestLine(latest)}</Text>}

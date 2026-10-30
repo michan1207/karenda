@@ -8,6 +8,7 @@ import {
   CalendarSource,
   Database,
   deleteAllData,
+  dismissConsult as saveConsultDismissed,
   encryptBackup,
   ExportedData,
   getZoneSettings,
@@ -100,6 +101,8 @@ export type Karenda = StoredState & {
   unlock(): Promise<void>;
   /** オンにする時は先に本人確認をし、通らなければオンにしない（false を返す） */
   setLock(on: boolean): Promise<boolean>;
+  /** 受診の目安カードを閉じる。その月（YYYY-MM）はもう出さない */
+  dismissConsult(month: string): Promise<void>;
   /** 「わかった」。未確認のお知らせを確認済みにする */
   dismiss(eventId: string, date: DateKey): Promise<void>;
   /** 何をしたかを付けて対応済みにする。未確認なら確認済みを経てから進める */
@@ -123,6 +126,7 @@ const INITIAL_STATE: StoredState = {
   settings: DEFAULT_ZONE_SETTINGS,
   pms: DEFAULT_PMS,
   accuracy: buildReport([]),
+  consultDismissed: null,
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
   reviewed: new Set(),
@@ -280,6 +284,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       if (enabled) await requestNotifyAccess();
     },
     setHideMode: (on) => withDb((opened) => saveHideMode(opened, on)),
+    dismissConsult: (month) => withDb((opened) => saveConsultDismissed(opened, month)),
     setMetrics: (on) => withDb((opened) => setMetricsEnabled(opened, on)),
     track,
     authenticator,

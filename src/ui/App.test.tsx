@@ -10,6 +10,7 @@ import {
   BackupFiles,
   CalendarSource,
   Database,
+  dismissConsult,
   encryptBackup,
   exportData,
   getConflictStatuses,
@@ -543,6 +544,44 @@ describe('asking how past events went', () => {
     await act(async () => answer({ eventId: 'r3', title: '飲み会', date: '2026-10-23', phase: 'pms', risk: 'medium' }, 'easy'));
     await waitFor(() => expect(screen.queryByText('10月23日（金）「飲み会」')).toBeNull());
     expect(await listReviewed(db)).toEqual(new Set(['r3|2026-10-23']));
+  });
+});
+
+describe('records that look irregular', () => {
+  // 間隔 28・60・28・10日。60日と10日は予測に使わない
+  const IRREGULAR = ['2026-05-01', '2026-05-29', '2026-07-28', '2026-08-25', '2026-09-04'];
+  const CONSULT = /婦人科に相談するという目安もあります。判断は医師にご相談ください。/;
+
+  it('shows a neutral card on the calendar until it is closed for the month', async () => {
+    const { db } = await setup({ starts: IRREGULAR });
+    expect(await screen.findByText(CONSULT)).toBeTruthy();
+    expect(screen.getByText(/15日より短い・45日より長い間隔が何度かあります。/)).toBeTruthy();
+    await fireEvent.press(screen.getByText('今月はもう出さない'));
+    await waitFor(() => expect(screen.queryByText(CONSULT)).toBeNull());
+    expect((await loadState(db)).consultDismissed).toBe('2026-10');
+  });
+
+  it('shows the card again in a later month, but not in hide mode', async () => {
+    await setup({ starts: IRREGULAR, prepare: (db) => dismissConsult(db, '2026-09') });
+    expect(await screen.findByText(CONSULT)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('生理の表示をかくす'));
+    await waitFor(() => expect(screen.queryByText(CONSULT)).toBeNull());
+  });
+
+  it('lists the intervals left out of the prediction, while keeping the records', async () => {
+    await setup({ starts: IRREGULAR });
+    await fireEvent.press(await screen.findByText('設定'));
+    expect(screen.getByText('予測に使っていない間隔')).toBeTruthy();
+    expect(screen.getByText(/2件を予測の計算から外しました（間隔が長すぎる／間隔が短すぎる）/)).toBeTruthy();
+    expect(screen.getByText('2026年5月29日〜2026年7月28日　60日（間隔が長すぎる）')).toBeTruthy();
+    expect(screen.getByText('2026年8月25日〜2026年9月4日　10日（間隔が短すぎる）')).toBeTruthy();
+    expect(screen.getByText('9月4日（金）〜')).toBeTruthy();
+  });
+
+  it('has no such section when nothing was left out', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByText('設定'));
+    expect(screen.queryByText('予測に使っていない間隔')).toBeNull();
   });
 });
 

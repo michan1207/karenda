@@ -7,6 +7,8 @@ import {
   Answer,
   computeGuard,
   ConflictAlert,
+  consultReasons,
+  consultText,
   DateKey,
   fromDateKey,
   gradeOf,
@@ -122,6 +124,8 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
   );
   const hidden = k.hideMode;
   const guard = hidden ? HIDDEN : computed;
+  const consult = useMemo(() => consultReasons(k.starts), [k.starts]);
+  const thisMonth = today.slice(0, 7);
 
   const alertsByDay = useMemo(() => {
     const map = new Map<DateKey, ConflictAlert[]>();
@@ -196,6 +200,14 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
       )}
 
       {!hidden && reviews.length > 0 && <ReviewCard colors={colors} reviews={reviews} onAnswer={k.answerReview} />}
+
+      {!hidden && consult.length > 0 && k.consultDismissed !== thisMonth && (
+        <Card colors={colors}>
+          <Text style={[styles.digestTitle, { color: colors.text }]}>周期の記録について</Text>
+          <Text style={[styles.detailText, { color: colors.text }]}>{consultText(consult)}</Text>
+          <Button colors={colors} kind="secondary" label="今月はもう出さない" onPress={() => k.dismissConsult(thisMonth)} />
+        </Card>
+      )}
 
       {!hidden && <MascotSays colors={colors} text={mascotLine(phase, k.starts.length > 0, selected)} />}
 

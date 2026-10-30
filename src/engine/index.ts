@@ -2,6 +2,7 @@ export * from './accuracy';
 export * from './actions';
 export * from './conflicts';
 export * from './conflictState';
+export * from './consult';
 export * from './cycle';
 export * from './date';
 export * from './digest';
