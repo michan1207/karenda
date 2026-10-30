@@ -38,6 +38,14 @@ describe('toCalendarEvent', () => {
     expect(event).toMatchObject({ start: '2026-10-24', end: '2026-10-25' });
   });
 
+  // テストはチリの時間帯で動く（jest.timezone.js）。2026-09-06 は0時が無く、1時から始まる
+  it('keeps all-day events on their days when midnight is skipped', () => {
+    const before = toCalendarEvent({ id: 'e', title: '旅行', startDate: local(2026, 9, 5), endDate: local(2026, 9, 7), allDay: true });
+    expect(before).toMatchObject({ start: '2026-09-05', end: '2026-09-06' });
+    const on = toCalendarEvent({ id: 'f', title: '休み', startDate: local(2026, 9, 6), endDate: local(2026, 9, 7), allDay: true });
+    expect(on).toMatchObject({ start: '2026-09-06', end: '2026-09-06' });
+  });
+
   it('separates occurrences of a repeating event', () => {
     const first = toCalendarEvent({ id: 'r', title: '定例', startDate: local(2026, 10, 5, 9), endDate: local(2026, 10, 5, 10), allDay: false });
     const second = toCalendarEvent({ id: 'r', title: '定例', startDate: local(2026, 10, 12, 9), endDate: local(2026, 10, 12, 10), allDay: false });
