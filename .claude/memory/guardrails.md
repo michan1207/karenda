@@ -3,6 +3,7 @@
 入口は `computeGuard({starts, settings, keywords, events, range})`（`guard.ts`）→ `{prediction, zones, alerts}`
 
 ## 周期予測（cycle.ts）
+- 当たり具合（accuracy.ts、2026-10-31）: 前の開始日との間が15〜45日の時だけ比べる（記録漏れは数えない）。直近6回、3回未満なら平均と±1日以内率は null（0日と見せない）。誤差0日は「予測どおりでした」
 - 直近6周期の平均。15〜45日以外の間隔は除外（記録漏れ扱い）し、`excluded` に理由（tooShort/tooLong）つきで返す
 - 有効な周期が3未満なら28日±2日の仮予測（`provisional: true`、確信度 low）
 - n回目の予測は `predictedPeriod`。幅は平均±標準偏差（`spread`、最低1日）で固定（先に行くほど広げない）

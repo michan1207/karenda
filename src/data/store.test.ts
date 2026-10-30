@@ -26,10 +26,12 @@ import {
   isOnboarded,
   isReviewAsked,
   listPeriodStarts,
+  listPredictionRecords,
   listReviewed,
   listTitleWeights,
   loadState,
   readExport,
+  recordPeriodStart,
   removePeriodStart,
   removeTitleWeight,
   restoreData,
@@ -285,6 +287,75 @@ describe('PMS length', () => {
   });
 });
 
+describe('prediction records', () => {
+  /** 28日ごとの記録。次は 10-26（±1日）の予測 */
+  async function regular() {
+    for (const start of ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28']) await addPeriodStart(db, start);
+    await loadState(db, new Date(2026, 8, 28, 12));
+  }
+
+  it('compares the waiting prediction once when the next start is recorded', async () => {
+    await regular();
+    expect(await listPredictionRecords(db)).toEqual([
+      { basedOn: '2026-09-28', predictedStart: '2026-10-26', earliest: '2026-10-25', latest: '2026-10-27', confidence: 'medium', actualStart: null, absErrorDays: null },
+    ]);
+    await recordPeriodStart(db, '2026-10-28');
+    await recordPeriodStart(db, '2026-10-28');
+    const state = await loadState(db, new Date(2026, 9, 28, 12));
+    expect(state.accuracy).toEqual({
+      n: 1,
+      meanAbsErrorDays: null,
+      within1DayRate: null,
+      latest: { predictedStart: '2026-10-26', actualStart: '2026-10-28', errorDays: 2 },
+    });
+    // 次の予測が待っている
+    expect((await listPredictionRecords(db)).map((r) => [r.basedOn, r.actualStart])).toEqual([
+      ['2026-09-28', '2026-10-28'],
+      ['2026-10-28', null],
+    ]);
+  });
+
+  it('never rewrites a compared prediction when the prediction changes later', async () => {
+    await regular();
+    await recordPeriodStart(db, '2026-10-28');
+    await loadState(db, new Date(2026, 9, 28, 12));
+    const [compared] = await listPredictionRecords(db);
+    await recordPeriodStart(db, '2026-06-01');
+    await loadState(db, new Date(2026, 9, 29, 12));
+    expect((await listPredictionRecords(db))[0]).toEqual(compared);
+  });
+
+  it('puts a prediction back to waiting when the start it was compared with is removed', async () => {
+    await regular();
+    await recordPeriodStart(db, '2026-10-28');
+    await loadState(db, new Date(2026, 9, 28, 12));
+    await removePeriodStart(db, '2026-10-28');
+    expect(await listPredictionRecords(db)).toMatchObject([{ basedOn: '2026-09-28', actualStart: null, absErrorDays: null }]);
+    await recordPeriodStart(db, '2026-10-27');
+    expect(await listPredictionRecords(db)).toMatchObject([{ actualStart: '2026-10-27', absErrorDays: 1 }]);
+  });
+
+  it('does not compare when a period seems unrecorded, or old starts are entered later', async () => {
+    await regular();
+    await recordPeriodStart(db, '2026-11-23');
+    expect(await listPredictionRecords(db)).toEqual([]);
+
+    await deleteAllData(db);
+    await loadState(db, new Date(2026, 9, 31, 12));
+    await recordPeriodStart(db, '2026-08-03');
+    await loadState(db, new Date(2026, 9, 31, 12));
+    await recordPeriodStart(db, '2026-08-31');
+    expect((await loadState(db, new Date(2026, 9, 31, 12))).accuracy.n).toBe(0);
+    expect(await listPredictionRecords(db)).toEqual([]);
+  });
+
+  it('is cleared with all data', async () => {
+    await regular();
+    await deleteAllData(db);
+    expect(await listPredictionRecords(db)).toEqual([]);
+  });
+});
+
 describe('loadState', () => {
   it('reads everything the screens show in one call', async () => {
     await setOnboarded(db);
@@ -334,7 +405,7 @@ describe('export and delete', () => {
     await addPeriodStart(db, '2026-10-01');
     await expect(
       db.withTransactionAsync(async () => {
-        await removePeriodStart(db, '2026-10-01');
+        await db.runAsync('DELETE FROM period_starts');
         throw new Error('boom');
       }),
     ).rejects.toThrow('boom');

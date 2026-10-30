@@ -1,3 +1,4 @@
+export * from './accuracy';
 export * from './actions';
 export * from './conflicts';
 export * from './conflictState';

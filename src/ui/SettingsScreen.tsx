@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
-import { DateKey, PMS_CYCLES, PmsEstimate, RiskKeywords } from '../engine';
+import { AccuracyReport, DateKey, PMS_CYCLES, PmsEstimate, RiskKeywords } from '../engine';
 import BackupPanel from './BackupPanel';
 import { Button, Decorations, Notice, Ribbon, Section, Text } from './components';
-import { dayTitle } from './format';
+import { dayTitle, shortDate } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
@@ -14,6 +14,7 @@ export default function SettingsScreen({ k, today }: Props) {
   const colors = useColors();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const learned = k.titleWeights.filter((entry) => entry.weight);
+  const { n, meanAbsErrorDays: mean, within1DayRate: rate, latest } = k.accuracy;
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [lockFailed, setLockFailed] = useState(false);
 
@@ -184,6 +185,29 @@ export default function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
+      <Section colors={colors} title="予測の当たり具合">
+        {latest && <Text style={[styles.rowLabel, { color: colors.text }]}>{latestLine(latest)}</Text>}
+        {mean === null || rate === null ? (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            まだ評価できるデータが足りません（n={n}）。生理開始日を記録すると、その前に出していた予測と比べます。
+          </Text>
+        ) : (
+          <>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>平均のズレ</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{mean.toFixed(1)}日</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>±1日以内</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>
+                {n}回中{Math.round(rate * n)}回（{Math.round(rate * 100)}%）
+              </Text>
+            </View>
+            <Text style={[styles.help, { color: colors.muted }]}>直近{n}回（n={n}）の予測と、実際の開始日を比べています。</Text>
+          </>
+        )}
+      </Section>
+
       <Section colors={colors} title="アプリのロック">
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>Face ID でロックする</Text>
@@ -250,6 +274,12 @@ export default function SettingsScreen({ k, today }: Props) {
       </Section>
     </ScrollView>
   );
+}
+
+/** 最後に比べた回。なぐさめも言い訳も付けず、ズレた日数と日付だけ書く */
+function latestLine({ predictedStart, actualStart, errorDays }: NonNullable<AccuracyReport['latest']>): string {
+  if (errorDays === 0) return `前回は予測どおりでした（${shortDate(actualStart)}）。`;
+  return `前回の予測は${Math.abs(errorDays)}日ズレました（予測 ${shortDate(predictedStart)} → 実際 ${shortDate(actualStart)}）。`;
 }
 
 /** 推定の根拠。推定できない間は、あと何がそろえば変わるか */
