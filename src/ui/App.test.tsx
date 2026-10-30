@@ -71,6 +71,7 @@ function fakeNotifier(granted = true) {
     hasAccess: jest.fn(async () => granted),
     replaceAll: jest.fn(async (_plans: NotificationPlan[]) => {}),
     onReviewAnswer: jest.fn((_handler: Parameters<Notifier['onReviewAnswer']>[0]) => () => {}),
+    onDecision: jest.fn((_handler: Parameters<Notifier['onDecision']>[0]) => () => {}),
   } satisfies Notifier;
 }
 
@@ -485,6 +486,40 @@ describe('notifications', () => {
     await fireEvent.press(screen.getAllByText('確認した')[0]);
     await screen.findByText('お知らせ（1）');
     expect(lastPlanDates(notifier)).toEqual(['2026-11-13', '2026-11-17']);
+  });
+
+  it('writes the decision deadline and a concrete step, with buttons for the event', async () => {
+    const { notifier } = await setup();
+    await screen.findByText('お知らせ（2）');
+    const today = notifier.replaceAll.mock.calls.at(-1)![0].find((plan) => plan.date === '2026-10-24')!;
+    expect(today.title).toBe('10/27「福岡出張」の前に');
+    expect(today.body).toMatch(/^今日中に.+間に合います（.+）$/);
+    expect(today.decide).toEqual({ conflicts: [{ eventId: 'trip', date: '2026-10-27' }], fixed: false });
+  });
+
+  it('acts on the notification buttons: checked, see other days, and not today', async () => {
+    const { notifier, db } = await setup();
+    await screen.findByText('お知らせ（2）');
+    const decide = notifier.onDecision.mock.calls.at(-1)![0];
+    await act(async () => decide([{ eventId: 'trip', date: '2026-10-27' }], 'acknowledge'));
+    expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
+
+    await act(async () => decide([{ eventId: 'talk', date: '2026-11-20' }], 'defer'));
+    await waitFor(async () => expect([...(await loadState(db)).deferrals.keys()]).toEqual(['talk|2026-11-20']));
+
+    expect(screen.queryByText('これから30日のお知らせ')).toBeNull();
+    await act(async () => decide([{ eventId: 'talk', date: '2026-11-20' }], 'alternatives'));
+    expect(await screen.findByText('これから30日のお知らせ')).toBeTruthy();
+  });
+
+  it('schedules again at 9:00 local time after the time zone changes', async () => {
+    const { notifier } = await setup();
+    await screen.findByText('お知らせ（2）');
+    const before = notifier.replaceAll.mock.calls.length;
+    const offset = jest.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-540);
+    await act(async () => sendAppState('active'));
+    offset.mockRestore();
+    expect(notifier.replaceAll.mock.calls.length).toBeGreaterThan(before);
   });
 
   it('clears all reminders when turned off in settings', async () => {

@@ -8,6 +8,7 @@ import { migrate, SCHEMA_VERSION } from './migrations';
 import {
   addPeriodStart,
   answerReview,
+  deferAlert,
   deleteAllData,
   dismissConsult,
   getConflictStatuses,
@@ -175,6 +176,16 @@ describe('consult card', () => {
     expect((await loadState(db)).consultDismissed).toBe('2026-10');
     await deleteAllData(db);
     expect(await getConsultDismissed(db)).toBeNull();
+  });
+});
+
+describe('"今日は決めない" on a notification', () => {
+  it('keeps only the first reminder day per event, until all data is deleted', async () => {
+    await deferAlert(db, 'trip', '2026-10-27', '2026-10-21');
+    await deferAlert(db, 'trip', '2026-10-27', '2026-10-22');
+    expect((await loadState(db)).deferrals).toEqual(new Map([['trip|2026-10-27', '2026-10-21']]));
+    await deleteAllData(db);
+    expect((await loadState(db)).deferrals.size).toBe(0);
   });
 });
 

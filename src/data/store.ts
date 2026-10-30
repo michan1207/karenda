@@ -198,6 +198,17 @@ export async function answerReview(db: Database, target: ReviewTarget, answer: A
   });
 }
 
+/** 通知の「今日は決めない」。同じ予定は最初の1回だけ（もう一度押しても、知らせ直しは増やさない） */
+export async function deferAlert(db: Database, eventId: string, date: DateKey, remindOn: DateKey): Promise<void> {
+  await db.runAsync('INSERT OR IGNORE INTO deferred_alerts (event_id, date, remind_on) VALUES (?, ?, ?)', eventId, date, remindOn);
+}
+
+/** 「今日は決めない」を押した予定（`statusKey`）と、もう一度知らせる日 */
+export async function listDeferrals(db: Database): Promise<Map<string, DateKey>> {
+  const rows = await db.getAllAsync<{ event_id: string; date: string; remind_on: string }>('SELECT event_id, date, remind_on FROM deferred_alerts');
+  return new Map(rows.map((row) => [statusKey(row.event_id, row.date), row.remind_on]));
+}
+
 /** お知らせの状態。未確認は保存しない（行が無い） */
 export async function getConflictStatuses(db: Database): Promise<Map<string, ConflictStatus>> {
   const rows = await db.getAllAsync<{ event_id: string; date: string; state: ConflictState; resolution: Resolution | null }>(
@@ -254,6 +265,8 @@ export type StoredState = {
   accuracy: AccuracyReport;
   /** 受診の目安カードを閉じた月（YYYY-MM） */
   consultDismissed: string | null;
+  /** 通知で「今日は決めない」を押した予定（`statusKey`）と、もう一度知らせる日 */
+  deferrals: Map<string, DateKey>;
   /** 覚えた重さ（learned）も入れてある */
   keywords: RiskKeywords;
   /** 覚えた予定の重さ（設定の一覧用） */
@@ -298,6 +311,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     pms,
     accuracy: buildReport(await listPredictionRecords(db)),
     consultDismissed: await getConsultDismissed(db),
+    deferrals: await listDeferrals(db),
     keywords,
     titleWeights,
     reviewed,
@@ -401,6 +415,7 @@ export async function deleteAllData(db: Database): Promise<void> {
       DELETE FROM title_weights;
       DELETE FROM event_reviews;
       DELETE FROM prediction_records;
+      DELETE FROM deferred_alerts;
     `);
     await seedDefaults(db);
   });

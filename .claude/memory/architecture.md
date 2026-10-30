@@ -42,7 +42,9 @@
 
 ## 通知（expo-notifications）
 - ローカル通知のみ（`notifier.ts`）。`replaceAll` で全取消→再予約。毎朝 `NOTIFY_HOUR`=9時
-- `Notifier` 型で差し替え可能。`onReviewAnswer` は通知のボタン（カテゴリ `review`）の答えを渡す。起動のきっかけになった分は `getLastNotificationResponse` で拾って消す
+- `Notifier` 型で差し替え可能。`onReviewAnswer` は「どうだった？」のボタン（カテゴリ `review`）、`onDecision` は重なる予定のボタン（`decide`: 確認した/代替日を見る/今日は決めない、動かせない予定だけなら `decideFixed` で代替日なし）。起動のきっかけになった分は `getLastNotificationResponse` で拾い、受け取った側だけが消す（`listen`）
+- 確認した→確認済み、今日は決めない→版7の `deferred_alerts(event_id, date, remind_on)` に翌日を1回だけ（INSERT OR IGNORE）、代替日を見る→`alertsRequested` が増えて App がお知らせタブを開く
+- タイムゾーンが変わったら、戻った時（AppState active）に `getTimezoneOffset` の変化で予約し直す
 
 ## レビュー依頼（expo-store-review）
 - 開始日が3つそろい最新日を記録した直後に1回だけ（`shouldAskReview`）。`ReviewPrompt` 型で差し替え可能

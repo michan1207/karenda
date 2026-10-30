@@ -7,10 +7,12 @@ import {
   BackupFiles,
   CalendarSource,
   Database,
+  deferAlert,
   deleteAllData,
   dismissConsult as saveConsultDismissed,
   encryptBackup,
   ExportedData,
+  getConflictStatuses,
   getZoneSettings,
   exportData,
   isReviewAsked,
@@ -39,6 +41,7 @@ import {
   StoredState,
 } from '../data';
 import {
+  addDays,
   advanceStatus,
   buildReport,
   Answer,
@@ -53,6 +56,7 @@ import {
   shouldAskReview,
   statusOf,
   TitleWeight,
+  toDateKey,
   Weight,
   ZoneSettings,
 } from '../engine';
@@ -76,6 +80,8 @@ export type Karenda = StoredState & {
   notifier: Notifier;
   /** 端末の通知の許可 */
   notifyAccess: Access;
+  /** 通知の「代替日を見る」を押した回数。増えたらお知らせを開く */
+  alertsRequested: number;
   finishOnboarding(): Promise<void>;
   addStart(day: DateKey): Promise<void>;
   removeStart(day: DateKey): Promise<void>;
@@ -127,6 +133,7 @@ const INITIAL_STATE: StoredState = {
   pms: DEFAULT_PMS,
   accuracy: buildReport([]),
   consultDismissed: null,
+  deferrals: new Map(),
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
   reviewed: new Set(),
@@ -139,6 +146,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
   const [access, setAccess] = useState<Access>('checking');
   const [notifyAccess, setNotifyAccess] = useState<Access>('checking');
   const [stored, setStored] = useState<StoredState>(INITIAL_STATE);
+  const [alertsRequested, setAlertsRequested] = useState(0);
 
   const reload = useCallback(async (opened: Database) => {
     const loaded = await loadState(opened);
@@ -241,6 +249,24 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     });
   }, [db, notifier, reload]);
 
+  // 重なる予定の通知のボタン。確認したら確認済みに、決めないなら次の日にもう一度だけ知らせる
+  useEffect(() => {
+    if (!db) return;
+    return notifier.onDecision((conflicts, decision) => {
+      if (decision === 'alternatives') return setAlertsRequested((count) => count + 1);
+      const tomorrow = addDays(toDateKey(new Date()), 1);
+      (async () => {
+        const statuses = await getConflictStatuses(db);
+        for (const { eventId, date } of conflicts) {
+          const current = statusOf(statuses, eventId, date);
+          if (decision === 'defer') await deferAlert(db, eventId, date, tomorrow);
+          else if (current.state === 'unreviewed') await saveConflictStatus(db, eventId, date, advanceStatus(current, 'acknowledged'));
+        }
+        await reload(db);
+      })().catch(() => {});
+    });
+  }, [db, notifier, reload]);
+
   const withDb = useCallback(
     async (task: (opened: Database) => Promise<void>) => {
       if (!db) return;
@@ -257,6 +283,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     calendar,
     notifier,
     notifyAccess,
+    alertsRequested,
     finishOnboarding: async () => {
       await withDb(setOnboarded);
       track('onboarding_completed');

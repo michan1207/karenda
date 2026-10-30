@@ -75,6 +75,45 @@ describe('asking how an event went', () => {
   });
 });
 
+describe('deciding about an overlapping event', () => {
+  const conflicts = [{ eventId: 'trip', date: '2026-10-27' }];
+  const response = (actionIdentifier: string) =>
+    ({ actionIdentifier, notification: { request: { content: { data: { decide: conflicts } } } } }) as never;
+
+  it('schedules it with the decision buttons, without "代替日を見る" when nothing can move', async () => {
+    await deviceNotifier.replaceAll(
+      [
+        { id: 'guard-2026-10-25', date: '2026-10-25', title: 't', body: 'b', decide: { conflicts, fixed: false } },
+        { id: 'guard-2026-10-26', date: '2026-10-26', title: 't', body: 'b', decide: { conflicts, fixed: true } },
+      ],
+      new Date(2026, 9, 24),
+    );
+    const contents = mocked.scheduleNotificationAsync.mock.calls.map(([request]) => request.content);
+    expect(contents).toEqual([
+      { title: 't', body: 'b', categoryIdentifier: 'decide', data: { decide: conflicts } },
+      { title: 't', body: 'b', categoryIdentifier: 'decideFixed', data: { decide: conflicts } },
+    ]);
+  });
+
+  it('passes on the button pressed, even when the review listener saw the opening response first', () => {
+    mocked.getLastNotificationResponse.mockReturnValue(response('defer'));
+    deviceNotifier.onReviewAnswer(jest.fn());
+    expect(mocked.clearLastNotificationResponse).not.toHaveBeenCalled();
+    const handler = jest.fn();
+    deviceNotifier.onDecision(handler);
+    expect(mocked.clearLastNotificationResponse).toHaveBeenCalled();
+    mocked.getLastNotificationResponse.mockReturnValue(null);
+
+    const listener = mocked.addNotificationResponseReceivedListener.mock.calls[1][0];
+    listener(response('alternatives'));
+    listener(response('expo.modules.notifications.actions.DEFAULT'));
+    expect(handler.mock.calls).toEqual([
+      [conflicts, 'defer'],
+      [conflicts, 'alternatives'],
+    ]);
+  });
+});
+
 describe('deviceNotifier.requestAccess', () => {
   it('does not ask again when already granted', async () => {
     mocked.getPermissionsAsync.mockResolvedValue({ granted: true, canAskAgain: true } as never);
