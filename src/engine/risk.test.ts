@@ -21,6 +21,16 @@ describe('classifyRisk', () => {
     expect(classifyRisk({ title: '買い物', allDay: true })).toBe('high');
   });
 
+  it.each(['有給', '夏季休暇', '代休', 'OFF', 'ＯＦＦ日'])('does not treat an all-day day off (%s) as heavy', (title) => {
+    expect(classifyRisk({ title, allDay: true })).toBe('low');
+  });
+
+  it('does not treat public holidays as heavy, but still reads their words', () => {
+    expect(classifyRisk({ title: '文化の日', allDay: true, holiday: true })).toBe('low');
+    expect(classifyRisk({ title: 'office move', allDay: true })).toBe('high');
+    expect(classifyRisk({ title: '有給で旅行', allDay: true })).toBe('high');
+  });
+
   it('prefers high when keywords of both levels appear', () => {
     expect(classifyRisk({ title: '会議でプレゼン', allDay: false })).toBe('high');
   });

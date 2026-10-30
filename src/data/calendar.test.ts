@@ -1,7 +1,25 @@
 import app from '../../app.json';
-import { toCalendarEvent } from './calendar';
+import { deviceCalendar, toCalendarEvent } from './calendar';
 
-jest.mock('expo-calendar/legacy', () => ({}));
+jest.mock('expo-calendar/legacy', () => ({
+  EntityTypes: { EVENT: 'event' },
+  getCalendarsAsync: async () => [
+    { id: 'work', title: '仕事' },
+    { id: 'jp', title: '日本の祝日' },
+  ],
+  getEventsAsync: async () => [
+    { id: 'h', calendarId: 'jp', title: '文化の日', startDate: new Date(2026, 10, 3), endDate: new Date(2026, 10, 4), allDay: true },
+    { id: 'w', calendarId: 'work', title: '棚卸し', startDate: new Date(2026, 10, 3), endDate: new Date(2026, 10, 4), allDay: true },
+  ],
+}));
+
+it('marks events from a holiday calendar so they are not treated as heavy', async () => {
+  const events = await deviceCalendar.getEvents('2026-11-01', '2026-11-30');
+  expect(events.map((event) => [event.title, event.holiday ?? false])).toEqual([
+    ['文化の日', true],
+    ['棚卸し', false],
+  ]);
+});
 
 // expo-calendar は Android で読み取りにも READ と WRITE の両方の許可を求める。WRITE を塞ぐと許可が通らない
 it('does not block calendar write permission on Android', () => {

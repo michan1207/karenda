@@ -13,6 +13,7 @@ type Props = { k: Karenda; today: DateKey };
 export default function SettingsScreen({ k, today }: Props) {
   const colors = useColors();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const learned = k.titleWeights.filter((entry) => entry.weight);
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [lockFailed, setLockFailed] = useState(false);
 
@@ -82,10 +83,50 @@ export default function SettingsScreen({ k, today }: Props) {
 
       <Section colors={colors} title="予定の重さを決める言葉">
         <Text style={[styles.help, { color: colors.muted }]}>
-          予定のタイトルにこの言葉が入っていると、重い予定として扱います。終日の予定は「重い」になります。
+          予定のタイトルにこの言葉が入っていると、重い予定として扱います。終日の予定は「重い」になります（有給・休暇・代休・OFF の予定と祝日は除きます）。
         </Text>
         <KeywordList colors={colors} level="high" label="重い予定" keywords={k.keywords} onChange={k.setKeywords} />
         <KeywordList colors={colors} level="medium" label="ふつうの予定" keywords={k.keywords} onChange={k.setKeywords} />
+      </Section>
+
+      <Section colors={colors} title="覚えた予定">
+        <Text style={[styles.help, { color: colors.muted }]}>
+          予定のあとの「どうだった？」で同じ答えが2回続くと、その予定の重さを覚えて、上の言葉より優先します。重さを押すと直せます。
+        </Text>
+        {learned.length === 0 ? (
+          <Text style={[styles.help, { color: colors.muted }]}>まだありません。</Text>
+        ) : (
+          learned.map((entry) => {
+            const now = entry.weight === 'heavy' ? '重い' : 'ふつう';
+            const next = entry.weight === 'heavy' ? 'normal' : 'heavy';
+            return (
+              <View key={entry.term} style={styles.row}>
+                <View style={styles.learnedLabel}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>{entry.label}</Text>
+                  <Text style={[styles.help, { color: colors.muted }]}>
+                    {entry.source === 'user' ? '自分で決めた' : `${entry.observations}回の答えから`}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`「${entry.label}」は${now}。押すと${next === 'heavy' ? '重い' : 'ふつう'}にする`}
+                  onPress={() => k.setTitleWeight(entry, next)}
+                  style={[styles.chip, { backgroundColor: colors.pinkSoft }]}
+                >
+                  <Text style={[styles.chipText, { color: colors.pinkText }]}>{now}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`「${entry.label}」の重さを忘れる`}
+                  onPress={() => k.removeTitleWeight(entry.term)}
+                  hitSlop={8}
+                >
+                  <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
+                </Pressable>
+              </View>
+            );
+          })
+        )}
       </Section>
 
       <Section colors={colors} title="生理の記録">
@@ -235,7 +276,7 @@ function KeywordList({
   onChange,
 }: {
   colors: Colors;
-  level: keyof RiskKeywords;
+  level: 'high' | 'medium';
   label: string;
   keywords: RiskKeywords;
   onChange: (keywords: RiskKeywords) => void;
@@ -296,6 +337,7 @@ const styles = StyleSheet.create({
   help: { fontSize: 13, lineHeight: 19 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   rowLabel: { fontSize: 15, flexShrink: 1 },
+  learnedLabel: { flex: 1 },
   remove: { fontSize: 14, fontWeight: '600' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stepButton: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },

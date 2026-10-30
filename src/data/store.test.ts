@@ -1,3 +1,4 @@
+import { learnWeight, overrideWeight } from '../engine/learning';
 import { DEFAULT_KEYWORDS } from '../engine/risk';
 import { DEFAULT_ZONE_SETTINGS } from '../engine/zones';
 import type { Database } from './database';
@@ -22,10 +23,13 @@ import {
   isOnboarded,
   isReviewAsked,
   listPeriodStarts,
+  listTitleWeights,
   loadState,
   readExport,
   removePeriodStart,
+  removeTitleWeight,
   restoreData,
+  saveTitleWeight,
   setHideMode,
   setKeywords,
   setLockEnabled,
@@ -185,6 +189,25 @@ describe('dismissed alerts', () => {
     await migrate(old);
     expect((await getConflictStatuses(old)).get('ev1|2026-10-27')).toEqual({ state: 'acknowledged', resolution: null });
     expect(await old.getFirstAsync("SELECT name FROM sqlite_master WHERE name = 'dismissed_alerts'")).toBeNull();
+  });
+});
+
+describe('title weights', () => {
+  it('keeps answers per title, judges only with decided ones, and forgets them on remove or delete all', async () => {
+    const heavy = learnWeight(learnWeight(undefined, '役員会議', 'hard', 'pms'), '役員会議', 'hard', 'pms');
+    const pending = learnWeight(undefined, '社員旅行', 'easy', 'period');
+    await saveTitleWeight(db, heavy, new Date('2026-10-01T00:00:00Z'));
+    await saveTitleWeight(db, pending, new Date('2026-10-02T00:00:00Z'));
+    expect(await listTitleWeights(db)).toEqual([pending, heavy]);
+    expect([...(await loadState(db)).keywords.learned!]).toEqual([['役員会議', 'heavy']]);
+
+    await saveTitleWeight(db, overrideWeight(heavy, heavy.label, 'normal'));
+    expect([...(await loadState(db)).keywords.learned!]).toEqual([['役員会議', 'normal']]);
+
+    await removeTitleWeight(db, '役員会議');
+    expect((await loadState(db)).keywords.learned!.size).toBe(0);
+    await deleteAllData(db);
+    expect(await listTitleWeights(db)).toEqual([]);
   });
 });
 

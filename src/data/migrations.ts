@@ -55,6 +55,20 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       );
     `);
   },
+  // 2026-10-30: 予定のあとの答えから覚えた、予定の名前ごとの重さ
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE title_weights (
+        term TEXT PRIMARY KEY NOT NULL,
+        label TEXT NOT NULL,
+        weight TEXT CHECK (weight IN ('heavy', 'normal')),
+        source TEXT NOT NULL CHECK (source IN ('learned', 'user')),
+        observations INTEGER NOT NULL,
+        lean INTEGER NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

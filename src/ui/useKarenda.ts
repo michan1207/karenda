@@ -18,7 +18,9 @@ import {
   MetricProps,
   recordMetric,
   removePeriodStart,
+  removeTitleWeight,
   saveConflictStatus,
+  saveTitleWeight,
   restoreData,
   RestoreMode,
   ReviewPrompt,
@@ -37,10 +39,13 @@ import {
   DateKey,
   DEFAULT_KEYWORDS,
   DEFAULT_ZONE_SETTINGS,
+  overrideWeight,
   Resolution,
   RiskKeywords,
   shouldAskReview,
   statusOf,
+  TitleWeight,
+  Weight,
   ZoneSettings,
 } from '../engine';
 
@@ -68,6 +73,10 @@ export type Karenda = StoredState & {
   removeStart(day: DateKey): Promise<void>;
   setSettings(settings: ZoneSettings): Promise<void>;
   setKeywords(keywords: RiskKeywords): Promise<void>;
+  /** 覚えた重さを自分で直す。以後の答えでは変わらない */
+  setTitleWeight(entry: TitleWeight, weight: Weight): Promise<void>;
+  /** 覚えた重さを忘れて、言葉の決まりに戻す */
+  removeTitleWeight(term: string): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
   setHideMode(on: boolean): Promise<void>;
   setMetrics(on: boolean): Promise<void>;
@@ -101,6 +110,7 @@ const INITIAL_STATE: StoredState = {
   starts: [],
   settings: DEFAULT_ZONE_SETTINGS,
   keywords: DEFAULT_KEYWORDS,
+  titleWeights: [],
   statuses: new Map(),
 };
 
@@ -236,6 +246,8 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     removeStart: (day) => withDb((opened) => removePeriodStart(opened, day)),
     setSettings: (next) => withDb((opened) => saveZoneSettings(opened, next)),
     setKeywords: (next) => withDb((opened) => saveKeywords(opened, next)),
+    setTitleWeight: (entry, weight) => withDb((opened) => saveTitleWeight(opened, overrideWeight(entry, entry.label, weight))),
+    removeTitleWeight: (term) => withDb((opened) => removeTitleWeight(opened, term)),
     setNotify: async (enabled) => {
       await withDb((opened) => setNotifyEnabled(opened, enabled));
       if (enabled) await requestNotifyAccess();
