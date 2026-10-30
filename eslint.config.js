@@ -28,4 +28,9 @@ module.exports = defineConfig([
       ],
     },
   },
+  {
+    // 通信を数えるところだけは通信のAPIに触れる（数えるだけで、通信はしない）
+    files: ['src/data/network.ts', 'src/data/network.test.ts'],
+    rules: { 'no-restricted-globals': 'off' },
+  },
 ]);

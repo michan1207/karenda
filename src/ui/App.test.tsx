@@ -653,6 +653,16 @@ describe('settings', () => {
     expect(screen.getByText(/過去6周期の体調評価から推定/)).toBeTruthy();
   });
 
+  it('shows the privacy facts: nothing sent, no SDKs, and what is kept on the phone', async () => {
+    await openSettings();
+    expect(screen.getByText('外部への送信')).toBeTruthy();
+    expect(screen.getByText('0件')).toBeTruthy();
+    expect(screen.getByText('外部のSDK')).toBeTruthy();
+    expect(screen.getByText('なし')).toBeTruthy();
+    expect(screen.getByText('この端末の中だけ')).toBeTruthy();
+    expect(screen.getByText('・生理開始日：次の生理と、気をつける時期を予測するため')).toBeTruthy();
+  });
+
   it('says there is not enough data yet instead of showing numbers', async () => {
     await openSettings();
     expect(screen.getByText(/まだ評価できるデータが足りません（n=0）/)).toBeTruthy();

@@ -13,4 +13,6 @@ export type { OpenBackup } from './backup';
 export { deviceBackupFiles } from './backupFiles';
 export type { BackupFiles } from './backupFiles';
 export { deviceAuthenticator } from './lock';
+export { outboundCount, watchNetwork } from './network';
+export { CALENDAR_NOTE, PRIVACY_FACTS, STORED_DATA } from './privacy';
 export type { Authenticator } from './lock';
