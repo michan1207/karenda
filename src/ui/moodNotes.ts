@@ -1,8 +1,8 @@
 import type { PeriodPhase } from '../engine';
 
-type MoodNote = { title: string; summary: string; feelings: string[]; names: string[] };
+type MoodNote = { title: string; summary: string; feelings: string[] };
 
-/** 時期ごとに起こりやすいと言われる心の変化と、関係する病名。断定せず「目安」として出す */
+/** 時期ごとに起こりやすいと言われる心の変化。断定せず「目安」として出す。病名は診断のように読めるので載せない */
 export const MOOD_NOTES: Record<PeriodPhase, MoodNote> = {
   before: {
     title: '生理前に起こりやすい心の変化',
@@ -16,11 +16,6 @@ export const MOOD_NOTES: Record<PeriodPhase, MoodNote> = {
       '強い眠気、または夜に眠れない',
       '食べすぎる（甘いものや炭水化物が欲しくなる）、または食欲が落ちる',
     ],
-    names: [
-      'PMS（月経前症候群）…生理前に出る心と体の不調',
-      'PMDD（月経前不快気分障害）…PMSの中でも心の症状が特に重いもの。強い落ち込み・絶望感・著しい不安や緊張・自暴自棄な気持ち・怒りの爆発などで、生活や人間関係に支障が出る',
-      'PME（月経前増悪）…もともとあるうつ病・不安障害・適応障害・双極性障害などの症状が、生理前に一時的に悪化すること',
-    ],
   },
   during: {
     title: '生理中に起こりやすい心の変化',
@@ -31,10 +26,6 @@ export const MOOD_NOTES: Record<PeriodPhase, MoodNote> = {
       '頭がぼんやりする・考えがまとまらない（ブレインフォグ）',
       '疲れやすい（出血による一時的な鉄分不足やホルモンの低下が関係すると言われています）',
       '眠りが浅い・ぐっすり眠れない（痛みや経血もれへの不安など）',
-    ],
-    names: [
-      '月経困難症…生理痛などが重く、日常生活に支障が出るもの',
-      '月経に伴ううつ状態…痛みや体調の変化から気分が落ち込み、意欲が下がること',
     ],
   },
   after: {
@@ -47,10 +38,6 @@ export const MOOD_NOTES: Record<PeriodPhase, MoodNote> = {
       '眠れない',
       '立ちくらみ',
       '頭痛や気分のゆらぎ',
-    ],
-    names: [
-      '鉄欠乏性貧血（隠れ貧血を含む）…鉄分（フェリチン）が足りないと、心の安定に関わるセロトニンなどが作られにくくなり、不安や疲れやすさにつながると言われています',
-      '自律神経失調症状（自律神経の乱れ）…ホルモンが「急に減る」から「増える」へ切り替わる中で、頭痛・だるさ・気分のゆらぎが出ることがあります',
     ],
   },
 };

@@ -282,12 +282,6 @@ function MoodNotes({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
           <Bullet key={feeling} colors={colors} text={feeling} />
         ))}
       </View>
-      <Text style={[styles.moodLabel, { color: colors.muted }]}>関係する病名・言葉</Text>
-      <View>
-        {note.names.map((name) => (
-          <Bullet key={name} colors={colors} text={name} />
-        ))}
-      </View>
       <Text style={[styles.detailZone, { color: colors.muted }]}>
         感じ方には個人差があり、ここに書いたことは目安です。つらさが続く時や生活に支障がある時は、婦人科や心療内科に相談してみてください。
       </Text>
@@ -327,6 +321,5 @@ const styles = StyleSheet.create({
   eventRow: { gap: 2 },
   eventHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   eventTitle: { fontSize: 15, fontWeight: '600' },
-  moodLabel: { fontSize: 13, fontWeight: '600' },
   footnote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
 });
