@@ -118,6 +118,15 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       );
     `);
   },
+  // 2026-10-31: このアプリに入れた予定の時刻（0時からの分、無い時は NULL）と色
+  async (db) => {
+    await db.execAsync(`
+      ALTER TABLE manual_events ADD COLUMN start_minutes INTEGER;
+      ALTER TABLE manual_events ADD COLUMN duration_minutes INTEGER;
+      ALTER TABLE manual_events ADD COLUMN color TEXT NOT NULL DEFAULT 'blue'
+        CHECK (color IN ('blue', 'green', 'orange', 'purple', 'yellow', 'gray'));
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

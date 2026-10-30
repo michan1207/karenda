@@ -2,7 +2,7 @@ import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snap
 import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '../engine/conflictState';
 import { predictCycle } from '../engine/cycle';
 import { DateKey, fromDateKey, toDateKey } from '../engine/date';
-import type { CalendarEvent } from '../engine/conflicts';
+import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
 import { Answer, learnWeight, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
 import { DEFAULT_PMS, nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
 import { termOf } from '../engine/risk';
@@ -203,17 +203,57 @@ const MANUAL_PREFIX = 'manual:';
 
 /** このアプリの中だけに入れた予定。カレンダーの予定と同じ形で返し、ID の頭で見分ける */
 export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
-  const rows = await db.getAllAsync<{ id: number; title: string; date: string; weight: Weight }>(
-    'SELECT id, title, date, weight FROM manual_events ORDER BY date, id',
-  );
-  return rows.map(({ id, title, date, weight }) => ({ id: `${MANUAL_PREFIX}${id}`, title, start: date, end: date, allDay: false, manual: true, weight }));
+  const rows = await db.getAllAsync<{
+    id: number;
+    title: string;
+    date: string;
+    weight: Weight;
+    color: EventColor;
+    start_minutes: number | null;
+    duration_minutes: number | null;
+  }>('SELECT id, title, date, weight, color, start_minutes, duration_minutes FROM manual_events ORDER BY date, start_minutes, id');
+  return rows.map((row) => ({
+    id: `${MANUAL_PREFIX}${row.id}`,
+    title: row.title,
+    start: row.date,
+    end: row.date,
+    allDay: false,
+    manual: true,
+    weight: row.weight,
+    color: row.color,
+    ...(row.start_minutes === null ? {} : { startMinutes: row.start_minutes }),
+    ...(row.duration_minutes === null ? {} : { durationMinutes: row.duration_minutes }),
+  }));
 }
 
-export async function addManualEvent(db: Database, { title, date, weight }: { title: string; date: DateKey; weight: Weight }): Promise<void> {
-  fromDateKey(date);
-  const name = title.trim();
+export type ManualEventInput = {
+  title: string;
+  date: DateKey;
+  weight: Weight;
+  color: EventColor;
+  /** 時刻を入れる時だけ。0時からの分 */
+  startMinutes?: number;
+  durationMinutes?: number;
+};
+
+const isMinutes = (value: number | undefined, min: number, max: number) =>
+  value === undefined || (Number.isInteger(value) && value >= min && value <= max);
+
+export async function addManualEvent(db: Database, event: ManualEventInput): Promise<void> {
+  fromDateKey(event.date);
+  const name = event.title.trim();
   if (!name) throw new Error('title is empty');
-  await db.runAsync('INSERT INTO manual_events (title, date, weight) VALUES (?, ?, ?)', name, date, weight);
+  if (!EVENT_COLORS.includes(event.color)) throw new Error(`unknown color: ${event.color}`);
+  if (!isMinutes(event.startMinutes, 0, 24 * 60 - 1) || !isMinutes(event.durationMinutes, 1, 24 * 60)) throw new Error('bad time');
+  await db.runAsync(
+    'INSERT INTO manual_events (title, date, weight, color, start_minutes, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
+    name,
+    event.date,
+    event.weight,
+    event.color,
+    event.startMinutes ?? null,
+    event.durationMinutes ?? null,
+  );
 }
 
 export async function removeManualEvent(db: Database, eventId: string): Promise<void> {

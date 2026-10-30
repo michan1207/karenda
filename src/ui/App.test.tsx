@@ -43,6 +43,20 @@ jest.mock('expo-file-system', () => ({}));
 jest.mock('expo-sharing', () => ({}));
 jest.mock('expo-document-picker', () => ({}));
 jest.mock('expo-local-authentication', () => ({}));
+// 時刻を回して選ぶ部品の代わりに、「14:00」と打てる欄にする
+jest.mock('@react-native-community/datetimepicker', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  const { TextInput } = jest.requireActual<typeof import('react-native')>('react-native');
+  const Picker = ({ accessibilityLabel, onChange }: { accessibilityLabel: string; onChange: (event: unknown, date?: Date) => void }) =>
+    createElement(TextInput, {
+      accessibilityLabel,
+      onChangeText: (text: string) => {
+        const [hours, minutes] = text.split(':').map(Number);
+        onChange({}, new Date(2000, 0, 1, hours, minutes));
+      },
+    });
+  return { __esModule: true, default: Picker, DateTimePickerAndroid: { open: jest.fn() } };
+});
 jest.mock('expo-crypto', () => ({ getRandomBytes: (n: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(n)) }));
 // 最初の1件は画面全体の読み込みを含むため、遅いPCでは既定の5秒を超える
 jest.setTimeout(20_000);
@@ -329,14 +343,37 @@ describe('calendar', () => {
     expect(screen.getByText('カレンダーは使っていません。予定はこのアプリの中だけに入れられます。')).toBeTruthy();
     await fireEvent.press(screen.getByText('この日に予定を入れる'));
     await fireEvent.changeText(screen.getByLabelText('10月27日（火）に入れる予定の名前'), '発表');
+    await fireEvent(screen.getByLabelText('時間を入れる'), 'valueChange', true);
+    await fireEvent.changeText(screen.getByLabelText('開始'), '14:00');
+    await fireEvent.changeText(screen.getByLabelText('終了'), '15:30');
+    await fireEvent.press(screen.getByLabelText('色をみどりにする'));
     await fireEvent.press(screen.getByText('入れる'));
     expect(await screen.findByText('このアプリだけ')).toBeTruthy();
+    expect(screen.getByText('14:00〜15:30')).toBeTruthy();
     expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
     expect(calendar.getEvents).not.toHaveBeenCalled();
+    expect((await loadState(db)).manualEvents).toMatchObject([{ title: '発表', color: 'green', startMinutes: 840, durationMinutes: 90 }]);
 
-    await fireEvent.press(screen.getByLabelText('「発表」を消す'));
+    await fireEvent.press(screen.getByText('「発表」を消す'));
     await waitFor(() => expect(screen.queryByText('このアプリだけ')).toBeNull());
     expect((await loadState(db)).manualEvents).toEqual([]);
+  });
+
+  it('shows the color of an event put in this app on the day, and reuses it for the same name', async () => {
+    await setup({ calendar: fakeCalendar(false) });
+    await fireEvent.press(await screen.findByLabelText('10月14日（水）'));
+    await fireEvent.press(screen.getByText('この日に予定を入れる'));
+    await fireEvent.changeText(screen.getByLabelText('10月14日（水）に入れる予定の名前'), '会議');
+    await fireEvent.press(screen.getByText('ふつうの予定'));
+    await fireEvent.press(screen.getByLabelText('色をむらさきにする'));
+    await fireEvent.press(screen.getByText('入れる'));
+    expect(await screen.findByLabelText('10月14日（水）、このアプリの予定あり')).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText('10月15日（木）'));
+    await fireEvent.press(screen.getByText('この日に予定を入れる'));
+    expect(screen.getByLabelText('色をあおにする').props.accessibilityState.selected).toBe(true);
+    await fireEvent.changeText(screen.getByLabelText('10月15日（木）に入れる予定の名前'), '会議');
+    expect(screen.getByLabelText('色をむらさきにする').props.accessibilityState.selected).toBe(true);
   });
 
   it('moves between months and loads that month', async () => {

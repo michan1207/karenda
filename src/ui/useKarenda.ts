@@ -19,6 +19,7 @@ import {
   isReviewAsked,
   listPeriodStarts,
   loadState,
+  ManualEventInput,
   Notifier,
   MetricProps,
   recordMetric,
@@ -88,7 +89,7 @@ export type Karenda = StoredState & {
   addStart(day: DateKey): Promise<void>;
   removeStart(day: DateKey): Promise<void>;
   /** このアプリの中だけに予定を入れる（iPhone のカレンダーには書かない） */
-  addManualEvent(event: { title: string; date: DateKey; weight: Weight }): Promise<void>;
+  addManualEvent(event: ManualEventInput): Promise<void>;
   removeManualEvent(eventId: string): Promise<void>;
   /** 保存してある設定に重ねる。自動の時に PMS の手動の日数を推定で上書きしないため */
   setSettings(patch: Partial<ZoneSettings>): Promise<void>;

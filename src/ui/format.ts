@@ -1,4 +1,4 @@
-import { CyclePrediction, DateKey, fromDateKey, PredictedPeriod, ZoneDay } from '../engine';
+import { CalendarEvent, CyclePrediction, DateKey, fromDateKey, PredictedPeriod, ZoneDay } from '../engine';
 
 export const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日'];
 
@@ -20,6 +20,15 @@ export function zoneLabel(zone: ZoneDay | undefined): string {
 }
 
 const CONFIDENCE = { high: '高', medium: '中', low: '低' } as const;
+
+/** 0時からの分を「9:05」の形に */
+export const clock = (minutes: number) => `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
+
+/** 時刻のある予定の「10:00〜11:30」。時刻が無ければ null */
+export function timeRange({ startMinutes, durationMinutes }: CalendarEvent): string | null {
+  if (startMinutes === undefined) return null;
+  return `${clock(startMinutes)}〜${durationMinutes ? clock(Math.min(startMinutes + durationMinutes, 24 * 60)) : ''}`;
+}
 
 export const shortDate = (day: DateKey) => {
   const date = fromDateKey(day);
