@@ -448,6 +448,10 @@ describe('settings', () => {
     files.pick.mockResolvedValueOnce(null);
     await fireEvent.press(screen.getByText('ファイルから戻す'));
     expect(screen.queryByText('ファイルが壊れているため、読み込めませんでした。')).toBeNull();
+    // 読み込みそのものに失敗した時も、黙らずに知らせる
+    files.pick.mockRejectedValueOnce(new Error('denied'));
+    await fireEvent.press(screen.getByText('ファイルから戻す'));
+    expect(await screen.findByText('ファイルを読み込めませんでした。もう一度お試しください。')).toBeTruthy();
   });
 
   it('deletes everything only after confirming, then shows the first-run guide', async () => {

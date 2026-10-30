@@ -1,11 +1,11 @@
 import { randomBytes } from 'node:crypto';
 
-import { encryptBackup, isEncryptedBackup, ITERATIONS, openBackup } from './backup';
+import { encryptBackup, isEncryptedBackup, MAX_ROUNDS, MIN_ROUNDS, openBackup } from './backup';
 
 jest.mock('expo-crypto', () => ({}));
 
 const random = (n: number) => new Uint8Array(randomBytes(n));
-// テストを速くするため回数を減らす。実際のファイルは ITERATIONS 回
+// テストを速くするため回数を減らす。実際のファイルは端末の速さで決まる（MIN_ROUNDS〜MAX_ROUNDS）
 const fast = { random, iterations: 1_000 };
 const text = JSON.stringify({ app: 'karenda', periodStarts: ['2026-09-01'], keywords: { high: ['出張'], medium: [] } });
 
@@ -26,9 +26,11 @@ describe('encrypted backup', () => {
     expect(await encryptBackup(text, 'pass-1234', fast)).not.toBe(await encryptBackup(text, 'pass-1234', fast));
   });
 
-  it('uses the full number of rounds by default', async () => {
+  it('picks as many rounds as this device can do in about two seconds, within bounds', async () => {
     const file = await encryptBackup(text, 'pass-1234', { random });
-    expect(JSON.parse(file).iterations).toBe(ITERATIONS);
+    const { iterations } = JSON.parse(file);
+    expect(iterations).toBeGreaterThanOrEqual(MIN_ROUNDS);
+    expect(iterations).toBeLessThanOrEqual(MAX_ROUNDS);
     expect(await openBackup(file, 'pass-1234')).toEqual({ ok: true, text });
     // 本当の回数で鍵を2回作るので、遅いPCでは既定の5秒を超えることがある
   }, 20_000);

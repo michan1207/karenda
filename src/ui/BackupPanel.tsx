@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 
 import { ExportedData, isEncryptedBackup, OpenBackup, openBackup, readExport, RestoreMode } from '../data';
 import { DateKey } from '../engine';
@@ -68,7 +68,13 @@ export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }
 
   const pick = async () => {
     reset();
-    const text = await k.pickBackup().catch(() => null);
+    let text: string | null;
+    try {
+      text = await k.pickBackup();
+    } catch (error) {
+      if (__DEV__) console.warn('[backup] ファイルを読めない', error);
+      return setMessage({ text: 'ファイルを読み込めませんでした。もう一度お試しください。', error: true });
+    }
     if (text === null) return;
     // 鍵のかかっていない古い書き出しは、パスワードを聞かずに読む
     if (!isEncryptedBackup(text)) return showPreview(readExport(text));
@@ -79,7 +85,9 @@ export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }
   const unlock = async () => {
     if (!passphrase || busy) return;
     setBusy(true);
+    const started = Date.now();
     const opened = await openBackup(fileText, passphrase);
+    if (__DEV__) console.log(`[backup] 復号 ${Date.now() - started}ms`);
     setBusy(false);
     if (!opened.ok) return setMessage({ text: REASONS[opened.reason], error: true });
     showPreview(readExport(opened.text));
@@ -121,7 +129,7 @@ export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }
           <Text style={[styles.help, { color: problem ? colors.danger : colors.muted }]}>
             {problem ?? (length >= 12 ? '強さ：強い' : length >= MIN_LENGTH ? '強さ：ふつう（12文字以上でもっと強くなります）' : '8文字以上で決めてください')}
           </Text>
-          {busy && <Text style={[styles.help, { color: colors.text }]}>暗号化しています…</Text>}
+          {busy && <Busy colors={colors} text="鍵をかけています。少し時間がかかります…" />}
           <Button colors={colors} label="書き出す" onPress={exportNow} disabled={!canExport || busy} />
           <Button colors={colors} kind="secondary" label="やめる" onPress={() => reset()} />
         </>
@@ -130,7 +138,7 @@ export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }
       {step === 'unlock' && (
         <>
           <Passphrase colors={colors} label="バックアップのパスワード" value={passphrase} onChange={setPassphrase} onSubmit={unlock} />
-          {busy && <Text style={[styles.help, { color: colors.text }]}>開いています…</Text>}
+          {busy && <Busy colors={colors} text="鍵を開けています。少し時間がかかります…" />}
           <Button colors={colors} label="開く" onPress={unlock} disabled={!passphrase || busy} />
           <Button colors={colors} kind="secondary" label="やめる" onPress={() => reset()} />
         </>
@@ -149,6 +157,15 @@ export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }
       )}
 
       {message && <Text style={[styles.help, { color: message.error ? colors.danger : colors.text }]}>{message.text}</Text>}
+    </View>
+  );
+}
+
+function Busy({ colors, text }: { colors: Colors; text: string }) {
+  return (
+    <View style={styles.busy}>
+      <ActivityIndicator color={colors.accent} />
+      <Text style={[styles.help, { color: colors.text }]}>{text}</Text>
     </View>
   );
 }
@@ -189,6 +206,7 @@ const styles = StyleSheet.create({
   panel: { gap: 8 },
   help: { fontSize: 13, lineHeight: 19 },
   summary: { fontSize: 15, fontWeight: '600' },
+  busy: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: {
     borderWidth: 1,
     borderRadius: radius.md,

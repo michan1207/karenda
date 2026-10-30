@@ -10,6 +10,13 @@ export type BackupFiles = {
   pick(): Promise<string | null>;
 };
 
+// 一時置き場の片づけに失敗しても、書き出し・読み込みそのものは止めない
+const removeQuietly = (file: File) => {
+  try {
+    if (file.exists) file.delete();
+  } catch {}
+};
+
 export const deviceBackupFiles: BackupFiles = {
   async share(text, name) {
     const file = new File(Paths.cache, name);
@@ -19,7 +26,7 @@ export const deviceBackupFiles: BackupFiles = {
       await shareAsync(file.uri, { mimeType: 'application/json', UTI: 'public.json', dialogTitle: 'バックアップを保存' });
     } finally {
       // 渡し終えたら、端末の一時置き場には残さない
-      if (file.exists) file.delete();
+      removeQuietly(file);
     }
   },
   async pick() {
@@ -30,7 +37,7 @@ export const deviceBackupFiles: BackupFiles = {
     try {
       return await file.text();
     } finally {
-      if (file.exists) file.delete();
+      removeQuietly(file);
     }
   },
 };
