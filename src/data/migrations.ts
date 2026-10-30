@@ -107,6 +107,17 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       );
     `);
   },
+  // 2026-10-31: このアプリの中だけに入れた予定。iPhone のカレンダーには書かない
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE manual_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        date TEXT NOT NULL,
+        weight TEXT NOT NULL CHECK (weight IN ('heavy', 'normal'))
+      );
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

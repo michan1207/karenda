@@ -31,6 +31,13 @@ describe('classifyRisk', () => {
     expect(classifyRisk({ title: '有給で旅行', allDay: true })).toBe('high');
   });
 
+  it('uses the weight chosen for an event put in this app, before words or learning', () => {
+    const learned = new Map([['発表', 'normal' as const]]);
+    expect(classifyRisk({ title: '買い物', allDay: false, weight: 'heavy' })).toBe('high');
+    expect(classifyRisk({ title: '出張', allDay: true, weight: 'normal' })).toBe('medium');
+    expect(classifyRisk({ title: '発表', allDay: false, weight: 'heavy' }, { ...DEFAULT_KEYWORDS, learned })).toBe('high');
+  });
+
   it('prefers high when keywords of both levels appear', () => {
     expect(classifyRisk({ title: '会議でプレゼン', allDay: false })).toBe('high');
   });

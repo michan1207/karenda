@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { CalendarSource } from '../data';
 import type { CalendarEvent, DateKey } from '../engine';
 import type { Access } from './useKarenda';
 
-/** 許可されているときだけ、期間内の予定を読み込む */
-export function useEvents(calendar: CalendarSource, access: Access, from: DateKey, until: DateKey): CalendarEvent[] {
+/** 期間内の予定。カレンダーは許可されているときだけ読み、このアプリの中だけに入れた予定はいつも足す */
+export function useEvents(
+  calendar: CalendarSource,
+  access: Access,
+  from: DateKey,
+  until: DateKey,
+  manual: CalendarEvent[],
+): CalendarEvent[] {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
 
   useEffect(() => {
@@ -20,5 +26,8 @@ export function useEvents(calendar: CalendarSource, access: Access, from: DateKe
     };
   }, [calendar, access, from, until]);
 
-  return access === 'granted' ? events : [];
+  return useMemo(
+    () => [...(access === 'granted' ? events : []), ...manual.filter((event) => event.end >= from && event.start <= until)],
+    [access, events, manual, from, until],
+  );
 }

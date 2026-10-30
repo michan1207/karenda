@@ -2,7 +2,8 @@ import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snap
 import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '../engine/conflictState';
 import { predictCycle } from '../engine/cycle';
 import { DateKey, fromDateKey, toDateKey } from '../engine/date';
-import { Answer, learnWeight, ReviewTarget, TitleWeight } from '../engine/learning';
+import type { CalendarEvent } from '../engine/conflicts';
+import { Answer, learnWeight, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
 import { DEFAULT_PMS, nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
 import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
@@ -198,6 +199,27 @@ export async function answerReview(db: Database, target: ReviewTarget, answer: A
   });
 }
 
+const MANUAL_PREFIX = 'manual:';
+
+/** このアプリの中だけに入れた予定。カレンダーの予定と同じ形で返し、ID の頭で見分ける */
+export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
+  const rows = await db.getAllAsync<{ id: number; title: string; date: string; weight: Weight }>(
+    'SELECT id, title, date, weight FROM manual_events ORDER BY date, id',
+  );
+  return rows.map(({ id, title, date, weight }) => ({ id: `${MANUAL_PREFIX}${id}`, title, start: date, end: date, allDay: false, manual: true, weight }));
+}
+
+export async function addManualEvent(db: Database, { title, date, weight }: { title: string; date: DateKey; weight: Weight }): Promise<void> {
+  fromDateKey(date);
+  const name = title.trim();
+  if (!name) throw new Error('title is empty');
+  await db.runAsync('INSERT INTO manual_events (title, date, weight) VALUES (?, ?, ?)', name, date, weight);
+}
+
+export async function removeManualEvent(db: Database, eventId: string): Promise<void> {
+  if (eventId.startsWith(MANUAL_PREFIX)) await db.runAsync('DELETE FROM manual_events WHERE id = ?', Number(eventId.slice(MANUAL_PREFIX.length)));
+}
+
 /** 通知の「今日は決めない」。同じ予定は最初の1回だけ（もう一度押しても、知らせ直しは増やさない） */
 export async function deferAlert(db: Database, eventId: string, date: DateKey, remindOn: DateKey): Promise<void> {
   await db.runAsync('INSERT OR IGNORE INTO deferred_alerts (event_id, date, remind_on) VALUES (?, ?, ?)', eventId, date, remindOn);
@@ -267,6 +289,8 @@ export type StoredState = {
   consultDismissed: string | null;
   /** 通知で「今日は決めない」を押した予定（`statusKey`）と、もう一度知らせる日 */
   deferrals: Map<string, DateKey>;
+  /** このアプリの中だけに入れた予定 */
+  manualEvents: CalendarEvent[];
   /** 覚えた重さ（learned）も入れてある */
   keywords: RiskKeywords;
   /** 覚えた予定の重さ（設定の一覧用） */
@@ -312,6 +336,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     accuracy: buildReport(await listPredictionRecords(db)),
     consultDismissed: await getConsultDismissed(db),
     deferrals: await listDeferrals(db),
+    manualEvents: await listManualEvents(db),
     keywords,
     titleWeights,
     reviewed,
@@ -416,6 +441,7 @@ export async function deleteAllData(db: Database): Promise<void> {
       DELETE FROM event_reviews;
       DELETE FROM prediction_records;
       DELETE FROM deferred_alerts;
+      DELETE FROM manual_events;
     `);
     await seedDefaults(db);
   });

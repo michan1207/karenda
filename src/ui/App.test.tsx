@@ -322,6 +322,23 @@ describe('calendar', () => {
     expect(screen.getByLabelText('10月26日（月）、生理1日目（予測）')).toBeTruthy();
   });
 
+  it('lets the user put an event in this app only, and alerts on it without calendar access', async () => {
+    const calendar = fakeCalendar(false);
+    const { db } = await setup({ calendar });
+    await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）'));
+    expect(screen.getByText('カレンダーは使っていません。予定はこのアプリの中だけに入れられます。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('この日に予定を入れる'));
+    await fireEvent.changeText(screen.getByLabelText('10月27日（火）に入れる予定の名前'), '発表');
+    await fireEvent.press(screen.getByText('入れる'));
+    expect(await screen.findByText('このアプリだけ')).toBeTruthy();
+    expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
+    expect(calendar.getEvents).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByLabelText('「発表」を消す'));
+    await waitFor(() => expect(screen.queryByText('このアプリだけ')).toBeNull());
+    expect((await loadState(db)).manualEvents).toEqual([]);
+  });
+
   it('moves between months and loads that month', async () => {
     const { calendar } = await setup();
     await screen.findByText('2026年10月');

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import {
   addDays,
@@ -22,12 +22,13 @@ import {
   periodPhase,
   ReviewTarget,
   shiftMonth,
+  Weight,
   ZoneDay,
 } from '../engine';
 import { AlertMark, Button, Card, Decorations, Heart, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, predictionLines, WEEKDAYS, zoneLabel } from './format';
 import { MOOD_NOTES } from './moodNotes';
-import { Colors, radius, useColors } from './theme';
+import { Colors, fonts, radius, useColors } from './theme';
 import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
 
@@ -108,7 +109,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
   const [selected, setSelected] = useState<DateKey>(today);
 
   const grid = useMemo(() => monthGrid(year, month), [year, month]);
-  const events = useEvents(k.calendar, k.access, grid.from, grid.until);
+  const events = useEvents(k.calendar, k.access, grid.from, grid.until, k.manualEvents);
 
   const computed = useMemo(
     () =>
@@ -280,7 +281,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
           ))}
         {selectedEvents.length === 0 ? (
           <Text style={[styles.detailText, { color: colors.muted }]}>
-            {k.access === 'granted' ? 'この日の予定はありません' : '予定は表示できません'}
+            {k.access === 'granted' ? 'この日の予定はありません' : 'カレンダーは使っていません。予定はこのアプリの中だけに入れられます。'}
           </Text>
         ) : (
           selectedEvents.map((event) => {
@@ -295,12 +296,24 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
                 <View style={styles.eventHead}>
                   {alert && <AlertMark colors={colors} strong={alert.grade === 'A'} />}
                   <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title || '（タイトルなし）'}</Text>
+                  {event.manual && <Text style={[styles.manualLabel, { color: colors.muted }]}>このアプリだけ</Text>}
                   {alert && (
                     <Text style={[styles.gradeLabel, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
                       {alert.grade === 'A' ? 'A 要注意' : 'B 注意'}
                     </Text>
                   )}
                 </View>
+                {event.manual && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`「${event.title}」を消す`}
+                    onPress={() => k.removeManualEvent(event.id)}
+                    hitSlop={8}
+                    style={styles.manualRemove}
+                  >
+                    <Text style={[styles.reviewChipText, { color: colors.danger }]}>消す</Text>
+                  </Pressable>
+                )}
                 {note ? (
                   <Text style={[styles.detailText, { color: colors.text }]}>{note}</Text>
                 ) : (
@@ -314,6 +327,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
             );
           })
         )}
+        <ManualEventForm colors={colors} day={selected} onAdd={(title, weight) => k.addManualEvent({ title, date: selected, weight })} />
         {hidden ? null : isRecorded ? (
           <Button colors={colors} kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
         ) : selected <= today ? (
@@ -339,6 +353,57 @@ const ANSWERS: [Answer, string][] = [
 ];
 
 /** 終わった予定に「どうだった？」と聞く（3件まで）。答えから予定の重さを覚えていく */
+/** このアプリの中だけに予定を入れる。カレンダーを使わない人も、重なりのお知らせを受けられる */
+function ManualEventForm({ colors, day, onAdd }: { colors: Colors; day: DateKey; onAdd: (title: string, weight: Weight) => void }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [weight, setWeight] = useState<Weight>('heavy');
+  if (!open) return <Button colors={colors} kind="secondary" label="この日に予定を入れる" onPress={() => setOpen(true)} />;
+  const add = () => {
+    if (!title.trim()) return;
+    onAdd(title, weight);
+    setTitle('');
+    setOpen(false);
+  };
+  return (
+    <View style={styles.manualForm}>
+      <Text style={[styles.reviewHelp, { color: colors.muted }]}>このアプリの中だけに残し、iPhone のカレンダーには書きません。</Text>
+      <TextInput
+        accessibilityLabel={`${dayTitle(day)}に入れる予定の名前`}
+        value={title}
+        onChangeText={setTitle}
+        onSubmitEditing={add}
+        placeholder="予定の名前"
+        placeholderTextColor={colors.muted}
+        returnKeyType="done"
+        style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
+      />
+      <View style={styles.reviewChips}>
+        {(
+          [
+            ['heavy', '重い予定'],
+            ['normal', 'ふつうの予定'],
+          ] as const
+        ).map(([value, label]) => (
+          <Pressable
+            key={value}
+            accessibilityRole="button"
+            accessibilityState={{ selected: weight === value }}
+            onPress={() => setWeight(value)}
+            style={[
+              styles.reviewChip,
+              weight === value ? { borderColor: colors.pink, backgroundColor: colors.pinkSoft } : { borderColor: colors.line },
+            ]}
+          >
+            <Text style={[styles.reviewChipText, { color: weight === value ? colors.pinkText : colors.muted }]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Button colors={colors} label="入れる" onPress={add} disabled={!title.trim()} />
+    </View>
+  );
+}
+
 function ReviewCard({
   colors,
   reviews,
@@ -598,5 +663,9 @@ const styles = StyleSheet.create({
   eventRow: { gap: 2 },
   eventHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   eventTitle: { fontSize: 15, fontWeight: '600' },
+  manualLabel: { fontSize: 12 },
+  manualRemove: { alignSelf: 'flex-start' },
+  manualForm: { gap: 8 },
+  input: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: fonts.regular },
   footnote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
 });
