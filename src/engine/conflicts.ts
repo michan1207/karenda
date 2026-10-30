@@ -19,6 +19,9 @@ export type CalendarEvent = {
 /** A=要注意 / B=注意 / C=参考。C はお知らせにも通知にも出さない */
 export type Grade = 'A' | 'B' | 'C';
 
+/** 動かせる / 動かせない / 準備で軽くできる */
+export type Impact = 'moveable' | 'fixed' | 'mitigable';
+
 export type ReasonCode =
   | 'phaseMostSevere'
   | 'phasePeriodEdge'
@@ -43,6 +46,7 @@ export type ConflictAlert = {
   /** 予測の幅が広くて当てにしにくい時の注記 */
   confidenceNote?: string;
   risk: Risk;
+  impact: Impact;
   /** どう備えるかの提案 */
   message: string;
 };
@@ -58,6 +62,17 @@ export const GRADE_B = 40;
 const MOBILITY = ['出張', '旅行', '遠征', '帰省', '合宿'];
 const EARLY_MORNING_BEFORE = 8 * 60;
 const LONG_DURATION = 4 * 60;
+
+// 日をずらせない予定と、ずらしやすい予定の言葉。どちらでもない予定は「準備で軽くできる」として、別の日は勧めない
+const FIXED_WORDS = ['面接', '試験', '締め切り', '締切', '夜勤', '結婚式', '葬儀', '本番'];
+const MOVEABLE_WORDS = ['会議', '打ち合わせ', '打合せ', 'ミーティング', '飲み会', '美容院', 'ランチ', '旅行', '帰省', '買い物', '女子会', 'デート'];
+
+export function impactOf(title: string): Impact {
+  const normalized = normalizeTitle(title);
+  if (FIXED_WORDS.some((word) => normalized.includes(word))) return 'fixed';
+  if (MOVEABLE_WORDS.some((word) => normalized.includes(word))) return 'moveable';
+  return 'mitigable';
+}
 
 export function gradeOf(score: number): Grade {
   return score >= GRADE_A ? 'A' : score >= GRADE_B ? 'B' : 'C';
@@ -119,17 +134,8 @@ function suggestion(title: string, phase: Exclude<Phase, { kind: 'other' }>, ris
     : `「${title}」は${period}と重なる見込みです。無理のないペースで、鎮痛剤や着替えの準備をしておくと安心です。`;
 }
 
-/** 1日ぶんの判定。C の日は null */
-function judgeDay(
-  event: CalendarEvent,
-  day: DateKey,
-  risk: Risk,
-  zones: ZoneMap,
-  prediction: CyclePrediction | null,
-): ConflictAlert | null {
+function measure(event: CalendarEvent, day: DateKey, risk: Risk, zones: ZoneMap) {
   const phase = phaseOn(day, zones);
-  if (phase.kind === 'other') return null;
-
   const modifiers: ReasonCode[] = [];
   if (event.allDay && MOBILITY.some((word) => normalizeTitle(event.title).includes(word))) modifiers.push('allDayMobility');
   if (day === event.start && event.startMinutes !== undefined && event.startMinutes < EARLY_MORNING_BEFORE) {
@@ -138,6 +144,23 @@ function judgeDay(
   const weight = EVENT_WEIGHT[risk] + (event.allDay ? ALL_DAY_BONUS : 0);
   const bonus = modifiers.reduce((sum, code) => sum + (MODIFIERS as Partial<Record<ReasonCode, number>>)[code]!, 0);
   const score = Math.min(100, Math.max(0, Math.round(100 * PHASE_SEVERITY[phase.kind] * weight * (1 + bonus))));
+  return { phase, modifiers, score };
+}
+
+/** その予定がこの日にあった時の点数（0〜100）。別の日を勧める時に使う */
+export const scoreOn = (event: CalendarEvent, day: DateKey, risk: Risk, zones: ZoneMap) =>
+  measure(event, day, risk, zones).score;
+
+/** 1日ぶんの判定。C の日は null */
+function judgeDay(
+  event: CalendarEvent,
+  day: DateKey,
+  risk: Risk,
+  zones: ZoneMap,
+  prediction: CyclePrediction | null,
+): ConflictAlert | null {
+  const { phase, modifiers, score } = measure(event, day, risk, zones);
+  if (phase.kind === 'other') return null;
   const grade = gradeOf(score);
   if (grade === 'C') return null;
 
@@ -157,6 +180,7 @@ function judgeDay(
     reasonText: `${reasons.map((code) => MODIFIER_TEXT[code] ?? '').join('')}${phaseText(phase)}。`,
     ...(wide ? { confidenceNote: '周期のばらつきが大きく、予測がずれることがあります。' } : {}),
     risk,
+    impact: impactOf(event.title),
     message: suggestion(event.title, phase, risk),
   };
 }

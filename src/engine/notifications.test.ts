@@ -10,6 +10,7 @@ const alert = (eventId: string, date: string, grade: 'A' | 'B', title = eventId)
   reasons: [grade === 'A' ? 'phaseMostSevere' : 'phasePms'],
   reasonText: `${title}の理由`,
   risk: 'high',
+  impact: 'mitigable',
   message: `${title}のメッセージ`,
 });
 
