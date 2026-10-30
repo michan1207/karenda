@@ -134,6 +134,21 @@ export default function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
+      <Section colors={colors} title="利用状況の記録">
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>利用状況をこの iPhone に記録する</Text>
+          <Switch
+            accessibilityLabel="利用状況をこの iPhone に記録する"
+            value={k.metricsEnabled}
+            onValueChange={k.setMetrics}
+            trackColor={{ true: colors.pink, false: colors.line }}
+          />
+        </View>
+        <Text style={[styles.help, { color: colors.muted }]}>
+          記録した回数などを、この iPhone の中だけで数えます。外には送りません。オフにしても、アプリの使い方は変わりません。
+        </Text>
+      </Section>
+
       <Section colors={colors} title="データ">
         <Text style={[styles.help, { color: colors.muted }]}>データはこの端末の中だけに保存しています。</Text>
         <BackupPanel k={k} today={today} />

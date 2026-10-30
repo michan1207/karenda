@@ -6,6 +6,11 @@ import {
   addPeriodStart,
   deleteAllData,
   getConflictStatuses,
+  isMetricsEnabled,
+  listMetricEvents,
+  listResolutions,
+  recordMetric,
+  setMetricsEnabled,
   exportData,
   getKeywords,
   getZoneSettings,
@@ -104,6 +109,28 @@ describe('onboarding', () => {
     expect(await isReviewAsked(db)).toBe(false);
     await setReviewAsked(db);
     expect(await isReviewAsked(db)).toBe(true);
+  });
+});
+
+describe('usage records kept on this phone', () => {
+  it('records events while on, stops when turned off, and is cleared with all data', async () => {
+    const now = new Date('2026-10-30T03:00:00Z');
+    expect(await isMetricsEnabled(db)).toBe(true);
+    await recordMetric(db, 'period_recorded', { source: 'app' }, now);
+    await setMetricsEnabled(db, false);
+    await recordMetric(db, 'export_created', {}, now);
+    expect(await listMetricEvents(db)).toEqual([
+      { name: 'period_recorded', props: { source: 'app' }, occurredAt: '2026-10-30T03:00:00.000Z' },
+    ]);
+    await deleteAllData(db);
+    expect(await listMetricEvents(db)).toEqual([]);
+    expect(await isMetricsEnabled(db)).toBe(true);
+  });
+
+  it('lists what was done for alerts, with when', async () => {
+    await saveConflictStatus(db, 'a', '2026-10-27', { state: 'resolved', resolution: 'prepared' }, new Date('2026-10-26T01:00:00Z'));
+    await saveConflictStatus(db, 'b', '2026-10-28', { state: 'acknowledged', resolution: null });
+    expect(await listResolutions(db)).toEqual([{ resolution: 'prepared', at: '2026-10-26T01:00:00.000Z' }]);
   });
 });
 

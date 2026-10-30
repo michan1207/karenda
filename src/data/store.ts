@@ -99,6 +99,10 @@ export type StoredState = {
   hideMode: boolean;
   /** 開く時と戻った時に Face ID（またはパスコード）を求めるか */
   lockEnabled: boolean;
+  /** 利用状況をこの端末に記録するか */
+  metricsEnabled: boolean;
+  /** お知らせで何をしたかと、その日時（今月のふりかえり用） */
+  resolutions: { resolution: Resolution; at: string }[];
   starts: DateKey[];
   settings: ZoneSettings;
   keywords: RiskKeywords;
@@ -107,17 +111,19 @@ export type StoredState = {
 };
 
 export async function loadState(db: Database): Promise<StoredState> {
-  const [onboarded, notifyEnabled, hideMode, lockEnabled, starts, settings, keywords, statuses] = await Promise.all([
+  const [onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, keywords, statuses, resolutions] = await Promise.all([
     isOnboarded(db),
     isNotifyEnabled(db),
     isHideMode(db),
     isLockEnabled(db),
+    isMetricsEnabled(db),
     listPeriodStarts(db),
     getZoneSettings(db),
     getKeywords(db),
     getConflictStatuses(db),
+    listResolutions(db),
   ]);
-  return { onboarded, notifyEnabled, hideMode, lockEnabled, starts, settings, keywords, statuses };
+  return { onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, keywords, statuses, resolutions };
 }
 
 export type ExportedData = {
@@ -209,6 +215,7 @@ export async function deleteAllData(db: Database): Promise<void> {
       DELETE FROM settings;
       DELETE FROM keywords;
       DELETE FROM conflict_states;
+      DELETE FROM metric_events;
     `);
     await seedDefaults(db);
   });
@@ -261,4 +268,42 @@ export async function isLockEnabled(db: Database): Promise<boolean> {
 
 export async function setLockEnabled(db: Database, on: boolean): Promise<void> {
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('lock', ?)", on ? '1' : '0');
+}
+
+/** お知らせで何をしたかと、その日時。日時の無い（前の版から引き継いだ）ものも含む */
+export async function listResolutions(db: Database): Promise<{ resolution: Resolution; at: string }[]> {
+  const rows = await db.getAllAsync<{ resolution: Resolution; updated_at: string }>(
+    "SELECT resolution, updated_at FROM conflict_states WHERE state = 'resolved' ORDER BY updated_at",
+  );
+  return rows.map((row) => ({ resolution: row.resolution, at: row.updated_at }));
+}
+
+/** 利用状況の記録（はじめは記録する）。この端末の中だけに残す */
+export async function isMetricsEnabled(db: Database): Promise<boolean> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'metrics'");
+  return row?.value !== '0';
+}
+
+export async function setMetricsEnabled(db: Database, on: boolean): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('metrics', ?)", on ? '1' : '0');
+}
+
+export type MetricProps = Record<string, string | number | boolean>;
+
+/** オフの時は何もしない。中身には予定の名前や記録の日付を入れない */
+export async function recordMetric(db: Database, name: string, props: MetricProps = {}, now: Date = new Date()): Promise<void> {
+  if (!(await isMetricsEnabled(db))) return;
+  await db.runAsync(
+    'INSERT INTO metric_events (name, props, occurred_at) VALUES (?, ?, ?)',
+    name,
+    JSON.stringify(props),
+    now.toISOString(),
+  );
+}
+
+export async function listMetricEvents(db: Database): Promise<{ name: string; props: MetricProps; occurredAt: string }[]> {
+  const rows = await db.getAllAsync<{ name: string; props: string; occurred_at: string }>(
+    'SELECT name, props, occurred_at FROM metric_events ORDER BY id',
+  );
+  return rows.map((row) => ({ name: row.name, props: JSON.parse(row.props) as MetricProps, occurredAt: row.occurred_at }));
 }
