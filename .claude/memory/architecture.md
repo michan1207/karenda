@@ -17,6 +17,8 @@
 - `encryptBackup(text, passphrase)` → JSON（app/kind/version/kdf/iterations/salt/nonce/ciphertext、hex）。鍵は PBKDF2-SHA256（@noble/hashes、パスワードは NFKC でそろえる）、暗号は AES-256-GCM（@noble/ciphers）、乱数だけ expo-crypto
 - `openBackup(fileText, passphrase)` は例外を投げず理由を返す（broken / notCocomia / notEncrypted / newer / wrongPassphrase）。回数 `ITERATIONS`=10万（実機で測って上げる。ファイルに回数を書くので古いファイルも開ける）
 - @noble は ESM だけなので、Jest の `transformIgnorePatterns` に `@noble` を足してある
+- ファイルの受け渡しは `BackupFiles`（`backupFiles.ts`。share=一時置き場に書いて共有メニュー→消す、pick=ファイルを選んで中身を返す→消す）。画面テストは偽物を渡す
+- 平文の書き出しは廃止（2026-10-30）。鍵のかかっていない古い書き出しは、読み込みだけできる
 
 ## カレンダー（expo-calendar）
 - Expo Go では新APIが使えないので `expo-calendar/legacy` の読み取り関数だけ使う（`calendar.ts`）

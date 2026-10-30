@@ -1,8 +1,22 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { randomBytes } from 'node:crypto';
 import { AppState, Linking, Share } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { addPeriodStart, CalendarSource, Database, listPeriodStarts, migrate, Notifier, setOnboarded } from '../data';
+import {
+  addPeriodStart,
+  BackupFiles,
+  CalendarSource,
+  Database,
+  encryptBackup,
+  exportData,
+  getZoneSettings,
+  listPeriodStarts,
+  migrate,
+  Notifier,
+  openBackup,
+  setOnboarded,
+} from '../data';
 import { createTestDatabase } from '../data/testDatabase';
 import type { CalendarEvent, NotificationPlan } from '../engine';
 import { Main } from './App';
@@ -10,6 +24,10 @@ import { Main } from './App';
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 jest.mock('expo-calendar/legacy', () => ({}));
 jest.mock('expo-store-review', () => ({}));
+jest.mock('expo-file-system', () => ({}));
+jest.mock('expo-sharing', () => ({}));
+jest.mock('expo-document-picker', () => ({}));
+jest.mock('expo-crypto', () => ({ getRandomBytes: (n: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(n)) }));
 // 最初の1件は画面全体の読み込みを含むため、遅いPCでは既定の5秒を超える
 jest.setTimeout(20_000);
 
@@ -48,6 +66,13 @@ async function returnToApp() {
   });
 }
 
+function fakeFiles(picked: string | null = null) {
+  return {
+    share: jest.fn(async (_text: string, _name: string) => {}),
+    pick: jest.fn(async () => picked),
+  } satisfies BackupFiles;
+}
+
 const lastPlanDates = (notifier: ReturnType<typeof fakeNotifier>) =>
   notifier.replaceAll.mock.calls.at(-1)?.[0].map((plan) => plan.date);
 
@@ -60,6 +85,7 @@ async function setup({
   notifier = fakeNotifier(),
   askReview = jest.fn(async () => {}),
   today = () => '2026-10-24',
+  files = fakeFiles(),
 }: {
   starts?: string[];
   onboarded?: boolean;
@@ -67,6 +93,7 @@ async function setup({
   notifier?: ReturnType<typeof fakeNotifier>;
   askReview?: jest.Mock;
   today?: () => string;
+  files?: ReturnType<typeof fakeFiles>;
 } = {}) {
   const db: Database = createTestDatabase();
   await migrate(db);
@@ -80,10 +107,11 @@ async function setup({
         notifier={notifier}
         askReview={askReview}
         today={today}
+        files={files}
       />
     </SafeAreaProvider>,
   );
-  return { db, calendar, notifier, askReview };
+  return { db, calendar, notifier, askReview, files };
 }
 
 describe('first run', () => {
@@ -337,12 +365,89 @@ describe('settings', () => {
     expect(await listPeriodStarts(db)).toEqual(REGULAR.slice(0, 3));
   });
 
-  it('exports data through the share sheet', async () => {
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
-    await openSettings();
-    await fireEvent.press(screen.getByText('データを書き出す'));
-    const message = share.mock.calls[0][0] as { message: string };
-    expect(JSON.parse(message.message)).toMatchObject({ app: 'karenda', periodStarts: REGULAR });
+  it('exports only an encrypted backup, locked with a passphrase typed twice', async () => {
+    const { files } = await openSettings();
+    expect(screen.queryByText('データを書き出す')).toBeNull();
+    await fireEvent.press(screen.getByText('暗号化して書き出す'));
+    await fireEvent.changeText(screen.getByLabelText('パスワード'), 'short');
+    expect(screen.getByText('8文字以上にしてください')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('パスワード'), 'すみれ色の朝ごはん');
+    await fireEvent.changeText(screen.getByLabelText('パスワード（もう一度）'), 'すみれ色の朝ごはん!');
+    expect(screen.getByText('2回目が1回目と違います')).toBeTruthy();
+    await fireEvent.press(screen.getByText('書き出す'));
+    expect(files.share).not.toHaveBeenCalled();
+
+    await fireEvent.changeText(screen.getByLabelText('パスワード（もう一度）'), 'すみれ色の朝ごはん');
+    await fireEvent.press(screen.getByText('書き出す'));
+    expect(await screen.findByText(/バックアップを作りました/)).toBeTruthy();
+    const [file, name] = files.share.mock.calls[0];
+    expect(name).toBe('cocomia-backup-2026-10-24.json');
+    expect(file).not.toContain('2026-07-06');
+    const opened = await openBackup(file, 'すみれ色の朝ごはん');
+    expect(opened.ok && JSON.parse(opened.text).periodStarts).toEqual(REGULAR);
+  });
+
+  const locked = (starts: string[]) =>
+    encryptBackup(
+      JSON.stringify({
+        app: 'karenda',
+        schemaVersion: 1,
+        exportedAt: '2026-10-01T00:00:00.000Z',
+        periodStarts: starts,
+        zoneSettings: { heavyDays: 5, pmsDays: 10 },
+        keywords: { high: ['出張'], medium: [] },
+      }),
+      'pass-1234',
+      { random: (n) => new Uint8Array(randomBytes(n)), iterations: 1_000 },
+    );
+
+  it('restores a backup only after the right passphrase and a look at what it holds', async () => {
+    const { db } = await openSettings({ files: fakeFiles(await locked(['2026-05-01', '2026-05-29'])) });
+    await fireEvent.press(screen.getByText('ファイルから戻す'));
+    await fireEvent.changeText(await screen.findByLabelText('バックアップのパスワード'), 'pass-9999');
+    await fireEvent.press(screen.getByText('開く'));
+    expect(await screen.findByText('パスワードが違うか、ファイルが壊れています。')).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual(REGULAR);
+
+    await fireEvent.changeText(screen.getByLabelText('バックアップのパスワード'), 'pass-1234');
+    await fireEvent.press(screen.getByText('開く'));
+    expect(await screen.findByText('記録 2件（2026年5月1日〜2026年5月29日）')).toBeTruthy();
+    await fireEvent.press(screen.getByText('記録を足す（設定は今のまま）'));
+    expect(await screen.findByText(/戻しました/)).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual(['2026-05-01', '2026-05-29', ...REGULAR]);
+    expect(await getZoneSettings(db)).toEqual({ heavyDays: 3, pmsDays: 7 });
+  });
+
+  it('can replace everything with the backup, settings included', async () => {
+    const { db } = await openSettings({ files: fakeFiles(await locked(['2026-05-01'])) });
+    await fireEvent.press(screen.getByText('ファイルから戻す'));
+    await fireEvent.changeText(await screen.findByLabelText('バックアップのパスワード'), 'pass-1234');
+    await fireEvent.press(screen.getByText('開く'));
+    await fireEvent.press(await screen.findByText('ファイルの内容に置き換える'));
+    expect(await screen.findByText(/戻しました/)).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual(['2026-05-01']);
+    expect(await getZoneSettings(db)).toEqual({ heavyDays: 5, pmsDays: 10 });
+  });
+
+  it('reads an old unencrypted export without asking for a passphrase', async () => {
+    const other = createTestDatabase();
+    await migrate(other);
+    await addPeriodStart(other, '2026-04-02');
+    const { db } = await openSettings({ starts: [], files: fakeFiles(JSON.stringify(await exportData(other))) });
+    await fireEvent.press(screen.getByText('ファイルから戻す'));
+    expect(await screen.findByText('記録 1件（2026年4月2日〜2026年4月2日）')).toBeTruthy();
+    expect(screen.queryByLabelText('バックアップのパスワード')).toBeNull();
+    await fireEvent.press(screen.getByText('記録を足す（設定はファイルのもの）'));
+    await waitFor(async () => expect(await listPeriodStarts(db)).toEqual(['2026-04-02']));
+  });
+
+  it('says why a file cannot be read, and does nothing when picking is cancelled', async () => {
+    const { files } = await openSettings({ files: fakeFiles('こんにちは') });
+    await fireEvent.press(screen.getByText('ファイルから戻す'));
+    expect(await screen.findByText('ファイルが壊れているため、読み込めませんでした。')).toBeTruthy();
+    files.pick.mockResolvedValueOnce(null);
+    await fireEvent.press(screen.getByText('ファイルから戻す'));
+    expect(screen.queryByText('ファイルが壊れているため、読み込めませんでした。')).toBeNull();
   });
 
   it('deletes everything only after confirming, then shows the first-run guide', async () => {

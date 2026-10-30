@@ -1,29 +1,20 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
-import { RiskKeywords, ZoneSettings } from '../engine';
+import { DateKey, RiskKeywords, ZoneSettings } from '../engine';
+import BackupPanel from './BackupPanel';
 import { Button, Decorations, Notice, Ribbon, Section, Text } from './components';
 import { dayTitle } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
-type Props = { k: Karenda };
+type Props = { k: Karenda; today: DateKey };
 
-export default function SettingsScreen({ k }: Props) {
+export default function SettingsScreen({ k, today }: Props) {
   const colors = useColors();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [exportError, setExportError] = useState(false);
 
   const updateSettings = (patch: Partial<ZoneSettings>) => k.setSettings({ ...k.settings, ...patch });
-
-  const exportData = async () => {
-    try {
-      setExportError(false);
-      await Share.share({ message: await k.exportJson() });
-    } catch {
-      setExportError(true);
-    }
-  };
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -104,11 +95,8 @@ export default function SettingsScreen({ k }: Props) {
       </Section>
 
       <Section colors={colors} title="データ">
-        <Text style={[styles.help, { color: colors.muted }]}>
-          データはこの端末の中だけに保存しています。機種変更のときは書き出して保管してください。
-        </Text>
-        <Button colors={colors} kind="secondary" label="データを書き出す" onPress={exportData} />
-        {exportError && <Text style={[styles.help, { color: colors.danger }]}>書き出せませんでした。もう一度お試しください。</Text>}
+        <Text style={[styles.help, { color: colors.muted }]}>データはこの端末の中だけに保存しています。</Text>
+        <BackupPanel k={k} today={today} />
         {confirmDelete ? (
           <View style={styles.confirm}>
             <Text style={[styles.help, { color: colors.text }]}>

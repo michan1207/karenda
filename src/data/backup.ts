@@ -56,6 +56,16 @@ export async function encryptBackup(
   return JSON.stringify(envelope);
 }
 
+/** パスワードが要るファイルかどうか。鍵のかかっていない古い書き出しは、パスワードを聞かずに読む */
+export function isEncryptedBackup(fileText: string): boolean {
+  try {
+    const raw = JSON.parse(fileText);
+    return typeof raw === 'object' && raw !== null && raw.app === 'karenda' && raw.kind === 'encrypted-backup';
+  } catch {
+    return false;
+  }
+}
+
 const isHex = (value: unknown, bytes?: number): value is string =>
   typeof value === 'string' && /^([0-9a-f]{2})+$/.test(value) && (bytes === undefined || value.length === bytes * 2);
 

@@ -5,8 +5,10 @@ import { ActivityIndicator, AppState, Pressable, StyleSheet, View } from 'react-
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  BackupFiles,
   CalendarSource,
   Database,
+  deviceBackupFiles,
   deviceCalendar,
   deviceNotifier,
   deviceReview,
@@ -34,6 +36,7 @@ type Props = {
   notifier?: Notifier;
   askReview?: ReviewPrompt;
   today?: () => DateKey;
+  files?: BackupFiles;
 };
 
 const currentDay = () => toDateKey(new Date());
@@ -53,9 +56,10 @@ export function Main({
   notifier = deviceNotifier,
   askReview = deviceReview,
   today = currentDay,
+  files = deviceBackupFiles,
 }: Props) {
   const colors = useColors();
-  const k = useKarenda({ loadDatabase, calendar, notifier, askReview });
+  const k = useKarenda({ loadDatabase, calendar, notifier, askReview, files });
   const [tab, setTab] = useState<Tab>('calendar');
   const [day, setDay] = useState(today);
   // 開いたまま日をまたいで戻った時に「今日」を進める（iPhone はアプリを何日もメモリに残す）
@@ -85,7 +89,7 @@ export function Main({
         <View style={styles.flex}>
           {tab === 'calendar' && <CalendarScreen k={k} today={day} />}
           {tab === 'alerts' && <AlertsScreen k={k} today={day} alerts={upcoming} />}
-          {tab === 'settings' && <SettingsScreen k={k} />}
+          {tab === 'settings' && <SettingsScreen k={k} today={day} />}
         </View>
         <View accessibilityRole="tablist" style={[styles.tabs, { backgroundColor: colors.surface, boxShadow: colors.shadow }]}>
           <TabButton label="カレンダー" active={tab === 'calendar'} onPress={() => setTab('calendar')} />

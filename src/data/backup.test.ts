@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import { encryptBackup, ITERATIONS, openBackup } from './backup';
+import { encryptBackup, isEncryptedBackup, ITERATIONS, openBackup } from './backup';
 
 jest.mock('expo-crypto', () => ({}));
 
@@ -48,6 +48,12 @@ describe('encrypted backup', () => {
     const flipped = (parseInt(envelope.ciphertext[0], 16) ^ 1).toString(16);
     const tampered = JSON.stringify({ ...envelope, ciphertext: flipped + envelope.ciphertext.slice(1) });
     expect(await openBackup(tampered, 'pass-1234')).toEqual({ ok: false, reason: 'wrongPassphrase' });
+  });
+
+  it('knows which files need a passphrase', async () => {
+    expect(isEncryptedBackup(await encryptBackup(text, 'pass-1234', fast))).toBe(true);
+    expect(isEncryptedBackup(text)).toBe(false);
+    expect(isEncryptedBackup('こんにちは')).toBe(false);
   });
 
   it('tells an unencrypted export apart from a broken file', async () => {

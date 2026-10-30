@@ -7,6 +7,11 @@ export function dayTitle(day: DateKey): string {
   return `${date.getMonth() + 1}月${date.getDate()}日（${WEEKDAYS[(date.getDay() + 6) % 7]}）`;
 }
 
+export function fullDate(day: DateKey): string {
+  const date = fromDateKey(day);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 export function zoneLabel(zone: ZoneDay | undefined): string {
   if (!zone) return '通常';
   if (zone.zone === 'pms') return 'PMS警戒期（予測）';
