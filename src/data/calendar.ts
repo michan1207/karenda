@@ -1,5 +1,11 @@
 // Expo Go では新しい expo-calendar API が使えないため、legacy の読み取り用関数だけを使う
-import { EntityTypes, getCalendarsAsync, getEventsAsync, requestCalendarPermissionsAsync } from 'expo-calendar/legacy';
+import {
+  EntityTypes,
+  getCalendarPermissionsAsync,
+  getCalendarsAsync,
+  getEventsAsync,
+  requestCalendarPermissionsAsync,
+} from 'expo-calendar/legacy';
 
 import type { CalendarEvent } from '../engine/conflicts';
 import { addDays, DateKey, fromDateKey, toDateKey } from '../engine/date';
@@ -7,6 +13,8 @@ import { addDays, DateKey, fromDateKey, toDateKey } from '../engine/date';
 /** 予定の読み取り口。画面のテストでは偽物に差し替える */
 export type CalendarSource = {
   requestAccess(): Promise<boolean>;
+  /** 確認画面を出さずに、いまの許可だけを返す */
+  hasAccess(): Promise<boolean>;
   getEvents(from: DateKey, until: DateKey): Promise<CalendarEvent[]>;
 };
 
@@ -38,6 +46,9 @@ export const deviceCalendar: CalendarSource = {
   async requestAccess() {
     const { granted } = await requestCalendarPermissionsAsync();
     return granted;
+  },
+  async hasAccess() {
+    return (await getCalendarPermissionsAsync()).granted;
   },
   async getEvents(from, until) {
     const calendars = await getCalendarsAsync(EntityTypes.EVENT);
