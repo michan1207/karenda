@@ -3,6 +3,7 @@ import { planNotifications } from './notifications';
 
 const alert = (eventId: string, date: string, grade: 'A' | 'B', title = eventId): ConflictAlert => ({
   eventId,
+  event: { id: eventId, title, start: date, end: date, allDay: false },
   title,
   date,
   grade,
