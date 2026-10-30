@@ -75,6 +75,8 @@ export type StoredState = {
   onboarded: boolean;
   /** 設定でお知らせ通知を使うか */
   notifyEnabled: boolean;
+  /** 隠すモード。カレンダーに生理の色や言葉を出さない */
+  hideMode: boolean;
   starts: DateKey[];
   settings: ZoneSettings;
   keywords: RiskKeywords;
@@ -82,15 +84,16 @@ export type StoredState = {
 };
 
 export async function loadState(db: Database): Promise<StoredState> {
-  const [onboarded, notifyEnabled, starts, settings, keywords, dismissed] = await Promise.all([
+  const [onboarded, notifyEnabled, hideMode, starts, settings, keywords, dismissed] = await Promise.all([
     isOnboarded(db),
     isNotifyEnabled(db),
+    isHideMode(db),
     listPeriodStarts(db),
     getZoneSettings(db),
     getKeywords(db),
     listDismissedAlerts(db),
   ]);
-  return { onboarded, notifyEnabled, starts, settings, keywords, dismissed };
+  return { onboarded, notifyEnabled, hideMode, starts, settings, keywords, dismissed };
 }
 
 export type ExportedData = {
@@ -214,4 +217,14 @@ export async function isNotifyEnabled(db: Database): Promise<boolean> {
 
 export async function setNotifyEnabled(db: Database, enabled: boolean): Promise<void> {
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('notify', ?)", enabled ? '1' : '0');
+}
+
+/** 隠すモード（はじめは使わない）。電車などで開いても、生理の記録だと分からないようにする */
+export async function isHideMode(db: Database): Promise<boolean> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'hide'");
+  return row?.value === '1';
+}
+
+export async function setHideMode(db: Database, on: boolean): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('hide', ?)", on ? '1' : '0');
 }
