@@ -25,26 +25,67 @@ import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda; today: DateKey };
 
-/** 生理の時期のミアの一言。なぐさめるより、次にできることを少しやさしく言う */
-const DURING_LINES = [
-  '重い予定は、ずらせるか見てみる？',
-  '移動の多い予定は、時間にゆとりを持たせよう',
-  '替えのナプキン、かばんに入れておこう',
-  '夜の予定は、早めに切り上げられると楽だよ',
-  'あたたかい飲みものを用意しておこう',
-  '家のことは、だれかに頼めないかな？',
-  '座って過ごせる予定だと、少し楽かも',
-  'パートナーへのひとことは「お知らせ」から送れるよ',
-];
+/** ミアの一言。短く、やさしく、次にできることを1つだけ言う。時期は予測なので「かな」で言い切らない */
+const MASCOT_LINES: Record<PeriodPhase | 'calm', { lead: string; lines: string[] }> = {
+  before: {
+    lead: 'そろそろPMSのころかな。',
+    lines: [
+      '準備は前の日にしておこうね',
+      '予定、詰まりすぎていないかな？',
+      '大事なことは早めにしておこうね',
+      '人と会うのは短めでも大丈夫だよ',
+      '甘いもの、少し用意しておこうね',
+      '今夜は早めにおやすみしようね',
+      'お誘いのお返事は、あとでも大丈夫',
+      'もやもやはメモに書いてみてね',
+    ],
+  },
+  during: {
+    lead: '生理のころかな。',
+    lines: [
+      '重い予定、ずらせそうかな？',
+      '移動はゆっくりめにしようね',
+      '替えのナプキン、持ったかな？',
+      '夜の予定は早めに帰れるといいね',
+      'あったかい飲みもの、どうかな？',
+      '家のこと、だれかに頼めるといいね',
+      '座れる予定だと安心だね',
+      'パートナーにひとこと送ってみてね',
+    ],
+  },
+  after: {
+    lead: '生理あけのころかな。',
+    lines: [
+      '予定は少しずつ戻していこうね',
+      'のばした予定、入れ直してみる？',
+      '鉄分のあるごはん、足してみてね',
+      '立ちくらみに気をつけてね',
+      '楽しみな予定、入れてみようね',
+      '早めに寝て、元気をためようね',
+      '疲れた日は予定をひとつ減らそうね',
+      'お水、こまめに飲もうね',
+    ],
+  },
+  calm: {
+    lead: 'おだやかなころかな。',
+    lines: [
+      '予定、たのしんできてね',
+      '大事な予定はこのへんがいいかも',
+      '次の生理の前に、予定を見ておこうね',
+      'やりたかったこと、入れてみようね',
+      '友だちとの予定、どうかな？',
+      '帯の日を押すと予測が見られるよ',
+      '先の予定、整えておこうね',
+      '気になる用事、片づけてみようね',
+    ],
+  },
+};
 
-/** ミアが選んだ日について話す一言。時期は予測なので「かも」「と言われている」で言い切らない */
-function mascotLine(phase: PeriodPhase | undefined, who: string, recorded: boolean, day: DateKey): string {
+function mascotLine(phase: PeriodPhase | undefined, recorded: boolean, day: DateKey): string {
   if (!recorded) return 'はじめまして！生理が始まった日を選んで、記録してみてね';
-  if (phase === 'before') return `${who}PMSの時期かも。ゆっくり過ごしてね`;
-  // 同じ言葉が続かないよう、日付で順番に変える
-  if (phase === 'during') return `${who}生理の時期かも。${DURING_LINES[fromDateKey(day).getDate() % DURING_LINES.length]}`;
-  if (phase === 'after') return `${who}生理のあとの時期。疲れが出やすいと言われているよ`;
-  return `${who}気をつけたい時期の外だよ。予定もたのしんでね`;
+  const { lead, lines } = MASCOT_LINES[phase ?? 'calm'];
+  // 同じ言葉が続かないよう、日付で順番に変える（8つなので月をまたいでも続けて同じにならない）
+  return `${lead}${lines[fromDateKey(day).getDate() % lines.length]}`;
 }
 
 export default function CalendarScreen({ k, today }: Props) {
@@ -109,7 +150,7 @@ export default function CalendarScreen({ k, today }: Props) {
         </Pressable>
       </View>
 
-      <MascotSays colors={colors} text={mascotLine(phase, selected === today ? '今日は' : 'この日は', k.starts.length > 0, selected)} />
+      <MascotSays colors={colors} text={mascotLine(phase, k.starts.length > 0, selected)} />
 
       {k.access === 'denied' && (
         <Notice

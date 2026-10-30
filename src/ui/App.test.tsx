@@ -133,17 +133,29 @@ describe('calendar', () => {
     expect(screen.queryByText(/起こりやすい心の変化/)).toBeNull();
   });
 
-  it('lets Mia say something different on each period day, with a next step', async () => {
+  it('lets Mia say something different each day in every phase, with a next step', async () => {
     await setup();
-    await screen.findByText(/^今日はPMSの時期かも/);
-    const said = new Set<string>();
-    for (const label of [/^10月25日（日）/, /^10月26日（月）/, /^10月27日（火）/, /^10月28日（水）/]) {
-      await fireEvent.press(screen.getByLabelText(label));
-      const line = screen.getByText(/^この日は生理の時期かも。/).props.children as string;
-      expect(line).not.toMatch(/無理しないで|つらいね|休んでね/);
-      said.add(line);
+    await screen.findByText(/^そろそろPMSのころかな。/);
+    const phases = [
+      ['そろそろPMSのころかな。', ['10月18日（日）', '10月19日（月）', '10月20日（火）', '10月21日（水）']],
+      ['生理のころかな。', ['10月25日（日）', '10月26日（月）', '10月27日（火）', '10月28日（水）']],
+      ['生理あけのころかな。', ['10月1日（木）', '10月2日（金）', '10月3日（土）', '10月4日（日）']],
+      ['おだやかなころかな。', ['10月5日（月）', '10月6日（火）', '10月7日（水）', '10月8日（木）']],
+    ] as const;
+    for (const [lead, days] of phases) {
+      const said = new Set<string>();
+      for (const day of days) {
+        await fireEvent.press(screen.getByLabelText(new RegExp(`^${day}`)));
+        const line = screen.getByText(new RegExp(`^${lead}`)).props.children as string;
+        expect(line).not.toMatch(/無理しないで|つらいね|休んでね|過ごしてね/);
+        // 「しよっ」「しちゃお」のような縮めた言い方はしない
+        expect(line).not.toMatch(/(っ|しよ|ちゃお|とこ|みよ)$/);
+        // ひと目で読める短さにする
+        expect(line.length - lead.length).toBeLessThanOrEqual(18);
+        said.add(line);
+      }
+      expect(said.size).toBe(4);
     }
-    expect(said.size).toBe(4);
   });
 
   it('shows the predicted window and how sure it is on predicted days', async () => {
