@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import {
-  addPeriodStart,
   answerReview as saveReviewAnswer,
   Authenticator,
   BackupFiles,
@@ -19,6 +18,7 @@ import {
   Notifier,
   MetricProps,
   recordMetric,
+  recordPeriodStart,
   removePeriodStart,
   removeTitleWeight,
   saveConflictStatus,
@@ -39,6 +39,7 @@ import {
 } from '../data';
 import {
   advanceStatus,
+  buildReport,
   Answer,
   DateKey,
   DEFAULT_KEYWORDS,
@@ -121,6 +122,7 @@ const INITIAL_STATE: StoredState = {
   starts: [],
   settings: DEFAULT_ZONE_SETTINGS,
   pms: DEFAULT_PMS,
+  accuracy: buildReport([]),
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
   reviewed: new Set(),
@@ -259,7 +261,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     },
     addStart: (day) =>
       withDb(async (opened) => {
-        await addPeriodStart(opened, day);
+        await recordPeriodStart(opened, day);
         await recordMetric(opened, 'period_recorded', { source: 'app' });
         if ((await isReviewAsked(opened)) || !shouldAskReview(await listPeriodStarts(opened), day)) return;
         await setReviewAsked(opened);

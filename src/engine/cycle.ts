@@ -20,9 +20,9 @@ export type CyclePrediction = {
 };
 
 const RECENT_CYCLES = 6;
-const MIN_PLAUSIBLE = 15;
+export const MIN_PLAUSIBLE = 15;
 // これより長い間隔は、途中の記録漏れとみなして計算から外す
-const MAX_PLAUSIBLE = 45;
+export const MAX_PLAUSIBLE = 45;
 const MIN_CYCLES = 3;
 const DEFAULT_LENGTH = 28;
 const DEFAULT_SPREAD = 2;

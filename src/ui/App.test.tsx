@@ -24,6 +24,8 @@ import {
   openBackup,
   listReviewed,
   listTitleWeights,
+  loadState,
+  recordPeriodStart,
   saveConflictStatus,
   saveTitleWeight,
   setLockEnabled,
@@ -575,6 +577,31 @@ describe('settings', () => {
     });
     expect(screen.getByText('PMS は生理予定日の9日前から（あなたの記録から推定）')).toBeTruthy();
     expect(screen.getByText(/過去6周期の体調評価から推定/)).toBeTruthy();
+  });
+
+  it('says there is not enough data yet instead of showing numbers', async () => {
+    await openSettings();
+    expect(screen.getByText(/まだ評価できるデータが足りません（n=0）/)).toBeTruthy();
+    expect(screen.queryByText('平均のズレ')).toBeNull();
+  });
+
+  it('shows how far off the last predictions were, with n', async () => {
+    await openSettings({
+      starts: [],
+      prepare: async (opened) => {
+        // 予測 6/29・7/27・8/25 に対して、実際は 6/29・7/28・8/24
+        for (const start of ['2026-06-01', '2026-06-29', '2026-07-28', '2026-08-24']) {
+          await recordPeriodStart(opened, start);
+          await loadState(opened, new Date(`${start}T12:00`));
+        }
+      },
+    });
+    expect(screen.getByText('前回の予測は1日ズレました（予測 8/25 → 実際 8/24）。')).toBeTruthy();
+    expect(screen.getByText('平均のズレ')).toBeTruthy();
+    expect(screen.getByText('0.7日')).toBeTruthy();
+    expect(screen.getByText('±1日以内')).toBeTruthy();
+    expect(screen.getByText('3回中3回（100%）')).toBeTruthy();
+    expect(screen.getByText(/n=3/)).toBeTruthy();
   });
 
   it('adds and removes keywords, moving a word between levels', async () => {

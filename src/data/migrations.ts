@@ -82,6 +82,20 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       );
     `);
   },
+  // 2026-10-31: 次の生理の予測を残し、実際の開始日と比べた結果（予測の当たり具合）
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE prediction_records (
+        based_on TEXT PRIMARY KEY NOT NULL,
+        predicted_start TEXT NOT NULL,
+        earliest TEXT NOT NULL,
+        latest TEXT NOT NULL,
+        confidence TEXT NOT NULL CHECK (confidence IN ('high', 'medium', 'low')),
+        actual_start TEXT,
+        abs_error_days INTEGER
+      );
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

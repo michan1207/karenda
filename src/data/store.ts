@@ -1,4 +1,6 @@
+import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snapshotPrediction } from '../engine/accuracy';
 import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '../engine/conflictState';
+import { predictCycle } from '../engine/cycle';
 import { DateKey, fromDateKey, toDateKey } from '../engine/date';
 import { Answer, learnWeight, ReviewTarget, TitleWeight } from '../engine/learning';
 import { DEFAULT_PMS, nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
@@ -19,7 +21,54 @@ export async function addPeriodStart(db: Database, start: DateKey): Promise<void
 }
 
 export async function removePeriodStart(db: Database, start: DateKey): Promise<void> {
-  await db.runAsync('DELETE FROM period_starts WHERE start = ?', start);
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('DELETE FROM period_starts WHERE start = ?', start);
+    // 間違えて記録した日なら、その日から出した予測は取り消し、その日と比べた予測は比べる前に戻す
+    await db.runAsync('DELETE FROM prediction_records WHERE based_on = ?', start);
+    await db.runAsync('UPDATE prediction_records SET actual_start = NULL, abs_error_days = NULL WHERE actual_start = ?', start);
+  });
+}
+
+/** 画面から生理開始日を記録する。いちばん新しい開始日なら、前の開始日から出していた予測と比べる（同じ日をもう一度記録しても比べ直さない） */
+export async function recordPeriodStart(db: Database, start: DateKey): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    const last = (await listPeriodStarts(db)).at(-1);
+    await addPeriodStart(db, start);
+    if (!last || start <= last) return;
+    const pending = await db.getFirstAsync<PredictionRecord>(
+      `SELECT ${PREDICTION_COLUMNS} FROM prediction_records WHERE based_on = ? AND actual_start IS NULL`,
+      last,
+    );
+    const evaluated = pending && evaluatePrediction(pending, start);
+    if (evaluated) await savePrediction(db, evaluated);
+    else await db.runAsync('DELETE FROM prediction_records WHERE based_on = ? AND actual_start IS NULL', last);
+  });
+}
+
+const PREDICTION_COLUMNS =
+  'based_on AS basedOn, predicted_start AS predictedStart, earliest, latest, confidence, actual_start AS actualStart, abs_error_days AS absErrorDays';
+
+export async function listPredictionRecords(db: Database): Promise<PredictionRecord[]> {
+  return db.getAllAsync<PredictionRecord>(`SELECT ${PREDICTION_COLUMNS} FROM prediction_records ORDER BY based_on`);
+}
+
+/** 比べたあとの予測は、予測のしかたが変わっても書き換えない */
+async function savePrediction(db: Database, record: PredictionRecord): Promise<void> {
+  await db.runAsync(
+    `INSERT INTO prediction_records (based_on, predicted_start, earliest, latest, confidence, actual_start, abs_error_days)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (based_on) DO UPDATE SET
+       predicted_start = excluded.predicted_start, earliest = excluded.earliest, latest = excluded.latest,
+       confidence = excluded.confidence, actual_start = excluded.actual_start, abs_error_days = excluded.abs_error_days
+     WHERE actual_start IS NULL`,
+    record.basedOn,
+    record.predictedStart,
+    record.earliest,
+    record.latest,
+    record.confidence,
+    record.actualStart,
+    record.absErrorDays,
+  );
 }
 
 export async function getZoneSettings(db: Database): Promise<ZoneSettings> {
@@ -201,6 +250,8 @@ export type StoredState = {
   settings: ZoneSettings;
   /** PMS を生理予定日の何日前からにするかと、その根拠 */
   pms: PmsEstimate;
+  /** 予測の当たり具合（直近6回） */
+  accuracy: AccuracyReport;
   /** 覚えた重さ（learned）も入れてある */
   keywords: RiskKeywords;
   /** 覚えた予定の重さ（設定の一覧用） */
@@ -231,6 +282,9 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
   const current = await getPmsEstimate(db);
   const pms = nextPmsEstimate(current, await listReviewAnswers(db), starts, toDateKey(now));
   if (JSON.stringify(pms) !== JSON.stringify(current)) await savePmsEstimate(db, pms);
+  // まだ比べていない予測は、今の記録からの予測に合わせておく（開始日を記録した時に、直前に出していた予測と比べる）
+  const snapshot = snapshotPrediction(predictCycle(starts), toDateKey(now));
+  if (snapshot) await savePrediction(db, snapshot);
   return {
     onboarded,
     notifyEnabled,
@@ -240,6 +294,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     starts,
     settings: pmsZoneSettings(settings, pms),
     pms,
+    accuracy: buildReport(await listPredictionRecords(db)),
     keywords,
     titleWeights,
     reviewed,
@@ -342,6 +397,7 @@ export async function deleteAllData(db: Database): Promise<void> {
       DELETE FROM metric_events;
       DELETE FROM title_weights;
       DELETE FROM event_reviews;
+      DELETE FROM prediction_records;
     `);
     await seedDefaults(db);
   });
