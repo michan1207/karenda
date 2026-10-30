@@ -21,6 +21,6 @@ export type Guard = {
 /** 記録・設定・予定から、表示する期間のゾーンと警告をまとめて出す */
 export function computeGuard({ starts, settings, keywords, events, range }: GuardInput): Guard {
   const prediction = predictCycle(starts);
-  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings) : new Map();
+  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts) : new Map();
   return { prediction, zones, alerts: detectConflicts(events, zones, keywords) };
 }
