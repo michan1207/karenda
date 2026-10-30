@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@noble/ciphers": "2.4.0",
+    "@noble/hashes": "2.4.0",
     "expo": "~58.0.19",
     "expo-asset": "58.0.18",
     "expo-calendar": "~58.0.6",
+    "expo-crypto": "58.0.7",
     "expo-font": "58.0.10",
     "expo-notifications": "~58.1.6",
     "expo-splash-screen": "~58.0.11",
@@ -46,6 +49,11 @@
       "/node_modules/",
       "<rootDir>/.claude/"
     ],
-    "globalSetup": "<rootDir>/jest.timezone.js"
+    "globalSetup": "<rootDir>/jest.timezone.js",
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|@noble))",
+      "/node_modules/react-native-reanimated/plugin/",
+      "/node_modules/@react-native/babel-preset/"
+    ]
   }
 }
