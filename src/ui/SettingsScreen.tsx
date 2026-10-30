@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { AccuracyReport, DateKey, PMS_CYCLES, PmsEstimate, predictCycle, RiskKeywords } from '../engine';
+import { CALENDAR_NOTE, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import BackupPanel from './BackupPanel';
 import { Button, Decorations, Notice, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
@@ -263,6 +264,30 @@ export default function SettingsScreen({ k, today }: Props) {
         <Text style={[styles.help, { color: colors.muted }]}>
           記録した回数などを、この iPhone の中だけで数えます。外には送りません。オフにしても、アプリの使い方は変わりません。
         </Text>
+      </Section>
+
+      <Section colors={colors} title="プライバシー">
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>外部への送信</Text>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>{outboundCount()}件</Text>
+        </View>
+        <Text style={[styles.help, { color: colors.muted }]}>アプリを開いてから、外へ通信しようとした回数を、アプリの中で数えています。</Text>
+        {PRIVACY_FACTS.map(({ label, value, note }) => (
+          <View key={label}>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{value}</Text>
+            </View>
+            <Text style={[styles.help, { color: colors.muted }]}>{note}</Text>
+          </View>
+        ))}
+        <Text style={[styles.rowLabel, { color: colors.text }]}>この端末に残すもの</Text>
+        {STORED_DATA.map(({ table, what, why }) => (
+          <Text key={table} style={[styles.help, { color: colors.muted }]}>
+            ・{what}：{why}
+          </Text>
+        ))}
+        <Text style={[styles.help, { color: colors.muted }]}>{CALENDAR_NOTE}</Text>
       </Section>
 
       <Section colors={colors} title="データ">
