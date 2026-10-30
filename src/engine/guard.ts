@@ -22,5 +22,5 @@ export type Guard = {
 export function computeGuard({ starts, settings, keywords, events, range }: GuardInput): Guard {
   const prediction = predictCycle(starts);
   const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts) : new Map();
-  return { prediction, zones, alerts: detectConflicts(events, zones, keywords) };
+  return { prediction, zones, alerts: detectConflicts(events, zones, keywords, prediction) };
 }

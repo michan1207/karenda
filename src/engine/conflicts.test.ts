@@ -1,76 +1,105 @@
-import { detectConflicts } from './conflicts';
+import { CalendarEvent, detectConflicts, gradeOf } from './conflicts';
 import { predictCycle } from './cycle';
 import { buildZones } from './zones';
 
-// 次の生理は 10-26 ごろ（10-25〜27。ヘビー期 10-25〜29）、PMS期 10-18〜24
-const zones = buildZones(predictCycle(['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'])!, {
-  from: '2026-10-01',
-  until: '2026-11-15',
-});
+// 記録 9/28（生理1〜3日目 9/28〜30）。次は 10/26 ごろ（10/25〜27、ヘビー期 10/25〜29）、PMS期 10/18〜24、
+// 生理の終わりごろ 10/30〜11/2
+const starts = ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'];
+const prediction = predictCycle(starts)!;
+const zones = buildZones(prediction, { from: '2026-09-20', until: '2026-11-15' }, undefined, starts);
 
-const ev = (id: string, title: string, start: string, end = start, allDay = false) => ({ id, title, start, end, allDay });
+const ev = (id: string, title: string, start: string, more: Partial<CalendarEvent> = {}): CalendarEvent => ({
+  id,
+  title,
+  start,
+  end: start,
+  allDay: false,
+  ...more,
+});
+const detect = (events: CalendarEvent[]) => detectConflicts(events, zones, undefined, prediction);
 
 describe('detectConflicts', () => {
-  it('raises red for a heavy event on a heavy day, naming the period day', () => {
-    const [alert] = detectConflicts([ev('1', '福岡出張', '2026-10-27')], zones);
-    expect(alert).toMatchObject({ eventId: '1', date: '2026-10-27', level: 'red', zone: 'heavy', risk: 'high' });
-    expect(alert.message).toContain('生理2日目');
+  it('grades an all-day trip on a recorded period day A, and says why', () => {
+    const [alert] = detect([ev('1', '大阪出張', '2026-09-29', { allDay: true })]);
+    expect(alert).toMatchObject({ eventId: '1', date: '2026-09-29', grade: 'A', score: 100, risk: 'high' });
+    expect(alert.reasons).toEqual(['phaseMostSevere', 'allDayMobility']);
+    expect(alert.reasonText).toBe('終日の移動を伴う予定で、生理2日目と重なる見込みです。');
   });
 
-  it('raises yellow for a medium event on a heavy day', () => {
-    const [alert] = detectConflicts([ev('1', '定例会議', '2026-10-26')], zones);
-    expect(alert).toMatchObject({ level: 'yellow', zone: 'heavy', risk: 'medium' });
+  it('leaves an ordinary meeting on a calm day out, as grade C', () => {
+    expect(detect([ev('1', '会議', '2026-10-10')])).toEqual([]);
   });
 
-  it('raises yellow for a heavy event in the PMS week and suggests finishing before it', () => {
-    const [alert] = detectConflicts([ev('1', '企画プレゼン', '2026-10-22')], zones);
-    expect(alert).toMatchObject({ level: 'yellow', zone: 'pms', risk: 'high' });
-    expect(alert.message).toContain('10月17日');
+  it.each([
+    ['a heavy event on period day 2', '企画プレゼン', '2026-10-27', 'A', 100],
+    ['a normal event on period day 1', '定例会議', '2026-10-26', 'B', 40],
+    ['a heavy event in the PMS week', 'プレゼン', '2026-10-22', 'A', 70],
+    ['a heavy event on a day the period may come', '発表', '2026-10-29', 'B', 60],
+    ['a heavy event near the end of the period', '出張', '2026-10-31', 'B', 60],
+  ])('grades %s', (_, title, day, grade, score) => {
+    expect(detect([ev('1', title, day)])[0]).toMatchObject({ grade, score });
   });
 
-  it('flags medium events in the PMS week only when that week has three or more', () => {
-    expect(detectConflicts([ev('1', '会議', '2026-10-20')], zones)).toEqual([]);
-    const busy = detectConflicts(
-      [ev('1', '会議', '2026-10-19'), ev('2', '飲み会', '2026-10-21'), ev('3', '美容院', '2026-10-24')],
-      zones,
-    );
-    expect(busy.map((a) => a.eventId)).toEqual(['1', '2', '3']);
-    expect(busy[0].message).toContain('詰め込み');
+  it.each([
+    ['a normal event in the PMS week', '会議', '2026-10-20'],
+    ['a normal event near the end of the period', '飲み会', '2026-10-31'],
+    ['an event without weighty words', '買い物', '2026-10-27'],
+  ])('only notes %s as C, so leaves it out', (_, title, day) => {
+    expect(detect([ev('1', title, day)])).toEqual([]);
   });
 
-  it('counts medium events per Monday-to-Sunday week', () => {
-    // 10-19 is a Monday; 10-18, a Sunday, belongs to the previous week
-    const alerts = detectConflicts(
-      [ev('1', '会議', '2026-10-18'), ev('2', '会議', '2026-10-19'), ev('3', '会議', '2026-10-24')],
-      zones,
-    );
-    expect(alerts).toEqual([]);
+  it('adds a little for an early start, and notes a long event', () => {
+    const [early] = detect([ev('1', 'プレゼン', '2026-10-22', { startMinutes: 7 * 60 })]);
+    expect(early).toMatchObject({ grade: 'A', score: 74 });
+    expect(early.reasons).toContain('earlyMorning');
+    expect(early.reasonText).toBe('朝早い予定で、PMSの時期と重なる見込みです。');
+    const [long] = detect([ev('2', '試験', '2026-10-22', { durationMinutes: 300 })]);
+    expect(long).toMatchObject({ score: 70 });
+    expect(long.reasons).toContain('longDuration');
   });
 
-  it('ignores low-risk events and calm days', () => {
-    expect(detectConflicts([ev('1', '買い物', '2026-10-27'), ev('2', '出張', '2026-10-05')], zones)).toEqual([]);
+  it('keeps the heaviest day of an event spanning several days', () => {
+    const [alert] = detect([ev('1', '家族旅行', '2026-10-24', { end: '2026-10-27', allDay: true })]);
+    expect(alert).toMatchObject({ date: '2026-10-26', grade: 'A', score: 100 });
   });
 
-  it('checks every day of a multi-day event and keeps the most severe', () => {
-    const [alert] = detectConflicts([ev('1', '家族旅行', '2026-10-24', '2026-10-27')], zones);
-    expect(alert).toMatchObject({ level: 'red', date: '2026-10-25' });
+  it('says when the prediction is too uncertain to rely on', () => {
+    // 22, 35, 24, 36 日 → 確信度「低」
+    const loose = ['2026-01-01', '2026-01-23', '2026-02-27', '2026-03-23', '2026-04-28'];
+    const p = predictCycle(loose)!;
+    const z = buildZones(p, { from: '2026-05-01', until: '2026-06-30' }, undefined, loose);
+    const [alert] = detectConflicts([ev('1', '出張', '2026-05-27')], z, undefined, p);
+    expect(alert.reasons).toContain('windowWide');
+    expect(alert.confidenceNote).toBe('周期のばらつきが大きく、予測がずれることがあります。');
   });
 
-  it('sorts red before yellow, then by date', () => {
-    const alerts = detectConflicts(
-      [ev('a', 'プレゼン', '2026-10-20'), ev('b', '出張', '2026-10-28'), ev('c', '会議', '2026-10-26')],
-      zones,
-    );
-    expect(alerts.map((a) => a.eventId)).toEqual(['b', 'a', 'c']);
+  it('sorts A before B, then by date', () => {
+    const alerts = detect([ev('a', '定例会議', '2026-10-26'), ev('b', '出張', '2026-10-28'), ev('c', 'プレゼン', '2026-10-22')]);
+    expect(alerts.map((a) => a.eventId)).toEqual(['c', 'b', 'a']);
   });
 
-  it('says "the period" instead of a day number when the day is uncertain', () => {
-    const wide = buildZones(predictCycle(['2026-07-01', '2026-07-26', '2026-08-28', '2026-09-26'])!, {
-      from: '2026-10-01',
-      until: '2026-11-05',
-    });
-    const [alert] = detectConflicts([ev('1', '出張', '2026-10-22')], wide);
-    expect(alert.level).toBe('red');
-    expect(alert.message).toContain('生理の時期');
+  it('always says why, and keeps the suggestion naming the period day', () => {
+    const alerts = detect([
+      ev('1', '企画プレゼン', '2026-10-27'),
+      ev('2', '定例会議', '2026-10-26'),
+      ev('3', 'プレゼン', '2026-10-22'),
+      ev('4', '出張', '2026-10-31'),
+    ]);
+    for (const alert of alerts) expect(alert.reasonText).not.toBe('');
+    expect(alerts.find((a) => a.eventId === '1')!.message).toContain('生理2日目');
+    expect(alerts.find((a) => a.eventId === '3')!.message).toContain('10月17日');
+  });
+});
+
+describe('gradeOf', () => {
+  it.each([
+    [100, 'A'],
+    [70, 'A'],
+    [69, 'B'],
+    [40, 'B'],
+    [39, 'C'],
+    [0, 'C'],
+  ])('gives %i grade %s', (score, grade) => {
+    expect(gradeOf(score)).toBe(grade);
   });
 });

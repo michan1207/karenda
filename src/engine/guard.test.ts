@@ -18,7 +18,7 @@ it('combines prediction, zones and alerts', () => {
   expect(guard.prediction?.averageLength).toBe(28);
   expect(guard.zones.get('2026-10-26')?.zone).toBe('heavy');
   expect(guard.alerts).toHaveLength(1);
-  expect(guard.alerts[0].level).toBe('red');
+  expect(guard.alerts[0].grade).toBe('A');
 });
 
 it('colours past recorded periods too, so earlier months show them', () => {
