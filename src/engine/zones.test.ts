@@ -11,6 +11,19 @@ describe('buildZones', () => {
     expect(zones.get('2026-10-01')).toBeUndefined();
   });
 
+  it('marks every recorded period as heavy, not only the latest', () => {
+    const zones = buildZones(regular, { from: '2026-07-01', until: '2026-09-30' }, undefined, [
+      '2026-07-06',
+      '2026-08-03',
+      '2026-08-31',
+      '2026-09-28',
+    ]);
+    expect(zones.get('2026-07-06')).toMatchObject({ zone: 'heavy', periodDay: 1, predicted: false });
+    expect(zones.get('2026-08-05')).toMatchObject({ zone: 'heavy', periodDay: 3, predicted: false });
+    expect(zones.get('2026-09-01')).toMatchObject({ zone: 'heavy', periodDay: 2, predicted: false });
+    expect(zones.get('2026-08-06')).toBeUndefined();
+  });
+
   it('predicts the next period and the PMS week before it', () => {
     const zones = buildZones(regular, { from: '2026-10-01', until: '2026-11-30' });
     // next start 10-26, give or take a day

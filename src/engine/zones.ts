@@ -32,6 +32,8 @@ export function buildZones(
   prediction: CyclePrediction,
   range: DateRange,
   settings: ZoneSettings = DEFAULT_ZONE_SETTINGS,
+  /** 記録した生理開始日。前の月を見た時もピンクにするため、最後の1件だけでなく全部塗る */
+  recorded: DateKey[] = [prediction.lastStart],
 ): ZoneMap {
   validateZoneSettings(settings);
   const { heavyDays, pmsDays } = settings;
@@ -43,8 +45,10 @@ export function buildZones(
     if (inRange(day) && !(current?.zone === 'heavy')) zones.set(day, value);
   };
 
-  for (let i = 0; i < heavyDays; i++) {
-    setHeavy(addDays(prediction.lastStart, i), { zone: 'heavy', predicted: false, periodDay: i + 1 });
+  for (const start of recorded) {
+    for (let i = 0; i < heavyDays; i++) {
+      setHeavy(addDays(start, i), { zone: 'heavy', predicted: false, periodDay: i + 1 });
+    }
   }
 
   for (let n = 1; ; n++) {
