@@ -148,6 +148,8 @@ describe('calendar', () => {
         await fireEvent.press(screen.getByLabelText(new RegExp(`^${day}`)));
         const line = screen.getByText(new RegExp(`^${lead}`)).props.children as string;
         expect(line).not.toMatch(/無理しないで|つらいね|休んでね|過ごしてね/);
+        // 「しよっ」「しちゃお」のような縮めた言い方はしない
+        expect(line).not.toMatch(/(っ|しよ|ちゃお|とこ|みよ)$/);
         // ひと目で読める短さにする
         expect(line.length - lead.length).toBeLessThanOrEqual(18);
         said.add(line);
