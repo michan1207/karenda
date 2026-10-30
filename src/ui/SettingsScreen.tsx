@@ -49,7 +49,7 @@ export default function SettingsScreen({ k, today }: Props) {
           />
         </View>
         <Text style={[styles.help, { color: colors.muted }]}>
-          要注意（A）の予定は7日前と3日前、注意（B）の予定は3日前の朝9時に、この端末から通知します。同じ日の通知は1件にまとめます。
+          要注意（A）の予定は7日前と3日前、注意（B）の予定は3日前の朝9時に、この端末から通知します。同じ日の通知は1件にまとめます。重い予定・ふつうの予定のあとは、次の朝9時に「どうだった？」と1件だけ聞きます。
         </Text>
         {k.notifyEnabled && k.notifyAccess === 'denied' && (
           <Notice

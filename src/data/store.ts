@@ -1,6 +1,7 @@
 import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '../engine/conflictState';
 import { DateKey, fromDateKey } from '../engine/date';
-import type { TitleWeight } from '../engine/learning';
+import { Answer, learnWeight, ReviewTarget, TitleWeight } from '../engine/learning';
+import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
 import { validateZoneSettings, ZoneSettings } from '../engine/zones';
 import type { Database } from './database';
@@ -83,6 +84,37 @@ export async function removeTitleWeight(db: Database, term: string): Promise<voi
   await db.runAsync('DELETE FROM title_weights WHERE term = ?', term);
 }
 
+/** 答えた（答えないを選んだ）予定。`statusKey(予定ID, 最後の日)` の集まり */
+export async function listReviewed(db: Database): Promise<Set<string>> {
+  const rows = await db.getAllAsync<{ event_id: string; date: string }>('SELECT event_id, date FROM event_reviews');
+  return new Set(rows.map((row) => statusKey(row.event_id, row.date)));
+}
+
+/**
+ * 「どうだった？」の答えを残し、答えならその予定の重さを学ぶ。answer が null は「答えない」（学ばない）。
+ * 通知とホームの両方から来ても、1つの予定で数えるのは最初の1回だけ
+ */
+export async function answerReview(db: Database, target: ReviewTarget, answer: Answer | null, now: Date = new Date()): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    const done = await db.getFirstAsync('SELECT 1 FROM event_reviews WHERE event_id = ? AND date = ?', target.eventId, target.date);
+    if (done) return;
+    await db.runAsync(
+      'INSERT INTO event_reviews (event_id, date, phase, answer, answered_at) VALUES (?, ?, ?, ?, ?)',
+      target.eventId,
+      target.date,
+      target.phase,
+      answer,
+      now.toISOString(),
+    );
+    if (!answer) return;
+    const entry = await db.getFirstAsync<TitleWeight>(
+      'SELECT term, label, weight, source, observations, lean FROM title_weights WHERE term = ?',
+      termOf(target.title),
+    );
+    await saveTitleWeight(db, learnWeight(entry ?? undefined, target.title, answer, target.phase), now);
+  });
+}
+
 /** お知らせの状態。未確認は保存しない（行が無い） */
 export async function getConflictStatuses(db: Database): Promise<Map<string, ConflictStatus>> {
   const rows = await db.getAllAsync<{ event_id: string; date: string; state: ConflictState; resolution: Resolution | null }>(
@@ -136,12 +168,14 @@ export type StoredState = {
   keywords: RiskKeywords;
   /** 覚えた予定の重さ（設定の一覧用） */
   titleWeights: TitleWeight[];
+  /** 「どうだった？」に答えた予定（`statusKey`） */
+  reviewed: Set<string>;
   /** お知らせの状態（`statusOf` で読む） */
   statuses: Map<string, ConflictStatus>;
 };
 
 export async function loadState(db: Database): Promise<StoredState> {
-  const [onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, words, statuses, resolutions, titleWeights] = await Promise.all([
+  const [onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, words, statuses, resolutions, titleWeights, reviewed] = await Promise.all([
     isOnboarded(db),
     isNotifyEnabled(db),
     isHideMode(db),
@@ -153,10 +187,11 @@ export async function loadState(db: Database): Promise<StoredState> {
     getConflictStatuses(db),
     listResolutions(db),
     listTitleWeights(db),
+    listReviewed(db),
   ]);
   const learned = new Map(titleWeights.flatMap(({ term, weight }) => (weight ? [[term, weight] as const] : [])));
   const keywords = { ...words, learned };
-  return { onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, keywords, titleWeights, statuses, resolutions };
+  return { onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, keywords, titleWeights, reviewed, statuses, resolutions };
 }
 
 export type ExportedData = {
@@ -250,6 +285,7 @@ export async function deleteAllData(db: Database): Promise<void> {
       DELETE FROM conflict_states;
       DELETE FROM metric_events;
       DELETE FROM title_weights;
+      DELETE FROM event_reviews;
     `);
     await seedDefaults(db);
   });

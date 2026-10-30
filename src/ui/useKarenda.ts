@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 
 import {
   addPeriodStart,
+  answerReview as saveReviewAnswer,
   Authenticator,
   BackupFiles,
   CalendarSource,
@@ -36,11 +37,13 @@ import {
 } from '../data';
 import {
   advanceStatus,
+  Answer,
   DateKey,
   DEFAULT_KEYWORDS,
   DEFAULT_ZONE_SETTINGS,
   overrideWeight,
   Resolution,
+  ReviewTarget,
   RiskKeywords,
   shouldAskReview,
   statusOf,
@@ -77,6 +80,8 @@ export type Karenda = StoredState & {
   setTitleWeight(entry: TitleWeight, weight: Weight): Promise<void>;
   /** 覚えた重さを忘れて、言葉の決まりに戻す */
   removeTitleWeight(term: string): Promise<void>;
+  /** 予定のあとの「どうだった？」に答える。null は「答えない」 */
+  answerReview(target: ReviewTarget, answer: Answer | null): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
   setHideMode(on: boolean): Promise<void>;
   setMetrics(on: boolean): Promise<void>;
@@ -111,6 +116,7 @@ const INITIAL_STATE: StoredState = {
   settings: DEFAULT_ZONE_SETTINGS,
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
+  reviewed: new Set(),
   statuses: new Map(),
 };
 
@@ -212,6 +218,16 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     [db],
   );
 
+  // 通知のボタンで答えた分を残す
+  useEffect(() => {
+    if (!db) return;
+    return notifier.onReviewAnswer((target, answer) => {
+      saveReviewAnswer(db, target, answer)
+        .then(() => reload(db))
+        .catch(() => {});
+    });
+  }, [db, notifier, reload]);
+
   const withDb = useCallback(
     async (task: (opened: Database) => Promise<void>) => {
       if (!db) return;
@@ -248,6 +264,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     setKeywords: (next) => withDb((opened) => saveKeywords(opened, next)),
     setTitleWeight: (entry, weight) => withDb((opened) => saveTitleWeight(opened, overrideWeight(entry, entry.label, weight))),
     removeTitleWeight: (term) => withDb((opened) => removeTitleWeight(opened, term)),
+    answerReview: (target, answer) => withDb((opened) => saveReviewAnswer(opened, target, answer)),
     setNotify: async (enabled) => {
       await withDb((opened) => setNotifyEnabled(opened, enabled));
       if (enabled) await requestNotifyAccess();

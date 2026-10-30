@@ -4,6 +4,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   addDays,
   AFTER_PERIOD_DAYS,
+  Answer,
   computeGuard,
   ConflictAlert,
   DateKey,
@@ -17,6 +18,7 @@ import {
   nearestPeriod,
   PeriodPhase,
   periodPhase,
+  ReviewTarget,
   shiftMonth,
   ZoneDay,
 } from '../engine';
@@ -27,7 +29,7 @@ import { Colors, radius, useColors } from './theme';
 import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
 
-type Props = { k: Karenda; today: DateKey; openAlerts: () => void };
+type Props = { k: Karenda; today: DateKey; reviews: ReviewTarget[]; openAlerts: () => void };
 
 /** ミアの一言。短く、やさしく、次にできることを1つだけ言う。時期は予測なので「かな」で言い切らない */
 const MASCOT_LINES: Record<PeriodPhase | 'calm', { lead: string; lines: string[] }> = {
@@ -95,7 +97,7 @@ function mascotLine(phase: PeriodPhase | undefined, recorded: boolean, day: Date
   return `${lead}${lines[fromDateKey(day).getDate() % lines.length]}`;
 }
 
-export default function CalendarScreen({ k, today, openAlerts }: Props) {
+export default function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
   const colors = useColors();
   const [{ year, month }, setMonth] = useState(() => {
     const date = fromDateKey(today);
@@ -192,6 +194,8 @@ export default function CalendarScreen({ k, today, openAlerts }: Props) {
           nextMonth={() => goMonth(1)}
         />
       )}
+
+      {!hidden && reviews.length > 0 && <ReviewCard colors={colors} reviews={reviews} onAnswer={k.answerReview} />}
 
       {!hidden && <MascotSays colors={colors} text={mascotLine(phase, k.starts.length > 0, selected)} />}
 
@@ -313,6 +317,60 @@ export default function CalendarScreen({ k, today, openAlerts }: Props) {
         </Text>
       )}
     </ScrollView>
+  );
+}
+
+const ANSWERS: [Answer, string][] = [
+  ['hard', 'きつかった'],
+  ['normal', 'ふつう'],
+  ['easy', '平気だった'],
+];
+
+/** 終わった予定に「どうだった？」と聞く（3件まで）。答えから予定の重さを覚えていく */
+function ReviewCard({
+  colors,
+  reviews,
+  onAnswer,
+}: {
+  colors: Colors;
+  reviews: ReviewTarget[];
+  onAnswer: (target: ReviewTarget, answer: Answer | null) => void;
+}) {
+  return (
+    <Card colors={colors}>
+      <Text style={[styles.digestTitle, { color: colors.text }]}>予定、どうだった？</Text>
+      <Text style={[styles.reviewHelp, { color: colors.muted }]}>答えると予定の重さを覚えて、次のお知らせに生かします。</Text>
+      {reviews.map((target) => {
+        const name = `${dayTitle(target.date)}「${target.title || '（タイトルなし）'}」`;
+        return (
+          <View key={`${target.eventId}|${target.date}`} style={styles.review}>
+            <Text style={[styles.detailText, { color: colors.text }]}>{name}</Text>
+            <View style={styles.reviewChips}>
+              {ANSWERS.map(([answer, label]) => (
+                <Pressable
+                  key={answer}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${name}は${label}`}
+                  onPress={() => onAnswer(target, answer)}
+                  style={[styles.reviewChip, { borderColor: colors.pink }]}
+                >
+                  <Text style={[styles.reviewChipText, { color: colors.text }]}>{label}</Text>
+                </Pressable>
+              ))}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${name}は答えない`}
+                onPress={() => onAnswer(target, null)}
+                hitSlop={8}
+                style={styles.reviewSkip}
+              >
+                <Text style={[styles.reviewChipText, { color: colors.muted }]}>答えない</Text>
+              </Pressable>
+            </View>
+          </View>
+        );
+      })}
+    </Card>
   );
 }
 
@@ -494,6 +552,12 @@ const styles = StyleSheet.create({
   digestTitle: { fontSize: 16, fontWeight: '700' },
   digestBadge: { fontSize: 12, fontWeight: '700', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 2 },
   digestRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  reviewHelp: { fontSize: 13 },
+  review: { gap: 6 },
+  reviewChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  reviewChip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  reviewChipText: { fontSize: 13 },
+  reviewSkip: { paddingHorizontal: 8, paddingVertical: 6 },
   digestGrade: { fontSize: 14, fontWeight: '700' },
   digestText: { flexShrink: 1 },
   hideButton: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6, minHeight: 32, justifyContent: 'center' },

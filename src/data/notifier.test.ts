@@ -3,6 +3,10 @@ import * as Notifications from 'expo-notifications';
 import { deviceNotifier } from './notifier';
 
 jest.mock('expo-notifications', () => ({
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  clearLastNotificationResponse: jest.fn(),
+  getLastNotificationResponse: jest.fn(() => null),
+  setNotificationCategoryAsync: jest.fn(async () => ({})),
   AndroidImportance: { DEFAULT: 3 },
   SchedulableTriggerInputTypes: { DATE: 'date' },
   cancelAllScheduledNotificationsAsync: jest.fn(async () => {}),
@@ -41,6 +45,33 @@ describe('deviceNotifier.replaceAll', () => {
       new Date(2026, 9, 24, 7, 30),
     );
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('asking how an event went', () => {
+  const review = { eventId: 'ev', title: '役員会議', date: '2026-10-24', phase: 'pms' as const, risk: 'medium' as const };
+  const response = (actionIdentifier: string) =>
+    ({ actionIdentifier, notification: { request: { content: { data: { review } } } } }) as never;
+
+  it('schedules it with the answer buttons', async () => {
+    await deviceNotifier.replaceAll([{ id: 'review-2026-10-25', date: '2026-10-25', title: 't', body: 'b', review }], new Date(2026, 9, 24));
+    expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ content: { title: 't', body: 'b', categoryIdentifier: 'review', data: { review } } }),
+    );
+  });
+
+  it('passes on the button pressed, including the one that opened the app, but not a plain tap', () => {
+    mocked.getLastNotificationResponse.mockReturnValueOnce(response('skip'));
+    const handler = jest.fn();
+    deviceNotifier.onReviewAnswer(handler);
+    const listener = mocked.addNotificationResponseReceivedListener.mock.calls[0][0];
+    listener(response('hard'));
+    listener(response('expo.modules.notifications.actions.DEFAULT'));
+    expect(handler.mock.calls).toEqual([
+      [review, null],
+      [review, 'hard'],
+    ]);
+    expect(mocked.clearLastNotificationResponse).toHaveBeenCalled();
   });
 });
 

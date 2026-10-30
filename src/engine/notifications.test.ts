@@ -1,5 +1,6 @@
 import type { ConflictAlert } from './conflicts';
-import { planNotifications } from './notifications';
+import type { ReviewTarget } from './learning';
+import { planNotifications, planReviewNotifications } from './notifications';
 
 const alert = (eventId: string, date: string, grade: 'A' | 'B', title = eventId): ConflictAlert => ({
   eventId,
@@ -65,5 +66,37 @@ describe('planNotifications', () => {
 
   it('returns nothing without alerts', () => {
     expect(planNotifications([], '2026-10-24')).toEqual([]);
+  });
+});
+
+describe('planReviewNotifications', () => {
+  const target = (eventId: string, date: string, risk: ReviewTarget['risk'] = 'medium'): ReviewTarget => ({
+    eventId,
+    title: eventId,
+    date,
+    phase: 'pms',
+    risk,
+  });
+
+  it('asks once the next morning, one per morning with the heavy one first, and never about answered ones', () => {
+    const plans = planReviewNotifications(
+      [target('会議', '2026-10-24'), target('出張', '2026-10-24', 'high'), target('前日', '2026-10-22'), target('済み', '2026-10-26')],
+      new Set(['済み|2026-10-26']),
+      '2026-10-24',
+    );
+    expect(plans).toEqual([
+      {
+        id: 'review-2026-10-25',
+        date: '2026-10-25',
+        title: '昨日の「出張」、実際どうでした？',
+        body: '長押しすると「きつかった・ふつう・平気だった」から選べます。',
+        review: target('出張', '2026-10-24', 'high'),
+      },
+    ]);
+  });
+
+  it('keeps health words off the lock screen', () => {
+    const [plan] = planReviewNotifications([target('会議', '2026-10-24')], new Set(), '2026-10-24');
+    expect(`${plan.title}${plan.body}`).not.toMatch(/生理|PMS|体調/);
   });
 });
