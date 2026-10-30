@@ -13,6 +13,7 @@ const palette = {
     accent: '#7a4f9a',
     onAccent: '#ffffff',
     heavy: '#ffd6e4',
+    heavyEdge: '#ffecf2',
     pms: '#ece2fb',
     // リボン・主なボタン・今日の丸。白い文字を乗せる
     pink: '#c93a72',
@@ -42,6 +43,7 @@ const palette = {
     accent: '#c9a3e8',
     onAccent: '#17141c',
     heavy: '#4a2833',
+    heavyEdge: '#3a2530',
     pms: '#3a2f4b',
     pink: '#c93a72',
     onPink: '#ffffff',

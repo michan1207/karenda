@@ -87,3 +87,9 @@ export function predictedPeriod(prediction: CyclePrediction, n: number): Predict
     latest: addDays(expected, prediction.spread),
   };
 }
+
+/** その日にいちばん近い、これからの生理の予測。日付の詳細で幅を見せるのに使う */
+export function nearestPeriod(prediction: CyclePrediction, day: DateKey): PredictedPeriod {
+  const n = Math.round(diffDays(prediction.lastStart, day) / prediction.averageLength);
+  return predictedPeriod(prediction, Math.max(1, n));
+}
