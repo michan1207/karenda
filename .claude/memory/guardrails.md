@@ -16,7 +16,9 @@
 - `periodPhase(day, zones)`: pms→before / heavy→during / ヘビー期の翌日から`AFTER_PERIOD_DAYS`(4)日→after。心の変化の目安表示用で、警告・通知には使わない
 
 ## 予定のリスク（risk.ts）
-- 終日予定は常に high
+- 終日予定は high。ただし「有給」「休暇」「代休」「OFF」を含む予定と、祝日カレンダー（名前に 祝日/holiday）の予定は除く（2026-10-30 F7）
+- 覚えた重さ（`keywords.learned`、`termOf`＝NFKC・小文字・空白除去の名前全体ごと）が言葉と終日より優先: heavy→high / normal→medium
+- `learnWeight`（learning.ts）: きつかった は時期を問わず重い向き、生理/PMS中の ふつう/平気 はふつう向き、落ち着いた時期の ふつう/平気 は向きを変えない。同じ向きが2回続くと決まる。設定で直したもの（source user）は答えで変えない
 - タイトルをNFKC＋小文字にしてキーワードを部分一致。high を先に判定
 - 既定 high: 出張 プレゼン 発表 面接 旅行 ライブ 遠征 夜勤 締め切り 締切 試験
 - 既定 medium: 会議 打ち合わせ 打合せ ミーティング 飲み会 美容院 残業 ワンオペ

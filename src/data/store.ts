@@ -1,5 +1,6 @@
 import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '../engine/conflictState';
 import { DateKey, fromDateKey } from '../engine/date';
+import type { TitleWeight } from '../engine/learning';
 import type { RiskKeywords } from '../engine/risk';
 import { validateZoneSettings, ZoneSettings } from '../engine/zones';
 import type { Database } from './database';
@@ -56,6 +57,32 @@ async function writeKeywords(db: Database, keywords: RiskKeywords): Promise<void
   }
 }
 
+/** 覚えた予定の重さ。まだ決まっていないもの（weight が null）も含む。新しい順 */
+export async function listTitleWeights(db: Database): Promise<TitleWeight[]> {
+  return db.getAllAsync<TitleWeight>(
+    'SELECT term, label, weight, source, observations, lean FROM title_weights ORDER BY updated_at DESC, term',
+  );
+}
+
+/** learnWeight / overrideWeight の結果を保存する */
+export async function saveTitleWeight(db: Database, entry: TitleWeight, now: Date = new Date()): Promise<void> {
+  await db.runAsync(
+    'INSERT OR REPLACE INTO title_weights (term, label, weight, source, observations, lean, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    entry.term,
+    entry.label,
+    entry.weight,
+    entry.source,
+    entry.observations,
+    entry.lean,
+    now.toISOString(),
+  );
+}
+
+/** 覚えた重さを忘れて、言葉の決まりに戻す */
+export async function removeTitleWeight(db: Database, term: string): Promise<void> {
+  await db.runAsync('DELETE FROM title_weights WHERE term = ?', term);
+}
+
 /** お知らせの状態。未確認は保存しない（行が無い） */
 export async function getConflictStatuses(db: Database): Promise<Map<string, ConflictStatus>> {
   const rows = await db.getAllAsync<{ event_id: string; date: string; state: ConflictState; resolution: Resolution | null }>(
@@ -105,13 +132,16 @@ export type StoredState = {
   resolutions: { resolution: Resolution; at: string }[];
   starts: DateKey[];
   settings: ZoneSettings;
+  /** 覚えた重さ（learned）も入れてある */
   keywords: RiskKeywords;
+  /** 覚えた予定の重さ（設定の一覧用） */
+  titleWeights: TitleWeight[];
   /** お知らせの状態（`statusOf` で読む） */
   statuses: Map<string, ConflictStatus>;
 };
 
 export async function loadState(db: Database): Promise<StoredState> {
-  const [onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, keywords, statuses, resolutions] = await Promise.all([
+  const [onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, words, statuses, resolutions, titleWeights] = await Promise.all([
     isOnboarded(db),
     isNotifyEnabled(db),
     isHideMode(db),
@@ -122,8 +152,11 @@ export async function loadState(db: Database): Promise<StoredState> {
     getKeywords(db),
     getConflictStatuses(db),
     listResolutions(db),
+    listTitleWeights(db),
   ]);
-  return { onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, keywords, statuses, resolutions };
+  const learned = new Map(titleWeights.flatMap(({ term, weight }) => (weight ? [[term, weight] as const] : [])));
+  const keywords = { ...words, learned };
+  return { onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, keywords, titleWeights, statuses, resolutions };
 }
 
 export type ExportedData = {
@@ -216,6 +249,7 @@ export async function deleteAllData(db: Database): Promise<void> {
       DELETE FROM keywords;
       DELETE FROM conflict_states;
       DELETE FROM metric_events;
+      DELETE FROM title_weights;
     `);
     await seedDefaults(db);
   });

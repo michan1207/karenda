@@ -11,6 +11,8 @@ export type CalendarEvent = {
   /** 最終日（その日を含む） */
   end: DateKey;
   allDay: boolean;
+  /** 祝日のカレンダーの予定（終日でも重くしない） */
+  holiday?: boolean;
   /** 時刻のある予定の開始時刻（0時からの分） */
   startMinutes?: number;
   /** 時刻のある予定の長さ（分） */

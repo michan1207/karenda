@@ -21,12 +21,14 @@ import {
   migrate,
   Notifier,
   openBackup,
+  listTitleWeights,
   saveConflictStatus,
+  saveTitleWeight,
   setLockEnabled,
   setOnboarded,
 } from '../data';
 import { createTestDatabase } from '../data/testDatabase';
-import type { CalendarEvent, NotificationPlan } from '../engine';
+import { learnWeight, type CalendarEvent, type NotificationPlan } from '../engine';
 import { Main } from './App';
 
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
@@ -515,6 +517,23 @@ describe('settings', () => {
     expect(screen.queryByLabelText('「会議」をふつうの予定から外す')).toBeNull();
     await fireEvent.press(screen.getByLabelText('「出張」を重い予定から外す'));
     expect(screen.queryByLabelText('「出張」を重い予定から外す')).toBeNull();
+  });
+
+  it('lists learned titles only once decided, lets the user flip the weight, and forgets one', async () => {
+    const twice = learnWeight(learnWeight(undefined, '役員会議', 'hard', 'pms'), '役員会議', 'hard', 'pms');
+    const { db } = await openSettings({
+      prepare: async (opened) => {
+        await saveTitleWeight(opened, twice);
+        await saveTitleWeight(opened, learnWeight(undefined, '社員旅行', 'hard', 'pms'));
+      },
+    });
+    expect(screen.getByText('2回の答えから')).toBeTruthy();
+    expect(screen.queryByText('社員旅行')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('「役員会議」は重い。押すとふつうにする'));
+    expect(await screen.findByText('自分で決めた')).toBeTruthy();
+    expect((await listTitleWeights(db)).find((entry) => entry.term === '役員会議')).toMatchObject({ weight: 'normal', source: 'user' });
+    await fireEvent.press(screen.getByLabelText('「役員会議」の重さを忘れる'));
+    expect(await screen.findByText('まだありません。')).toBeTruthy();
   });
 
   it('lists records newest first and removes one', async () => {
