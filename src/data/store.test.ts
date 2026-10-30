@@ -11,6 +11,7 @@ import {
   getZoneSettings,
   isDismissed,
   isHideMode,
+  isLockEnabled,
   isNotifyEnabled,
   isOnboarded,
   isReviewAsked,
@@ -22,6 +23,7 @@ import {
   restoreData,
   setHideMode,
   setKeywords,
+  setLockEnabled,
   setNotifyEnabled,
   setOnboarded,
   setReviewAsked,
@@ -123,6 +125,16 @@ describe('hide mode', () => {
     expect((await loadState(db)).hideMode).toBe(true);
     await deleteAllData(db);
     expect(await isHideMode(db)).toBe(false);
+  });
+});
+
+describe('app lock', () => {
+  it('is off by default, can be turned on, and is cleared with all data', async () => {
+    expect(await isLockEnabled(db)).toBe(false);
+    await setLockEnabled(db, true);
+    expect((await loadState(db)).lockEnabled).toBe(true);
+    await deleteAllData(db);
+    expect(await isLockEnabled(db)).toBe(false);
   });
 });
 

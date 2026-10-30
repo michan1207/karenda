@@ -12,3 +12,5 @@ export { encryptBackup, isEncryptedBackup, openBackup } from './backup';
 export type { OpenBackup } from './backup';
 export { deviceBackupFiles } from './backupFiles';
 export type { BackupFiles } from './backupFiles';
+export { deviceAuthenticator } from './lock';
+export type { Authenticator } from './lock';

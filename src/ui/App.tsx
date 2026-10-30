@@ -5,9 +5,11 @@ import { ActivityIndicator, AppState, Pressable, StyleSheet, View } from 'react-
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  Authenticator,
   BackupFiles,
   CalendarSource,
   Database,
+  deviceAuthenticator,
   deviceBackupFiles,
   deviceCalendar,
   deviceNotifier,
@@ -20,6 +22,7 @@ import {
 import { DateKey, toDateKey } from '../engine';
 import AlertsScreen from './AlertsScreen';
 import CalendarScreen from './CalendarScreen';
+import LockScreen from './LockScreen';
 import { Heart, Notice, Text } from './components';
 import OnboardingScreen from './OnboardingScreen';
 import SettingsScreen from './SettingsScreen';
@@ -37,6 +40,7 @@ type Props = {
   askReview?: ReviewPrompt;
   today?: () => DateKey;
   files?: BackupFiles;
+  authenticator?: Authenticator;
 };
 
 const currentDay = () => toDateKey(new Date());
@@ -57,9 +61,10 @@ export function Main({
   askReview = deviceReview,
   today = currentDay,
   files = deviceBackupFiles,
+  authenticator = deviceAuthenticator,
 }: Props) {
   const colors = useColors();
-  const k = useKarenda({ loadDatabase, calendar, notifier, askReview, files });
+  const k = useKarenda({ loadDatabase, calendar, notifier, askReview, files, authenticator });
   const [tab, setTab] = useState<Tab>('calendar');
   const [day, setDay] = useState(today);
   // 開いたまま日をまたいで戻った時に「今日」を進める（iPhone はアプリを何日もメモリに残す）
@@ -81,6 +86,8 @@ export function Main({
         <Notice colors={colors} text="データを読み込めませんでした。アプリを開き直してください。" />
       </View>
     );
+  } else if (k.locked) {
+    body = <LockScreen onUnlock={k.unlock} />;
   } else if (!k.onboarded) {
     body = <OnboardingScreen onDone={k.finishOnboarding} />;
   } else {

@@ -20,6 +20,11 @@
 - ファイルの受け渡しは `BackupFiles`（`backupFiles.ts`。share=一時置き場に書いて共有メニュー→消す、pick=ファイルを選んで中身を返す→消す）。画面テストは偽物を渡す
 - 平文の書き出しは廃止（2026-10-30）。鍵のかかっていない古い書き出しは、読み込みだけできる
 
+## アプリのロック（lock.ts、expo-local-authentication）
+- `Authenticator`（isAvailable=Face ID かパスコードがある / authenticate=Face ID、だめならパスコード）。settings の `lock`
+- `useKarenda`: 開いた時に一度だけ本人確認を出す。background に入ったら鍵をかけ、active に戻ったら出す（Face ID の画面は inactive だけなので繰り返さない）。パスコードが外された iPhone では締め出さずに開ける
+- Face ID の説明文は app.json の expo-local-authentication プラグイン（新しいビルドで反映）。Expo Go ではパスコードになることがある
+
 ## カレンダー（expo-calendar）
 - Expo Go では新APIが使えないので `expo-calendar/legacy` の読み取り関数だけ使う（`calendar.ts`）
 - 読むだけ。予定の書き込みはしない

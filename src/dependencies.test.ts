@@ -14,6 +14,7 @@ const ALLOWED = [
   'expo-document-picker', // 戻すときに、使う人が選んだファイルを読む。通信しない
   'expo-file-system', // バックアップを一時置き場に書いて共有メニューへ渡す。ダウンロード機能は使わない
   'expo-font', // 同梱の丸ゴシック（assets/fonts）を読むだけ
+  'expo-local-authentication', // Face ID・パスコードでロックを開ける。結果（できた／できない）だけを受け取り、通信しない
   'expo-notifications',
   'expo-sharing', // 共有メニューを出すだけ。どこへ送るかは使う人が選ぶ
   'expo-splash-screen',
@@ -34,7 +35,7 @@ it('ships only libraries that were checked for network use', () => {
 // iPhone で起動直後に落ちた（2026-10-29、1.0.2 ビルド7〜9「DYLD Symbol missing」）
 it('pins added native expo modules to the versions bundled with expo', () => {
   const bundled = require('expo/bundledNativeModules.json');
-  for (const name of ['expo-font', 'expo-asset', 'expo-crypto', 'expo-document-picker', 'expo-file-system', 'expo-sharing'] as const) {
+  for (const name of ['expo-font', 'expo-asset', 'expo-crypto', 'expo-document-picker', 'expo-file-system', 'expo-sharing', 'expo-local-authentication'] as const) {
     expect(pkg.dependencies[name]).toBe(bundled[name].replace(/^~/, ''));
   }
 });

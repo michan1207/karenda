@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import {
   addPeriodStart,
+  Authenticator,
   BackupFiles,
   CalendarSource,
   Database,
@@ -21,6 +22,7 @@ import {
   ReviewPrompt,
   setHideMode as saveHideMode,
   setKeywords as saveKeywords,
+  setLockEnabled as saveLockEnabled,
   setNotifyEnabled,
   setOnboarded,
   setReviewAsked,
@@ -37,6 +39,7 @@ export type KarendaDeps = {
   notifier: Notifier;
   askReview: ReviewPrompt;
   files: BackupFiles;
+  authenticator: Authenticator;
 };
 
 /** 画面どうしで共有する、端末内データとカレンダー許可の状態 */
@@ -54,6 +57,12 @@ export type Karenda = StoredState & {
   setKeywords(keywords: RiskKeywords): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
   setHideMode(on: boolean): Promise<void>;
+  authenticator: Authenticator;
+  /** ロックがオンで、まだ本人確認が済んでいない */
+  locked: boolean;
+  unlock(): Promise<void>;
+  /** オンにする時は先に本人確認をし、通らなければオンにしない（false を返す） */
+  setLock(on: boolean): Promise<boolean>;
   dismiss(eventId: string, date: DateKey): Promise<void>;
   /** パスワードで鍵をかけたバックアップを作り、共有メニューで渡す。平文で書き出す道は作らない */
   exportBackup(passphrase: string, today: DateKey): Promise<void>;
@@ -67,13 +76,14 @@ const INITIAL_STATE: StoredState = {
   onboarded: false,
   notifyEnabled: true,
   hideMode: false,
+  lockEnabled: false,
   starts: [],
   settings: DEFAULT_ZONE_SETTINGS,
   keywords: DEFAULT_KEYWORDS,
   dismissed: new Set(),
 };
 
-export function useKarenda({ loadDatabase, calendar, notifier, askReview, files }: KarendaDeps): Karenda {
+export function useKarenda({ loadDatabase, calendar, notifier, askReview, files, authenticator }: KarendaDeps): Karenda {
   const [db, setDb] = useState<Database | null>(null);
   const [status, setStatus] = useState<Karenda['status']>('loading');
   const [access, setAccess] = useState<Access>('checking');
@@ -135,6 +145,36 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files 
     return () => subscription.remove();
   }, [status, onboarded, notifyEnabled, calendar, notifier]);
 
+  const [unlocked, setUnlocked] = useState(false);
+  const locked = stored.lockEnabled && !unlocked;
+  const lockedRef = useRef(locked);
+  useEffect(() => {
+    lockedRef.current = locked;
+  }, [locked]);
+
+  const unlock = useCallback(async () => {
+    // iPhone のパスコードが外された時は、締め出さずに開ける（記録を守る鍵が iPhone 側に無いため）
+    if (!(await authenticator.isAvailable().catch(() => false))) return setUnlocked(true);
+    if (await authenticator.authenticate().catch(() => false)) setUnlocked(true);
+  }, [authenticator]);
+
+  // 開いた時に一度だけ、こちらから本人確認を出す
+  const askedAtStart = useRef(false);
+  useEffect(() => {
+    if (status !== 'ready' || !locked || askedAtStart.current) return;
+    askedAtStart.current = true;
+    void unlock();
+  }, [status, locked, unlock]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      // Face ID の画面は一時的に inactive にするだけなので、background に入った時だけ鍵をかける
+      if (state === 'background') setUnlocked(false);
+      else if (state === 'active' && lockedRef.current) void unlock();
+    });
+    return () => subscription.remove();
+  }, [unlock]);
+
   const withDb = useCallback(
     async (task: (opened: Database) => Promise<void>) => {
       if (!db) return;
@@ -172,6 +212,18 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files 
       if (enabled) await requestNotifyAccess();
     },
     setHideMode: (on) => withDb((opened) => saveHideMode(opened, on)),
+    authenticator,
+    locked,
+    unlock,
+    setLock: async (on) => {
+      if (on) {
+        // 本当に確かめられるかを先に試す。通ったら今は開いたままにする
+        if (!(await authenticator.authenticate().catch(() => false))) return false;
+        setUnlocked(true);
+      }
+      await withDb((opened) => saveLockEnabled(opened, on));
+      return true;
+    },
     dismiss: (eventId, date) => withDb((opened) => dismissAlert(opened, eventId, date)),
     exportBackup: async (passphrase, today) => {
       if (!db) return;

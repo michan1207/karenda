@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
   addPeriodStart,
+  Authenticator,
   BackupFiles,
   CalendarSource,
   Database,
@@ -12,10 +13,12 @@ import {
   exportData,
   getZoneSettings,
   isHideMode,
+  isLockEnabled,
   listPeriodStarts,
   migrate,
   Notifier,
   openBackup,
+  setLockEnabled,
   setOnboarded,
 } from '../data';
 import { createTestDatabase } from '../data/testDatabase';
@@ -28,6 +31,7 @@ jest.mock('expo-store-review', () => ({}));
 jest.mock('expo-file-system', () => ({}));
 jest.mock('expo-sharing', () => ({}));
 jest.mock('expo-document-picker', () => ({}));
+jest.mock('expo-local-authentication', () => ({}));
 jest.mock('expo-crypto', () => ({ getRandomBytes: (n: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(n)) }));
 // 最初の1件は画面全体の読み込みを含むため、遅いPCでは既定の5秒を超える
 jest.setTimeout(20_000);
@@ -58,13 +62,24 @@ function fakeNotifier(granted = true) {
   } satisfies Notifier;
 }
 
-/** ホームから戻った時の動き。AppState は jest の偽物なので、外されていない受け取り口を直接呼ぶ */
-async function returnToApp() {
+/** アプリの状態が変わった時の動き。AppState は jest の偽物なので、外されていない受け取り口を直接呼ぶ */
+async function sendAppState(state: 'active' | 'background') {
   const { calls, results } = jest.mocked(AppState.addEventListener).mock;
   const handlers = calls.filter((_, i) => !results[i].value.remove.mock.calls.length).map(([, handler]) => handler);
   await act(async () => {
-    for (const handler of handlers) await handler('active');
+    for (const handler of handlers) await handler(state);
   });
+}
+
+/** ホームから戻った時の動き */
+const returnToApp = () => sendAppState('active');
+
+/** 本人確認の偽物。results の順に成功・失敗を返し、使い切ったら成功 */
+function fakeAuthenticator(available = true, results: boolean[] = []) {
+  return {
+    isAvailable: jest.fn(async () => available),
+    authenticate: jest.fn(async () => results.shift() ?? true),
+  } satisfies Authenticator;
 }
 
 function fakeFiles(picked: string | null = null) {
@@ -87,6 +102,8 @@ async function setup({
   askReview = jest.fn(async () => {}),
   today = () => '2026-10-24',
   files = fakeFiles(),
+  authenticator = fakeAuthenticator(),
+  lock = false,
 }: {
   starts?: string[];
   onboarded?: boolean;
@@ -95,11 +112,14 @@ async function setup({
   askReview?: jest.Mock;
   today?: () => string;
   files?: ReturnType<typeof fakeFiles>;
+  authenticator?: ReturnType<typeof fakeAuthenticator>;
+  lock?: boolean;
 } = {}) {
   const db: Database = createTestDatabase();
   await migrate(db);
   if (onboarded) await setOnboarded(db);
   for (const start of starts) await addPeriodStart(db, start);
+  if (lock) await setLockEnabled(db, true);
   await render(
     <SafeAreaProvider initialMetrics={METRICS}>
       <Main
@@ -109,10 +129,11 @@ async function setup({
         askReview={askReview}
         today={today}
         files={files}
+        authenticator={authenticator}
       />
     </SafeAreaProvider>,
   );
-  return { db, calendar, notifier, askReview, files };
+  return { db, calendar, notifier, askReview, files, authenticator };
 }
 
 describe('first run', () => {
@@ -483,6 +504,58 @@ describe('settings', () => {
     expect(await listPeriodStarts(db)).toEqual([]);
     // 予定名の入った予約が、削除のあとに届かない
     expect(notifier.replaceAll).toHaveBeenLastCalledWith([]);
+  });
+});
+
+describe('app lock', () => {
+  it('asks for Face ID when opened with the lock on, and shows nothing until it succeeds', async () => {
+    const authenticator = fakeAuthenticator(true, [false, true]);
+    await setup({ lock: true, authenticator });
+    expect(await screen.findByText('ロックしています')).toBeTruthy();
+    expect(screen.queryByText('2026年10月')).toBeNull();
+    expect(authenticator.authenticate).toHaveBeenCalledTimes(1);
+    await fireEvent.press(screen.getByText('ロックを解除'));
+    expect(await screen.findByText('2026年10月')).toBeTruthy();
+  });
+
+  it('locks again when the app goes to the background, and asks when it comes back', async () => {
+    const authenticator = fakeAuthenticator(true, [true, false]);
+    await setup({ lock: true, authenticator });
+    expect(await screen.findByText('2026年10月')).toBeTruthy();
+    await sendAppState('background');
+    expect(await screen.findByText('ロックしています')).toBeTruthy();
+    await sendAppState('active');
+    expect(authenticator.authenticate).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('ロックしています')).toBeTruthy();
+  });
+
+  it('lets you in when the iPhone no longer has a passcode, rather than locking you out', async () => {
+    const authenticator = fakeAuthenticator(false);
+    await setup({ lock: true, authenticator });
+    expect(await screen.findByText('2026年10月')).toBeTruthy();
+    expect(authenticator.authenticate).not.toHaveBeenCalled();
+  });
+
+  it('turns the lock on only after Face ID succeeds, and can turn it off', async () => {
+    const authenticator = fakeAuthenticator(true, [false, true]);
+    const { db } = await setup({ authenticator });
+    await fireEvent.press(await screen.findByText('設定'));
+    await fireEvent(screen.getByLabelText('Face ID でロックする'), 'valueChange', true);
+    expect(await screen.findByText('Face ID で確かめられなかったため、ロックはオンにしていません。')).toBeTruthy();
+    expect(await isLockEnabled(db)).toBe(false);
+    await fireEvent(screen.getByLabelText('Face ID でロックする'), 'valueChange', true);
+    await waitFor(async () => expect(await isLockEnabled(db)).toBe(true));
+    // オンにした直後は、自分で開いているのでロックしない
+    expect(screen.queryByText('ロックしています')).toBeNull();
+    await fireEvent(screen.getByLabelText('Face ID でロックする'), 'valueChange', false);
+    await waitFor(async () => expect(await isLockEnabled(db)).toBe(false));
+  });
+
+  it('cannot turn the lock on when the iPhone has no passcode', async () => {
+    await setup({ authenticator: fakeAuthenticator(false) });
+    await fireEvent.press(await screen.findByText('設定'));
+    expect(await screen.findByText('この iPhone にパスコードが設定されていないため、ロックは使えません。')).toBeTruthy();
+    expect(screen.getByLabelText('Face ID でロックする').props.disabled).toBe(true);
   });
 });
 
