@@ -13,6 +13,11 @@
 - 書き出したファイルの読み込みは `readExport`（外から来た中身なので形と値をすべて検査し、理由 broken/notCocomia/newer を返す）→ `restoreData(db, data, 'replace'|'keepMine'|'preferFile')`（1トランザクション。閉じた警告・案内済み・通知の設定は触らない）
 - テストは `createTestDatabase()`（`testDatabase.ts`、Node内蔵SQLite）
 
+## 暗号化したバックアップ（backup.ts）
+- `encryptBackup(text, passphrase)` → JSON（app/kind/version/kdf/iterations/salt/nonce/ciphertext、hex）。鍵は PBKDF2-SHA256（@noble/hashes、パスワードは NFKC でそろえる）、暗号は AES-256-GCM（@noble/ciphers）、乱数だけ expo-crypto
+- `openBackup(fileText, passphrase)` は例外を投げず理由を返す（broken / notCocomia / notEncrypted / newer / wrongPassphrase）。回数 `ITERATIONS`=10万（実機で測って上げる。ファイルに回数を書くので古いファイルも開ける）
+- @noble は ESM だけなので、Jest の `transformIgnorePatterns` に `@noble` を足してある
+
 ## カレンダー（expo-calendar）
 - Expo Go では新APIが使えないので `expo-calendar/legacy` の読み取り関数だけ使う（`calendar.ts`）
 - 読むだけ。予定の書き込みはしない
