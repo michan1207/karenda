@@ -28,6 +28,22 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
     `);
     await seedDefaults(db);
   },
+  // 2026-10-30: 「わかった」で閉じただけだった記録を、お知らせの状態（確認済み・対応済み）に移す
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE conflict_states (
+        event_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN ('acknowledged', 'resolved')),
+        resolution TEXT CHECK (resolution IN ('shifted', 'prepared', 'declined', 'proceeded')),
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (event_id, date)
+      );
+      INSERT INTO conflict_states (event_id, date, state, resolution, updated_at)
+        SELECT event_id, date, 'acknowledged', NULL, '' FROM dismissed_alerts;
+      DROP TABLE dismissed_alerts;
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -8,7 +8,6 @@ import {
   CalendarSource,
   Database,
   deleteAllData,
-  dismissAlert,
   encryptBackup,
   ExportedData,
   exportData,
@@ -17,6 +16,7 @@ import {
   loadState,
   Notifier,
   removePeriodStart,
+  saveConflictStatus,
   restoreData,
   RestoreMode,
   ReviewPrompt,
@@ -29,7 +29,17 @@ import {
   setZoneSettings as saveZoneSettings,
   StoredState,
 } from '../data';
-import { DateKey, DEFAULT_KEYWORDS, DEFAULT_ZONE_SETTINGS, RiskKeywords, shouldAskReview, ZoneSettings } from '../engine';
+import {
+  advanceStatus,
+  DateKey,
+  DEFAULT_KEYWORDS,
+  DEFAULT_ZONE_SETTINGS,
+  Resolution,
+  RiskKeywords,
+  shouldAskReview,
+  statusOf,
+  ZoneSettings,
+} from '../engine';
 
 export type Access = 'checking' | 'granted' | 'denied';
 
@@ -63,7 +73,10 @@ export type Karenda = StoredState & {
   unlock(): Promise<void>;
   /** オンにする時は先に本人確認をし、通らなければオンにしない（false を返す） */
   setLock(on: boolean): Promise<boolean>;
+  /** 「わかった」。未確認のお知らせを確認済みにする */
   dismiss(eventId: string, date: DateKey): Promise<void>;
+  /** 何をしたかを付けて対応済みにする。未確認なら確認済みを経てから進める */
+  resolve(eventId: string, date: DateKey, resolution: Resolution): Promise<void>;
   /** パスワードで鍵をかけたバックアップを作り、共有メニューで渡す。平文で書き出す道は作らない */
   exportBackup(passphrase: string, today: DateKey): Promise<void>;
   /** バックアップのファイルを選んでもらう。やめた時は null */
@@ -80,7 +93,7 @@ const INITIAL_STATE: StoredState = {
   starts: [],
   settings: DEFAULT_ZONE_SETTINGS,
   keywords: DEFAULT_KEYWORDS,
-  dismissed: new Set(),
+  statuses: new Map(),
 };
 
 export function useKarenda({ loadDatabase, calendar, notifier, askReview, files, authenticator }: KarendaDeps): Karenda {
@@ -224,7 +237,18 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       await withDb((opened) => saveLockEnabled(opened, on));
       return true;
     },
-    dismiss: (eventId, date) => withDb((opened) => dismissAlert(opened, eventId, date)),
+    dismiss: (eventId, date) =>
+      withDb(async (opened) => {
+        const current = statusOf(stored.statuses, eventId, date);
+        if (current.state !== 'unreviewed') return;
+        await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'acknowledged'));
+      }),
+    resolve: (eventId, date, resolution) =>
+      withDb(async (opened) => {
+        let current = statusOf(stored.statuses, eventId, date);
+        if (current.state === 'unreviewed') current = advanceStatus(current, 'acknowledged');
+        await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'resolved', resolution));
+      }),
     exportBackup: async (passphrase, today) => {
       if (!db) return;
       const started = Date.now();

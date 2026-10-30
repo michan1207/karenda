@@ -1,3 +1,4 @@
+import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '../engine/conflictState';
 import { DateKey, fromDateKey } from '../engine/date';
 import type { RiskKeywords } from '../engine/risk';
 import { validateZoneSettings, ZoneSettings } from '../engine/zones';
@@ -55,20 +56,39 @@ async function writeKeywords(db: Database, keywords: RiskKeywords): Promise<void
   }
 }
 
-const alertKey = (eventId: string, date: DateKey) => `${eventId}|${date}`;
-
-export async function dismissAlert(db: Database, eventId: string, date: DateKey): Promise<void> {
-  await db.runAsync('INSERT OR IGNORE INTO dismissed_alerts (event_id, date) VALUES (?, ?)', eventId, date);
+/** お知らせの状態。未確認は保存しない（行が無い） */
+export async function getConflictStatuses(db: Database): Promise<Map<string, ConflictStatus>> {
+  const rows = await db.getAllAsync<{ event_id: string; date: string; state: ConflictState; resolution: Resolution | null }>(
+    'SELECT event_id, date, state, resolution FROM conflict_states',
+  );
+  return new Map(rows.map((row) => [statusKey(row.event_id, row.date), { state: row.state, resolution: row.resolution }]));
 }
 
-/** 「わかった」で閉じた警告。`isDismissed(set, eventId, date)` で調べる */
-export async function listDismissedAlerts(db: Database): Promise<Set<string>> {
-  const rows = await db.getAllAsync<{ event_id: string; date: string }>('SELECT event_id, date FROM dismissed_alerts');
-  return new Set(rows.map((row) => alertKey(row.event_id, row.date)));
+/** 進め方の決まり（advanceStatus）を通した状態を保存する。対応した月を数えられるよう、日時も残す */
+export async function saveConflictStatus(
+  db: Database,
+  eventId: string,
+  date: DateKey,
+  status: ConflictStatus,
+  now: Date = new Date(),
+): Promise<void> {
+  if (status.state === 'unreviewed') {
+    await db.runAsync('DELETE FROM conflict_states WHERE event_id = ? AND date = ?', eventId, date);
+    return;
+  }
+  await db.runAsync(
+    'INSERT OR REPLACE INTO conflict_states (event_id, date, state, resolution, updated_at) VALUES (?, ?, ?, ?, ?)',
+    eventId,
+    date,
+    status.state,
+    status.resolution,
+    now.toISOString(),
+  );
 }
 
-export const isDismissed = (dismissed: Set<string>, eventId: string, date: DateKey) =>
-  dismissed.has(alertKey(eventId, date));
+/** 確認済み・対応済みのお知らせは、一覧と通知から外す */
+export const isDismissed = (statuses: Map<string, ConflictStatus>, eventId: string, date: DateKey) =>
+  statusOf(statuses, eventId, date).state !== 'unreviewed';
 
 /** 画面が表示に使う保存内容。書き込みのたびにこれだけ読み直す */
 export type StoredState = {
@@ -82,11 +102,12 @@ export type StoredState = {
   starts: DateKey[];
   settings: ZoneSettings;
   keywords: RiskKeywords;
-  dismissed: Set<string>;
+  /** お知らせの状態（`statusOf` で読む） */
+  statuses: Map<string, ConflictStatus>;
 };
 
 export async function loadState(db: Database): Promise<StoredState> {
-  const [onboarded, notifyEnabled, hideMode, lockEnabled, starts, settings, keywords, dismissed] = await Promise.all([
+  const [onboarded, notifyEnabled, hideMode, lockEnabled, starts, settings, keywords, statuses] = await Promise.all([
     isOnboarded(db),
     isNotifyEnabled(db),
     isHideMode(db),
@@ -94,9 +115,9 @@ export async function loadState(db: Database): Promise<StoredState> {
     listPeriodStarts(db),
     getZoneSettings(db),
     getKeywords(db),
-    listDismissedAlerts(db),
+    getConflictStatuses(db),
   ]);
-  return { onboarded, notifyEnabled, hideMode, lockEnabled, starts, settings, keywords, dismissed };
+  return { onboarded, notifyEnabled, hideMode, lockEnabled, starts, settings, keywords, statuses };
 }
 
 export type ExportedData = {
@@ -187,7 +208,7 @@ export async function deleteAllData(db: Database): Promise<void> {
       DELETE FROM period_starts;
       DELETE FROM settings;
       DELETE FROM keywords;
-      DELETE FROM dismissed_alerts;
+      DELETE FROM conflict_states;
     `);
     await seedDefaults(db);
   });
