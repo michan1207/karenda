@@ -17,6 +17,8 @@ import type { NotificationPlan } from '../engine/notifications';
 export type Notifier = {
   /** すでに許可されていれば確認画面を出さずに true */
   requestAccess(): Promise<boolean>;
+  /** 確認画面を出さずに、いまの許可だけを返す */
+  hasAccess(): Promise<boolean>;
   /** 予約済みの通知をすべて消して、渡したものだけを予約し直す */
   replaceAll(plans: NotificationPlan[], now?: Date): Promise<void>;
 };
@@ -56,6 +58,9 @@ export const deviceNotifier: Notifier = {
     if (current.granted) return true;
     if (!current.canAskAgain) return false;
     return (await requestPermissionsAsync()).granted;
+  },
+  async hasAccess() {
+    return (await getPermissionsAsync()).granted;
   },
   async replaceAll(plans, now = new Date()) {
     await configure();

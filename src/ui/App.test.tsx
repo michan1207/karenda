@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Linking, Share } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { AppState, Linking, Share } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { addPeriodStart, CalendarSource, Database, listPeriodStarts, migrate, Notifier, setOnboarded } from '../data';
@@ -24,6 +24,7 @@ const EVENTS: CalendarEvent[] = [
 function fakeCalendar(granted: boolean, events: CalendarEvent[] = EVENTS) {
   return {
     requestAccess: jest.fn(async () => granted),
+    hasAccess: jest.fn(async () => granted),
     getEvents: jest.fn(async (from: string, until: string) =>
       events.filter((event) => event.end >= from && event.start <= until),
     ),
@@ -33,8 +34,18 @@ function fakeCalendar(granted: boolean, events: CalendarEvent[] = EVENTS) {
 function fakeNotifier(granted = true) {
   return {
     requestAccess: jest.fn(async () => granted),
+    hasAccess: jest.fn(async () => granted),
     replaceAll: jest.fn(async (_plans: NotificationPlan[]) => {}),
   } satisfies Notifier;
+}
+
+/** ホームから戻った時の動き。AppState は jest の偽物なので、外されていない受け取り口を直接呼ぶ */
+async function returnToApp() {
+  const { calls, results } = jest.mocked(AppState.addEventListener).mock;
+  const handlers = calls.filter((_, i) => !results[i].value.remove.mock.calls.length).map(([, handler]) => handler);
+  await act(async () => {
+    for (const handler of handlers) await handler('active');
+  });
 }
 
 const lastPlanDates = (notifier: ReturnType<typeof fakeNotifier>) =>
@@ -48,12 +59,14 @@ async function setup({
   calendar = fakeCalendar(true),
   notifier = fakeNotifier(),
   askReview = jest.fn(async () => {}),
+  today = () => '2026-10-24',
 }: {
   starts?: string[];
   onboarded?: boolean;
   calendar?: ReturnType<typeof fakeCalendar>;
   notifier?: ReturnType<typeof fakeNotifier>;
   askReview?: jest.Mock;
+  today?: () => string;
 } = {}) {
   const db: Database = createTestDatabase();
   await migrate(db);
@@ -66,7 +79,7 @@ async function setup({
         calendar={calendar}
         notifier={notifier}
         askReview={askReview}
-        today={() => '2026-10-24'}
+        today={today}
       />
     </SafeAreaProvider>,
   );
@@ -308,14 +321,52 @@ describe('settings', () => {
   });
 
   it('deletes everything only after confirming, then shows the first-run guide', async () => {
-    const { db } = await openSettings();
+    const { db, notifier } = await openSettings();
     await fireEvent.press(screen.getByText('すべてのデータを削除'));
     await fireEvent.press(screen.getByText('やめる'));
     expect(await listPeriodStarts(db)).toEqual(REGULAR);
+    expect(lastPlanDates(notifier)?.length).toBeGreaterThan(0);
     await fireEvent.press(screen.getByText('すべてのデータを削除'));
     await fireEvent.press(screen.getByText('すべて削除する'));
     expect(await screen.findByText('はじめる')).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual([]);
+    // 予定名の入った予約が、削除のあとに届かない
+    expect(notifier.replaceAll).toHaveBeenLastCalledWith([]);
+  });
+});
+
+describe('coming back to the app', () => {
+  it('moves "today" forward after the date changed, so the real day can be recorded', async () => {
+    let day = '2026-10-24';
+    await setup({ today: () => day });
+    await screen.findByText('2026年10月');
+    day = '2026-10-26';
+    await returnToApp();
+    await fireEvent.press(screen.getByLabelText('10月26日（月）、生理1日目（予測）'));
+    expect(screen.getByText('この日を生理開始日として記録')).toBeTruthy();
+  });
+
+  it('notices calendar access granted in the Settings app without asking again', async () => {
+    const calendar = fakeCalendar(false);
+    await setup({ calendar });
+    expect(await screen.findByText(/カレンダーへのアクセスが許可されていない/)).toBeTruthy();
+    calendar.hasAccess.mockResolvedValue(true);
+    await returnToApp();
+    expect(screen.queryByText(/カレンダーへのアクセスが許可されていない/)).toBeNull();
+    expect(calendar.getEvents).toHaveBeenCalled();
+    expect(calendar.requestAccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('notices notifications turned on in the Settings app and schedules them', async () => {
+    const notifier = fakeNotifier(false);
+    await setup({ notifier });
+    await fireEvent.press(await screen.findByText('設定'));
+    expect(screen.getByText('端末の設定で通知がオフになっています。')).toBeTruthy();
+    notifier.hasAccess.mockResolvedValue(true);
+    await returnToApp();
+    expect(screen.queryByText('端末の設定で通知がオフになっています。')).toBeNull();
+    expect(notifier.replaceAll).toHaveBeenCalled();
+    expect(notifier.requestAccess).toHaveBeenCalledTimes(1);
   });
 });
 

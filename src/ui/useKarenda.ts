@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 
 import {
   addPeriodStart,
@@ -109,6 +110,18 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview }: Kare
     };
   }, [loadDatabase, reload, requestAccess, requestNotifyAccess]);
 
+  // 設定アプリで許可を変えて戻った時に読み直す。戻るたびに確認画面は出さない
+  const { onboarded, notifyEnabled } = stored;
+  useEffect(() => {
+    if (status !== 'ready' || !onboarded) return;
+    const subscription = AppState.addEventListener('change', async (state) => {
+      if (state !== 'active') return;
+      setAccess((await calendar.hasAccess().catch(() => false)) ? 'granted' : 'denied');
+      if (notifyEnabled) setNotifyAccess((await notifier.hasAccess().catch(() => false)) ? 'granted' : 'denied');
+    });
+    return () => subscription.remove();
+  }, [status, onboarded, notifyEnabled, calendar, notifier]);
+
   const withDb = useCallback(
     async (task: (opened: Database) => Promise<void>) => {
       if (!db) return;
@@ -147,6 +160,10 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview }: Kare
     },
     dismiss: (eventId, date) => withDb((opened) => dismissAlert(opened, eventId, date)),
     exportJson: async () => (db ? JSON.stringify(await exportData(db), null, 2) : ''),
-    deleteAll: () => withDb(deleteAllData),
+    deleteAll: async () => {
+      await withDb(deleteAllData);
+      // 案内からやり直しになると予約の組み直しが止まるので、予定名入りの予約をここで消す
+      await notifier.replaceAll([]);
+    },
   };
 }
