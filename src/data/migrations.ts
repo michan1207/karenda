@@ -96,6 +96,17 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       );
     `);
   },
+  // 2026-10-31: 通知の「今日は決めない」。予定ごとに1回だけ、次の日にもう一度知らせる
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE deferred_alerts (
+        event_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        remind_on TEXT NOT NULL,
+        PRIMARY KEY (event_id, date)
+      );
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

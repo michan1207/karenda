@@ -67,6 +67,12 @@ export function Main({
   const k = useKarenda({ loadDatabase, calendar, notifier, askReview, files, authenticator });
   const [tab, setTab] = useState<Tab>('calendar');
   const [day, setDay] = useState(today);
+  // 通知の「代替日を見る」で開いた時は、別の日の候補があるお知らせを見せる
+  const [alertsRequested, setAlertsRequested] = useState(k.alertsRequested);
+  if (alertsRequested !== k.alertsRequested) {
+    setAlertsRequested(k.alertsRequested);
+    setTab('alerts');
+  }
   // 開いたまま日をまたいで戻った時に「今日」を進める（iPhone はアプリを何日もメモリに残す）
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
