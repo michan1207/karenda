@@ -102,19 +102,20 @@ describe('calendar', () => {
     expect(screen.getByText('買い物')).toBeTruthy();
   });
 
-  it('shows the feelings and related names that the phase of the tapped day tends to bring', async () => {
+  it('shows the feelings that the phase of the tapped day tends to bring, without naming illnesses', async () => {
     await setup();
     // 今日 10-24 は PMS警戒期
     expect(await screen.findByText('生理前に起こりやすい心の変化')).toBeTruthy();
-    expect(screen.getByText(/PMDD（月経前不快気分障害）/)).toBeTruthy();
-    expect(screen.getByText(/双極性障害/)).toBeTruthy();
+    expect(screen.getByText(/集中力や判断力が落ちる/)).toBeTruthy();
+    // 病名は診断のように読めるので出さない。相談先だけ案内する
+    expect(screen.queryByText(/PMDD|双極性障害|病名/)).toBeNull();
+    expect(screen.getByText(/婦人科/)).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています'));
     expect(screen.getByText('生理中に起こりやすい心の変化')).toBeTruthy();
-    expect(screen.getByText(/月経困難症/)).toBeTruthy();
-    expect(screen.getByText(/月経に伴ううつ状態/)).toBeTruthy();
+    expect(screen.queryByText(/月経困難症|うつ状態/)).toBeNull();
     await fireEvent.press(screen.getByLabelText('10月1日（木）'));
     expect(screen.getByText('生理の終わりごろ〜直後に起こりやすい心の変化')).toBeTruthy();
-    expect(screen.getByText(/鉄欠乏性貧血/)).toBeTruthy();
+    expect(screen.queryByText(/貧血|自律神経失調/)).toBeNull();
     await fireEvent.press(screen.getByLabelText('10月5日（月）'));
     expect(screen.queryByText(/起こりやすい心の変化/)).toBeNull();
   });
