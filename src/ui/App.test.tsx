@@ -11,6 +11,7 @@ import {
   encryptBackup,
   exportData,
   getZoneSettings,
+  isHideMode,
   listPeriodStarts,
   migrate,
   Notifier,
@@ -184,6 +185,22 @@ describe('calendar', () => {
       }
       expect(said.size).toBe(4);
     }
+  });
+
+  it('can hide everything about periods, leaving a plain calendar of events', async () => {
+    const { db } = await setup();
+    await screen.findByText(/^そろそろPMSのころかな。/);
+    await fireEvent.press(screen.getByLabelText('生理の表示をかくす'));
+    expect(screen.queryAllByText(/生理|PMS|予測|ころかな/)).toEqual([]);
+    expect(await isHideMode(db)).toBe(true);
+    // 予定は今までどおり見られるが、重なりの説明は出さない
+    await fireEvent.press(screen.getByLabelText('10月27日（火）'));
+    expect(screen.getByText('福岡出張')).toBeTruthy();
+    expect(screen.queryAllByText(/生理|PMS|重なる/)).toEqual([]);
+
+    await fireEvent.press(screen.getByLabelText('生理の表示をもとに戻す'));
+    expect(screen.getAllByText(/生理/).length).toBeGreaterThan(0);
+    expect(await isHideMode(db)).toBe(false);
   });
 
   it('shows the predicted window and how sure it is on predicted days', async () => {

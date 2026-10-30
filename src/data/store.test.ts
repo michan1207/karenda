@@ -10,6 +10,7 @@ import {
   getKeywords,
   getZoneSettings,
   isDismissed,
+  isHideMode,
   isNotifyEnabled,
   isOnboarded,
   isReviewAsked,
@@ -19,6 +20,7 @@ import {
   readExport,
   removePeriodStart,
   restoreData,
+  setHideMode,
   setKeywords,
   setNotifyEnabled,
   setOnboarded,
@@ -110,6 +112,17 @@ describe('notification setting', () => {
     expect(await isNotifyEnabled(db)).toBe(false);
     await setNotifyEnabled(db, true);
     expect(await isNotifyEnabled(db)).toBe(true);
+  });
+});
+
+describe('hide mode', () => {
+  it('is off by default, can be turned on, and is cleared with all data', async () => {
+    expect(await isHideMode(db)).toBe(false);
+    await setHideMode(db, true);
+    expect(await isHideMode(db)).toBe(true);
+    expect((await loadState(db)).hideMode).toBe(true);
+    await deleteAllData(db);
+    expect(await isHideMode(db)).toBe(false);
   });
 });
 

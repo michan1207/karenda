@@ -19,6 +19,7 @@ import {
   restoreData,
   RestoreMode,
   ReviewPrompt,
+  setHideMode as saveHideMode,
   setKeywords as saveKeywords,
   setNotifyEnabled,
   setOnboarded,
@@ -52,6 +53,7 @@ export type Karenda = StoredState & {
   setSettings(settings: ZoneSettings): Promise<void>;
   setKeywords(keywords: RiskKeywords): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
+  setHideMode(on: boolean): Promise<void>;
   dismiss(eventId: string, date: DateKey): Promise<void>;
   /** パスワードで鍵をかけたバックアップを作り、共有メニューで渡す。平文で書き出す道は作らない */
   exportBackup(passphrase: string, today: DateKey): Promise<void>;
@@ -64,6 +66,7 @@ export type Karenda = StoredState & {
 const INITIAL_STATE: StoredState = {
   onboarded: false,
   notifyEnabled: true,
+  hideMode: false,
   starts: [],
   settings: DEFAULT_ZONE_SETTINGS,
   keywords: DEFAULT_KEYWORDS,
@@ -168,6 +171,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files 
       await withDb((opened) => setNotifyEnabled(opened, enabled));
       if (enabled) await requestNotifyAccess();
     },
+    setHideMode: (on) => withDb((opened) => saveHideMode(opened, on)),
     dismiss: (eventId, date) => withDb((opened) => dismissAlert(opened, eventId, date)),
     exportBackup: async (passphrase, today) => {
       if (!db) return;

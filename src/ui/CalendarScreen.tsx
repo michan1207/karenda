@@ -8,6 +8,7 @@ import {
   ConflictAlert,
   DateKey,
   fromDateKey,
+  Guard,
   isInMonth,
   monthGrid,
   nearestPeriod,
@@ -81,6 +82,9 @@ const MASCOT_LINES: Record<PeriodPhase | 'calm', { lead: string; lines: string[]
   },
 };
 
+// 隠すモードでは、生理に関わる色・言葉・印を何も出さず、予定だけのカレンダーにする
+const HIDDEN: Guard = { prediction: null, zones: new Map(), alerts: [] };
+
 function mascotLine(phase: PeriodPhase | undefined, recorded: boolean, day: DateKey): string {
   if (!recorded) return 'はじめまして！生理が始まった日を選んで、記録してみてね';
   const { lead, lines } = MASCOT_LINES[phase ?? 'calm'];
@@ -99,7 +103,7 @@ export default function CalendarScreen({ k, today }: Props) {
   const grid = useMemo(() => monthGrid(year, month), [year, month]);
   const events = useEvents(k.calendar, k.access, grid.from, grid.until);
 
-  const guard = useMemo(
+  const computed = useMemo(
     () =>
       computeGuard({
         starts: k.starts,
@@ -111,6 +115,8 @@ export default function CalendarScreen({ k, today }: Props) {
       }),
     [k.starts, k.settings, k.keywords, events, grid],
   );
+  const hidden = k.hideMode;
+  const guard = hidden ? HIDDEN : computed;
 
   const alertsByDay = useMemo(() => {
     const map = new Map<DateKey, ConflictAlert[]>();
@@ -150,7 +156,19 @@ export default function CalendarScreen({ k, today }: Props) {
         </Pressable>
       </View>
 
-      <MascotSays colors={colors} text={mascotLine(phase, k.starts.length > 0, selected)} />
+      <View style={styles.hideRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={hidden ? '生理の表示をもとに戻す' : '生理の表示をかくす'}
+          onPress={() => k.setHideMode(!hidden)}
+          hitSlop={8}
+          style={[styles.hideButton, { backgroundColor: colors.surface, borderColor: colors.line }]}
+        >
+          <Text style={[styles.hideText, { color: colors.muted }]}>{hidden ? 'みせる' : 'かくす'}</Text>
+        </Pressable>
+      </View>
+
+      {!hidden && <MascotSays colors={colors} text={mascotLine(phase, k.starts.length > 0, selected)} />}
 
       {k.access === 'denied' && (
         <Notice
@@ -159,7 +177,7 @@ export default function CalendarScreen({ k, today }: Props) {
           action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
         />
       )}
-      {k.starts.length === 0 && (
+      {k.starts.length === 0 && !hidden && (
         <Notice colors={colors} text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
       )}
       {guard.prediction?.provisional && (
@@ -196,20 +214,22 @@ export default function CalendarScreen({ k, today }: Props) {
           </View>
         ))}
 
-        <View style={styles.legend}>
-          <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
-          <LegendItem color={colors.heavyEdge} label="生理かもしれない日" textColor={colors.muted} />
-          <LegendItem color={colors.pms} label="PMS警戒期" textColor={colors.muted} />
-          <View style={styles.legendItem}>
-            <AlertMark colors={colors} strong size={12} />
-            <Text style={[styles.legendText, { color: colors.muted }]}>予定と重なる日</Text>
+        {!hidden && (
+          <View style={styles.legend}>
+            <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
+            <LegendItem color={colors.heavyEdge} label="生理かもしれない日" textColor={colors.muted} />
+            <LegendItem color={colors.pms} label="PMS警戒期" textColor={colors.muted} />
+            <View style={styles.legendItem}>
+              <AlertMark colors={colors} strong size={12} />
+              <Text style={[styles.legendText, { color: colors.muted }]}>予定と重なる日</Text>
+            </View>
           </View>
-        </View>
+        )}
       </Card>
 
       <Card colors={colors}>
         <PillHeading colors={colors} text={dayTitle(selected)} />
-        <ZoneBadge colors={colors} zone={selectedZone} />
+        {!hidden && <ZoneBadge colors={colors} zone={selectedZone} />}
         {guard.prediction &&
           selectedZone?.predicted &&
           predictionLines(guard.prediction, nearestPeriod(guard.prediction, selected)).map((line, i) => (
@@ -239,7 +259,7 @@ export default function CalendarScreen({ k, today }: Props) {
             );
           })
         )}
-        {isRecorded ? (
+        {hidden ? null : isRecorded ? (
           <Button colors={colors} kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
         ) : selected <= today ? (
           <Button colors={colors} label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
@@ -248,9 +268,11 @@ export default function CalendarScreen({ k, today }: Props) {
 
       {phase && <MoodNotes phase={phase} colors={colors} />}
 
-      <Text style={[styles.footnote, { color: colors.muted }]}>
-        予測は目安です。医療的な診断や避妊には使えません。データはこの端末の中だけで扱います。
-      </Text>
+      {!hidden && (
+        <Text style={[styles.footnote, { color: colors.muted }]}>
+          予測は目安です。医療的な診断や避妊には使えません。データはこの端末の中だけで扱います。
+        </Text>
+      )}
     </ScrollView>
   );
 }
@@ -363,6 +385,9 @@ const styles = StyleSheet.create({
   bulletMark: { height: 21, justifyContent: 'center' },
   bulletText: { flex: 1 },
   navText: { fontSize: 26, lineHeight: 30, fontWeight: '700' },
+  hideRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  hideButton: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6, minHeight: 32, justifyContent: 'center' },
+  hideText: { fontSize: 13 },
   grid: { padding: 12, gap: 4 },
   weekRow: { flexDirection: 'row', gap: 4 },
   weekday: { flex: 1, textAlign: 'center', fontSize: 12 },
