@@ -11,6 +11,7 @@ import {
   deleteAllData,
   encryptBackup,
   ExportedData,
+  getZoneSettings,
   exportData,
   isReviewAsked,
   listPeriodStarts,
@@ -31,6 +32,7 @@ import {
   setLockEnabled as saveLockEnabled,
   setNotifyEnabled,
   setOnboarded,
+  setPmsManual as savePmsManual,
   setReviewAsked,
   setZoneSettings as saveZoneSettings,
   StoredState,
@@ -40,6 +42,7 @@ import {
   Answer,
   DateKey,
   DEFAULT_KEYWORDS,
+  DEFAULT_PMS,
   DEFAULT_ZONE_SETTINGS,
   overrideWeight,
   Resolution,
@@ -74,7 +77,10 @@ export type Karenda = StoredState & {
   finishOnboarding(): Promise<void>;
   addStart(day: DateKey): Promise<void>;
   removeStart(day: DateKey): Promise<void>;
-  setSettings(settings: ZoneSettings): Promise<void>;
+  /** 保存してある設定に重ねる。自動の時に PMS の手動の日数を推定で上書きしないため */
+  setSettings(patch: Partial<ZoneSettings>): Promise<void>;
+  /** PMS の日数を手動で決めるか、記録からの推定（たまるまで7日前）にするか */
+  setPmsManual(manual: boolean): Promise<void>;
   setKeywords(keywords: RiskKeywords): Promise<void>;
   /** 覚えた重さを自分で直す。以後の答えでは変わらない */
   setTitleWeight(entry: TitleWeight, weight: Weight): Promise<void>;
@@ -114,6 +120,7 @@ const INITIAL_STATE: StoredState = {
   resolutions: [],
   starts: [],
   settings: DEFAULT_ZONE_SETTINGS,
+  pms: DEFAULT_PMS,
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
   reviewed: new Set(),
@@ -260,7 +267,8 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
         await askReview().catch(() => {});
       }),
     removeStart: (day) => withDb((opened) => removePeriodStart(opened, day)),
-    setSettings: (next) => withDb((opened) => saveZoneSettings(opened, next)),
+    setSettings: (patch) => withDb(async (opened) => saveZoneSettings(opened, { ...(await getZoneSettings(opened)), ...patch })),
+    setPmsManual: (manual) => withDb((opened) => savePmsManual(opened, manual)),
     setKeywords: (next) => withDb((opened) => saveKeywords(opened, next)),
     setTitleWeight: (entry, weight) => withDb((opened) => saveTitleWeight(opened, overrideWeight(entry, entry.label, weight))),
     removeTitleWeight: (term) => withDb((opened) => removeTitleWeight(opened, term)),

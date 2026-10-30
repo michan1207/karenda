@@ -11,6 +11,7 @@
 - 利用状況の記録（版3の `metric_events(name, props, occurred_at)`、settings の `metrics`。はじめはオン）: `recordMetric` はオフなら何もしない。props に予定の名前・日付・本文は入れない。全削除で消える。外には送らない
 - 覚えた予定の重さ（版4の `title_weights(term, label, weight, source, observations, lean, updated_at)`）: `listTitleWeights` / `saveTitleWeight` / `removeTitleWeight`。`loadState` が決まったものだけ `keywords.learned` に入れる。全削除で消える。バックアップには入れていない
 - 「どうだった？」の答え（版5の `event_reviews(event_id, date, phase, answer, answered_at)`、answer NULL＝答えない）: `answerReview` が1トランザクションで残して学ぶ（同じ予定は最初の1回だけ）。`loadState` の `reviewed`。全削除で消える
+- PMS の日数の決め方（settings の `pms` 行、PmsEstimate の JSON）: `loadState` が毎回 `nextPmsEstimate` で計算し直し、変われば保存。`loadState().settings` は推定を反映した帯用の設定、手動の日数は zone の pmsDays（書き出しに入る）。`pms` 行が無い時は zone の pmsDays が7なら自動、それ以外は手動。バックアップを設定ごと戻すと `pms` 行を消す
 - お知らせの状態は engine の `advanceStatus`（未確認→確認済み→対応済みだけ）を通してから `saveConflictStatus` で保存。未確認は行を持たない。確認済み・対応済みは一覧と通知から外す
 - 表の変更は `migrations.ts` の `MIGRATIONS` 配列に関数を足すだけ。既存の要素は書き換えない。版は `PRAGMA user_version`
 - 読み書きは `store.ts` の関数に集める（export/全削除もここ）

@@ -1,6 +1,7 @@
 import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '../engine/conflictState';
-import { DateKey, fromDateKey } from '../engine/date';
+import { DateKey, fromDateKey, toDateKey } from '../engine/date';
 import { Answer, learnWeight, ReviewTarget, TitleWeight } from '../engine/learning';
+import { DEFAULT_PMS, nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
 import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
 import { validateZoneSettings, ZoneSettings } from '../engine/zones';
@@ -30,6 +31,39 @@ export async function setZoneSettings(db: Database, settings: ZoneSettings): Pro
   validateZoneSettings(settings);
   const value = JSON.stringify({ heavyDays: settings.heavyDays, pmsDays: settings.pmsDays });
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('zone', ?)", value);
+}
+
+/** PMS の日数の決め方。手動の時の日数は zone の pmsDays（書き出しにも入る） */
+export async function getPmsEstimate(db: Database): Promise<PmsEstimate> {
+  const [row, zone] = await Promise.all([
+    db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'pms'"),
+    getZoneSettings(db),
+  ]);
+  // 推定ができる前に日数を変えていた人（と、そういうバックアップを戻した時）は手動のまま
+  const pms: PmsEstimate = row
+    ? JSON.parse(row.value)
+    : zone.pmsDays === DEFAULT_PMS.daysBefore
+      ? DEFAULT_PMS
+      : { ...DEFAULT_PMS, source: 'manual' };
+  return pms.source === 'manual' ? { ...pms, daysBefore: zone.pmsDays, appliedFrom: null, before: null } : pms;
+}
+
+async function savePmsEstimate(db: Database, pms: PmsEstimate): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('pms', ?)", JSON.stringify(pms));
+}
+
+/** 手動にする時は今の日数から始める。自動に戻すと、次に読み直した時に推定（なければ7日前）へ移る */
+export async function setPmsManual(db: Database, manual: boolean): Promise<void> {
+  const pms = await getPmsEstimate(db);
+  await db.withTransactionAsync(async () => {
+    if (manual) await setZoneSettings(db, { ...(await getZoneSettings(db)), pmsDays: pms.daysBefore });
+    await savePmsEstimate(db, { ...pms, source: manual ? 'manual' : 'default', appliedFrom: null, before: null });
+  });
+}
+
+/** 「どうだった？」の答え（答えないは除く）。PMS の日数の推定に使う */
+export async function listReviewAnswers(db: Database): Promise<ReviewAnswer[]> {
+  return db.getAllAsync<ReviewAnswer>('SELECT date, answer, phase FROM event_reviews WHERE answer IS NOT NULL ORDER BY date');
 }
 
 export async function getKeywords(db: Database): Promise<RiskKeywords> {
@@ -163,7 +197,10 @@ export type StoredState = {
   /** お知らせで何をしたかと、その日時（今月のふりかえり用） */
   resolutions: { resolution: Resolution; at: string }[];
   starts: DateKey[];
+  /** 予測の帯に使う設定。PMS の日数は pms のもの（設定画面の手動の日数は pms.daysBefore で読む） */
   settings: ZoneSettings;
+  /** PMS を生理予定日の何日前からにするかと、その根拠 */
+  pms: PmsEstimate;
   /** 覚えた重さ（learned）も入れてある */
   keywords: RiskKeywords;
   /** 覚えた予定の重さ（設定の一覧用） */
@@ -174,7 +211,7 @@ export type StoredState = {
   statuses: Map<string, ConflictStatus>;
 };
 
-export async function loadState(db: Database): Promise<StoredState> {
+export async function loadState(db: Database, now: Date = new Date()): Promise<StoredState> {
   const [onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, words, statuses, resolutions, titleWeights, reviewed] = await Promise.all([
     isOnboarded(db),
     isNotifyEnabled(db),
@@ -191,7 +228,24 @@ export async function loadState(db: Database): Promise<StoredState> {
   ]);
   const learned = new Map(titleWeights.flatMap(({ term, weight }) => (weight ? [[term, weight] as const] : [])));
   const keywords = { ...words, learned };
-  return { onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, keywords, titleWeights, reviewed, statuses, resolutions };
+  const current = await getPmsEstimate(db);
+  const pms = nextPmsEstimate(current, await listReviewAnswers(db), starts, toDateKey(now));
+  if (JSON.stringify(pms) !== JSON.stringify(current)) await savePmsEstimate(db, pms);
+  return {
+    onboarded,
+    notifyEnabled,
+    hideMode,
+    lockEnabled,
+    metricsEnabled,
+    starts,
+    settings: pmsZoneSettings(settings, pms),
+    pms,
+    keywords,
+    titleWeights,
+    reviewed,
+    statuses,
+    resolutions,
+  };
 }
 
 export type ExportedData = {
@@ -271,6 +325,8 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
     for (const start of data.periodStarts) await addPeriodStart(db, start);
     if (mode === 'keepMine') return;
     await setZoneSettings(db, data.zoneSettings);
+    // ファイルの PMS の日数が7日前でなければ、手動で決めたものとして戻す
+    await db.runAsync("DELETE FROM settings WHERE key = 'pms'");
     await writeKeywords(db, data.keywords);
   });
 }

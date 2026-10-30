@@ -59,6 +59,16 @@ describe('buildZones', () => {
     expect(zones.get('2026-10-29')).toBeUndefined();
   });
 
+  it('keeps the old PMS length for a band that would reach back before the day it changed', () => {
+    // 10-17 から10日前に。10日前だと次の帯は 10-15 から始まり過去を塗るので、7日前（10-18 から）のまま
+    const zones = buildZones(regular, { from: '2026-10-01', until: '2026-11-30' }, { heavyDays: 3, pmsDays: 10, pmsBefore: { until: '2026-10-17', days: 7 } });
+    expect(zones.get('2026-10-17')).toBeUndefined();
+    expect(zones.get('2026-10-18')).toMatchObject({ zone: 'pms', windowStart: '2026-10-18' });
+    // その次（11-22 ごろ）の帯からは10日前
+    expect(zones.get('2026-11-11')).toBeUndefined();
+    expect(zones.get('2026-11-12')).toMatchObject({ zone: 'pms', windowStart: '2026-11-12' });
+  });
+
   it('rejects settings outside a sensible range', () => {
     expect(() => buildZones(regular, { from: '2026-10-01', until: '2026-10-31' }, { heavyDays: 0, pmsDays: 7 })).toThrow();
     expect(() => buildZones(regular, { from: '2026-10-01', until: '2026-10-31' }, { heavyDays: 3, pmsDays: 20 })).toThrow();

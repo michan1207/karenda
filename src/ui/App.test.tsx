@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
   addPeriodStart,
+  answerReview,
   Authenticator,
   BackupFiles,
   CalendarSource,
@@ -29,7 +30,7 @@ import {
   setOnboarded,
 } from '../data';
 import { createTestDatabase } from '../data/testDatabase';
-import { learnWeight, type CalendarEvent, type NotificationPlan } from '../engine';
+import { addDays, learnWeight, type CalendarEvent, type NotificationPlan } from '../engine';
 import { Main } from './App';
 
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
@@ -550,11 +551,30 @@ describe('settings', () => {
     return result;
   }
 
-  it('changes the PMS length within its range', async () => {
+  it('estimates the PMS length by default, and lets the user set it by hand', async () => {
     await openSettings();
-    expect(screen.getByText('7日前')).toBeTruthy();
+    expect(screen.getByText('PMS は生理予定日の7日前から（記録がたまるまでの目安）')).toBeTruthy();
+    expect(screen.getByText(/始まりが読めた周期：0／6/)).toBeTruthy();
+    expect(screen.queryByText('7日前')).toBeNull();
+    await fireEvent.press(screen.getByText('手動で指定'));
+    expect(await screen.findByText('7日前')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('PMS警戒期（予定日の何日前から）を減らす'));
     expect(await screen.findByText('6日前')).toBeTruthy();
+  });
+
+  it('shows the PMS length estimated from six cycles of answers, and what it is based on', async () => {
+    await openSettings({
+      prepare: async (opened) => {
+        for (const start of ['2026-05-04', '2026-06-01', '2026-06-29', '2026-07-27', '2026-08-24', '2026-09-21']) {
+          await addPeriodStart(opened, start);
+          for (const n of [2, 9]) {
+            await answerReview(opened, { eventId: `${start}-${n}`, title: '会議', date: addDays(start, -n), phase: 'pms', risk: 'medium' }, 'hard');
+          }
+        }
+      },
+    });
+    expect(screen.getByText('PMS は生理予定日の9日前から（あなたの記録から推定）')).toBeTruthy();
+    expect(screen.getByText(/過去6周期の体調評価から推定/)).toBeTruthy();
   });
 
   it('adds and removes keywords, moving a word between levels', async () => {

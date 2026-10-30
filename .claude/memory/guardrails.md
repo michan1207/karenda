@@ -12,6 +12,7 @@
 - 既定 `heavyDays=3`（1〜7）, `pmsDays=7`（0〜14）。`validateZoneSettings` で検査
 - heavy: 記録した開始日すべてから heavyDays 日（前の月を見ても塗る。2026-10-30）+ 予測の earliest〜(latest+heavyDays-1)
 - pms: (earliest − pmsDays) 〜 latest の前日。heavy が優先
+- PMS の日数（pms.ts、2026-10-31）: 自動が既定。開始日ごとに直前14日の答えを近い順に見て「きつかった」が途切れず続いた一番遠い日＝その周期の始まり（生理中の答えは除く）。最近6周期そろい標準偏差≤2日の時だけ平均を3〜14日で使う（それまで7日前）。変わった日（appliedFrom）より前に始まる帯は前の日数のまま（`pmsBefore`）。手動（設定の日数0〜14）は学習で変えない
 - 含まれない日は「通常/回復期」で警告対象外
 - `periodPhase(day, zones)`: pms→before / heavy→during / ヘビー期の翌日から`AFTER_PERIOD_DAYS`(4)日→after。心の変化の目安表示用で、警告・通知には使わない
 
