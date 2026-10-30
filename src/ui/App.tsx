@@ -96,7 +96,7 @@ export function Main({
     body = (
       <>
         <View style={styles.flex}>
-          {tab === 'calendar' && <CalendarScreen k={k} today={day} />}
+          {tab === 'calendar' && <CalendarScreen k={k} today={day} openAlerts={() => setTab('alerts')} />}
           {tab === 'alerts' && <AlertsScreen k={k} today={day} alerts={upcoming} />}
           {tab === 'settings' && <SettingsScreen k={k} today={day} />}
         </View>
