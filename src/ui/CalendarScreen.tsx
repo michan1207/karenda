@@ -249,6 +249,11 @@ export default function CalendarScreen({ k, today }: Props) {
                 <View style={styles.eventHead}>
                   {alert && <AlertMark colors={colors} strong={alert.grade === 'A'} />}
                   <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title || '（タイトルなし）'}</Text>
+                  {alert && (
+                    <Text style={[styles.gradeLabel, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
+                      {alert.grade === 'A' ? 'A 要注意' : 'B 注意'}
+                    </Text>
+                  )}
                 </View>
                 {alert && (
                   <Text style={[styles.detailText, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
@@ -386,6 +391,7 @@ const styles = StyleSheet.create({
   bulletText: { flex: 1 },
   navText: { fontSize: 26, lineHeight: 30, fontWeight: '700' },
   hideRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  gradeLabel: { fontSize: 12, fontWeight: '700' },
   hideButton: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6, minHeight: 32, justifyContent: 'center' },
   hideText: { fontSize: 13 },
   grid: { padding: 12, gap: 4 },

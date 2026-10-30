@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 
-import { addDays, ConflictAlert, DateKey } from '../engine';
+import { addDays, ConflictAlert, DateKey, Impact, planActions, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
@@ -23,7 +23,7 @@ const TEMPLATES: [string, string][] = [
   ['今日から生理期間に入りました！\n今月も体調見ながらマイペースに過ごします〜！', 'マイペース'],
 ];
 
-/** alerts は閉じたものを除いた、今日から30日間の警告 */
+/** alerts は対応済みを除いた、今日から30日間のお知らせ */
 type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[] };
 
 export default function AlertsScreen({ k, today, alerts }: Props) {
@@ -98,7 +98,7 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
       )}
 
       {alerts.map((alert) => (
-        <AlertCard key={`${alert.eventId}|${alert.date}`} alert={alert} onDismiss={() => k.dismiss(alert.eventId, alert.date)} />
+        <AlertCard key={`${alert.eventId}|${alert.date}`} alert={alert} k={k} today={today} />
       ))}
     </ScrollView>
   );
@@ -143,10 +143,35 @@ function Chips<T extends string>({
   );
 }
 
-function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () => void }) {
+const IMPACT_LABEL: Record<Impact, string> = {
+  moveable: '日にちを動かせる予定',
+  mitigable: '準備で軽くできる予定',
+  fixed: '日にちを動かせない予定',
+};
+
+const RESOLUTIONS: [Resolution, string][] = [
+  ['shifted', 'ずらした'],
+  ['prepared', '準備した'],
+  ['declined', '断った'],
+  ['proceeded', 'そのまま迎えた'],
+];
+
+/** 1件のお知らせ。なぜ・動かせるか・どうするかを出し、確認した／何をしたかを残せる */
+function AlertCard({ alert, k, today }: { alert: ConflictAlert; k: Karenda; today: DateKey }) {
   const colors = useColors();
   const strong = alert.grade === 'A';
   const tone = strong ? colors.alertStrong : colors.alertMild;
+  const title = alert.title || '（タイトルなし）';
+  const state = statusOf(k.statuses, alert.eventId, alert.date).state;
+  const actions = useMemo(
+    () => planActions({ alert, event: alert.event, starts: k.starts, settings: k.settings, keywords: k.keywords, today }),
+    [alert, k.starts, k.settings, k.keywords, today],
+  );
+  const altDates = actions.flatMap((action) => (action.kind === 'suggestAltDate' ? [action.date] : []));
+  const deadline = actions.flatMap((action) => (action.kind === 'deadline' ? [action.text] : []))[0];
+  const tasks = actions.flatMap((action) => (action.kind === 'prepTask' ? [action.text] : []));
+  const decline = actions.flatMap((action) => (action.kind === 'declineTemplate' ? [action.text] : []))[0];
+
   return (
     <Card colors={colors} style={{ backgroundColor: strong ? colors.alertStrongSoft : colors.alertMildSoft, borderColor: tone }}>
       <View style={styles.cardHead}>
@@ -164,10 +189,40 @@ function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () =
         </View>
         <Text style={[styles.date, { color: colors.muted }]}>{dayTitle(alert.date)}</Text>
       </View>
-      <Text style={[styles.eventTitle, { color: colors.text }]}>{alert.title || '（タイトルなし）'}</Text>
-      <Text style={[styles.message, { color: colors.text }]}>{alert.message}</Text>
-      <View style={styles.actions}>
-        <Button colors={colors} kind="secondary" label="わかった" onPress={onDismiss} />
+      <Text style={[styles.eventTitle, { color: colors.text }]}>{title}</Text>
+      <Text style={[styles.message, { color: colors.text }]}>{alert.reasonText}</Text>
+      {alert.confidenceNote && <Text style={[styles.sub, { color: colors.muted }]}>{alert.confidenceNote}</Text>}
+      <Text style={[styles.sub, { color: colors.muted }]}>{IMPACT_LABEL[alert.impact]}</Text>
+      {deadline && <Text style={[styles.message, styles.strongText, { color: colors.text }]}>{deadline}</Text>}
+      {altDates.length > 0 && (
+        <Text style={[styles.message, { color: colors.text }]}>ずらすなら：{altDates.map(dayTitle).join('、')}</Text>
+      )}
+      {tasks.map((task) => (
+        <Text key={task} style={[styles.message, { color: colors.text }]}>
+          ・{task}
+        </Text>
+      ))}
+      {decline && (
+        <Button colors={colors} kind="secondary" label="断りの文を送る" onPress={() => Share.share({ message: decline }).catch(() => {})} />
+      )}
+      {state === 'unreviewed' ? (
+        <Button colors={colors} kind="secondary" label="確認した" onPress={() => k.dismiss(alert.eventId, alert.date)} />
+      ) : (
+        <Text style={[styles.sub, { color: colors.muted }]}>確認済み</Text>
+      )}
+      <Text style={[styles.sub, { color: colors.muted }]}>どうしましたか？選ぶと一覧から外れます。</Text>
+      <View style={styles.chips}>
+        {RESOLUTIONS.map(([resolution, label]) => (
+          <Pressable
+            key={resolution}
+            accessibilityRole="button"
+            accessibilityLabel={`「${title}」は${label}`}
+            onPress={() => k.resolve(alert.eventId, alert.date, resolution)}
+            style={[styles.chip, { borderColor: tone }]}
+          >
+            <Text style={[styles.chipText, { color: colors.text }]}>{label}</Text>
+          </Pressable>
+        ))}
       </View>
     </Card>
   );
@@ -205,5 +260,5 @@ const styles = StyleSheet.create({
   date: { fontSize: 13 },
   eventTitle: { fontSize: 16, fontWeight: '700' },
   message: { fontSize: 14, lineHeight: 21 },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end' },
+  strongText: { fontWeight: '700' },
 });

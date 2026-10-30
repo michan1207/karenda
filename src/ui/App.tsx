@@ -14,12 +14,11 @@ import {
   deviceCalendar,
   deviceNotifier,
   deviceReview,
-  isDismissed,
   Notifier,
   openKarendaDatabase,
   ReviewPrompt,
 } from '../data';
-import { DateKey, toDateKey } from '../engine';
+import { ConflictAlert, DateKey, statusOf, toDateKey } from '../engine';
 import AlertsScreen from './AlertsScreen';
 import CalendarScreen from './CalendarScreen';
 import LockScreen from './LockScreen';
@@ -74,8 +73,11 @@ export function Main({
     });
     return () => subscription.remove();
   }, [today]);
-  const upcoming = useUpcomingAlerts(k, day).filter((alert) => !isDismissed(k.statuses, alert.eventId, alert.date));
-  useNotificationSync(k, upcoming, day);
+  const stateOf = (alert: ConflictAlert) => statusOf(k.statuses, alert.eventId, alert.date).state;
+  // 対応済みは一覧から外す。確認済みは一覧に残し、通知とタブの数は未確認のものだけにする
+  const upcoming = useUpcomingAlerts(k, day).filter((alert) => stateOf(alert) !== 'resolved');
+  const unreviewed = upcoming.filter((alert) => stateOf(alert) === 'unreviewed');
+  useNotificationSync(k, unreviewed, day);
 
   let body;
   if (k.status === 'loading') {
@@ -101,7 +103,7 @@ export function Main({
         <View accessibilityRole="tablist" style={[styles.tabs, { backgroundColor: colors.surface, boxShadow: colors.shadow }]}>
           <TabButton label="カレンダー" active={tab === 'calendar'} onPress={() => setTab('calendar')} />
           <TabButton
-            label={upcoming.length ? `お知らせ（${upcoming.length}）` : 'お知らせ'}
+            label={unreviewed.length ? `お知らせ（${unreviewed.length}）` : 'お知らせ'}
             active={tab === 'alerts'}
             onPress={() => setTab('alerts')}
           />

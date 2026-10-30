@@ -11,6 +11,7 @@ import {
   Database,
   encryptBackup,
   exportData,
+  getConflictStatuses,
   getZoneSettings,
   isHideMode,
   isLockEnabled,
@@ -162,6 +163,8 @@ describe('calendar', () => {
     await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています'));
     expect(screen.getByText('福岡出張')).toBeTruthy();
     expect(screen.getByText(/生理2日目と重なる見込みです/)).toBeTruthy();
+    // お知らせの一覧と同じ A/B をカレンダーでも出す
+    expect(screen.getByText('A 要注意')).toBeTruthy();
     expect(screen.getByText('買い物')).toBeTruthy();
   });
 
@@ -299,9 +302,51 @@ describe('alerts', () => {
     expect(titles).toEqual(['福岡出張', '企画プレゼン']);
     // 11-20 のプレゼンは PMS 期の重い予定なので A（2026-10-30 から）
     expect(screen.getAllByText('A 要注意')).toHaveLength(2);
-    await fireEvent.press(screen.getAllByText('わかった')[0]);
+    // 確認しても一覧に残り、数（未確認）だけ減る。何をしたかを選ぶと一覧から外れる
+    await fireEvent.press(screen.getAllByText('確認した')[0]);
     expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
-    expect(screen.queryByText('福岡出張')).toBeNull();
+    expect(screen.getByText('福岡出張')).toBeTruthy();
+    expect(screen.getByText('確認済み')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('「福岡出張」は準備した'));
+    await waitFor(() => expect(screen.queryByText('福岡出張')).toBeNull());
+  });
+
+  it('says on each card why, whether it can move, and what to do', async () => {
+    const meeting = { id: 'meet', title: '定例会議', start: '2026-10-26', end: '2026-10-26', allDay: false };
+    await setup({ calendar: fakeCalendar(true, [...EVENTS, meeting]) });
+    await fireEvent.press(await screen.findByText('お知らせ（3）'));
+    // 10-27 の出張（生理2日目）
+    expect(screen.getByText('生理2日目と重なる見込みです。')).toBeTruthy();
+    expect(screen.getAllByText('準備で軽くできる予定')).toHaveLength(2);
+    expect(screen.getByText('10月24日までに準備を始めておくと安心です')).toBeTruthy();
+    expect(screen.getAllByText('・鎮痛剤や着替えを用意しておく').length).toBeGreaterThan(0);
+    // 10-26 の定例会議は動かせるので、落ち着いている近い日を出す
+    expect(screen.getByText('日にちを動かせる予定')).toBeTruthy();
+    expect(screen.getByText('ずらすなら：11月3日（火）、11月4日（水）、11月5日（木）')).toBeTruthy();
+  });
+
+  it('sends a polite message to change plans, without health words', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
+    await setup();
+    await fireEvent.press(await screen.findByText('お知らせ（2）'));
+    await fireEvent.press(screen.getAllByText('断りの文を送る')[0]);
+    const { message } = share.mock.calls[0][0] as { message: string };
+    expect(message).toMatch(/^申し訳ありません/);
+    expect(message).not.toMatch(/生理|PMS|体調/);
+    share.mockRestore();
+  });
+
+  it('remembers what was done for an alert', async () => {
+    const { db } = await setup();
+    await fireEvent.press(await screen.findByText('お知らせ（2）'));
+    await fireEvent.press(screen.getByLabelText('「企画プレゼン」はずらした'));
+    await waitFor(async () =>
+      expect((await getConflictStatuses(db)).get('talk|2026-11-20')).toEqual({
+        state: 'resolved',
+        resolution: 'shifted',
+      }),
+    );
+    expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
   });
 
   it('tells a partner in the picked template through the share sheet, without events', async () => {
@@ -351,7 +396,7 @@ describe('notifications', () => {
   it('drops the reminder of a dismissed alert', async () => {
     const { notifier } = await setup();
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
-    await fireEvent.press(screen.getAllByText('わかった')[0]);
+    await fireEvent.press(screen.getAllByText('確認した')[0]);
     await screen.findByText('お知らせ（1）');
     expect(lastPlanDates(notifier)).toEqual(['2026-11-13', '2026-11-17']);
   });

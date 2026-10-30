@@ -34,6 +34,8 @@ export type ReasonCode =
 
 export type ConflictAlert = {
   eventId: string;
+  /** 対処（別の日・期限）を出すのに使う、元の予定 */
+  event: CalendarEvent;
   title: string;
   /** いちばん重い判定になった日 */
   date: DateKey;
@@ -172,6 +174,7 @@ function judgeDay(
 
   return {
     eventId: event.id,
+    event,
     title: event.title,
     date: day,
     grade,
