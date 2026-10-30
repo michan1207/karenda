@@ -69,6 +69,19 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       );
     `);
   },
+  // 2026-10-30: 予定のあとの「どうだった？」の答え。answer が NULL なら「答えない」
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE event_reviews (
+        event_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        phase TEXT NOT NULL CHECK (phase IN ('period', 'pms', 'other')),
+        answer TEXT CHECK (answer IN ('hard', 'normal', 'easy')),
+        answered_at TEXT NOT NULL,
+        PRIMARY KEY (event_id, date)
+      );
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

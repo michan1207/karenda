@@ -1,5 +1,7 @@
 import type { ConflictAlert } from './conflicts';
+import { statusKey } from './conflictState';
 import { addDays, DateKey, fromDateKey } from './date';
+import type { ReviewTarget } from './learning';
 
 export type NotificationPlan = {
   /** 同じ日の通知は1件にまとめるので、日付ごとに一意 */
@@ -8,6 +10,8 @@ export type NotificationPlan = {
   date: DateKey;
   title: string;
   body: string;
+  /** 「どうだった？」の通知。ボタンで答えると、この予定の答えとして保存する */
+  review?: ReviewTarget;
 };
 
 /** 直前に言われても動かせないので、前もって知らせる。A（要注意）は2回、B（注意）は1回 */
@@ -57,4 +61,27 @@ export function planNotifications(alerts: ConflictAlert[], today: DateKey): Noti
         body: sorted.map((alert) => `${monthDay(alert.date)} ${alert.title}`).join('、'),
       };
     });
+}
+
+/**
+ * 予定の次の朝に「どうだった？」と聞く通知。朝は1件だけにして、重い予定を先に聞く。
+ * 答えた予定は聞かない（ほかの予定はホームで聞く）
+ */
+export function planReviewNotifications(targets: ReviewTarget[], reviewed: Set<string>, today: DateKey): NotificationPlan[] {
+  const byDay = new Map<DateKey, ReviewTarget>();
+  for (const target of targets) {
+    const day = addDays(target.date, 1);
+    const kept = byDay.get(day);
+    if (day < today || reviewed.has(statusKey(target.eventId, target.date))) continue;
+    if (!kept || (kept.risk === 'medium' && target.risk === 'high')) byDay.set(day, target);
+  }
+  return [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, target]) => ({
+      id: `review-${date}`,
+      date,
+      title: `昨日の「${target.title}」、実際どうでした？`,
+      body: '長押しすると「きつかった・ふつう・平気だった」から選べます。',
+      review: target,
+    }));
 }

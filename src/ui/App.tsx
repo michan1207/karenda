@@ -18,7 +18,7 @@ import {
   openKarendaDatabase,
   ReviewPrompt,
 } from '../data';
-import { ConflictAlert, DateKey, statusOf, toDateKey } from '../engine';
+import { ConflictAlert, DateKey, pendingReviews, statusOf, toDateKey } from '../engine';
 import AlertsScreen from './AlertsScreen';
 import CalendarScreen from './CalendarScreen';
 import LockScreen from './LockScreen';
@@ -28,6 +28,7 @@ import SettingsScreen from './SettingsScreen';
 import { fonts, radius, useColors } from './theme';
 import { useKarenda } from './useKarenda';
 import { useNotificationSync } from './useNotificationSync';
+import { useReviewTargets } from './useReviewTargets';
 import { useUpcomingAlerts } from './useUpcomingAlerts';
 
 type Tab = 'calendar' | 'alerts' | 'settings';
@@ -77,7 +78,8 @@ export function Main({
   // 対応済みは一覧から外す。確認済みは一覧に残し、通知とタブの数は未確認のものだけにする
   const upcoming = useUpcomingAlerts(k, day).filter((alert) => stateOf(alert) !== 'resolved');
   const unreviewed = upcoming.filter((alert) => stateOf(alert) === 'unreviewed');
-  useNotificationSync(k, unreviewed, day);
+  const reviewTargets = useReviewTargets(k, day);
+  useNotificationSync(k, unreviewed, reviewTargets, day);
 
   let body;
   if (k.status === 'loading') {
@@ -96,7 +98,14 @@ export function Main({
     body = (
       <>
         <View style={styles.flex}>
-          {tab === 'calendar' && <CalendarScreen k={k} today={day} openAlerts={() => setTab('alerts')} />}
+          {tab === 'calendar' && (
+            <CalendarScreen
+              k={k}
+              today={day}
+              reviews={pendingReviews(reviewTargets, k.reviewed, day)}
+              openAlerts={() => setTab('alerts')}
+            />
+          )}
           {tab === 'alerts' && <AlertsScreen k={k} today={day} alerts={upcoming} />}
           {tab === 'settings' && <SettingsScreen k={k} today={day} />}
         </View>

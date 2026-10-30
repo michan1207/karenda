@@ -21,6 +21,7 @@ import {
   migrate,
   Notifier,
   openBackup,
+  listReviewed,
   listTitleWeights,
   saveConflictStatus,
   saveTitleWeight,
@@ -65,6 +66,7 @@ function fakeNotifier(granted = true) {
     requestAccess: jest.fn(async () => granted),
     hasAccess: jest.fn(async () => granted),
     replaceAll: jest.fn(async (_plans: NotificationPlan[]) => {}),
+    onReviewAnswer: jest.fn((_handler: Parameters<Notifier['onReviewAnswer']>[0]) => () => {}),
   } satisfies Notifier;
 }
 
@@ -96,7 +98,10 @@ function fakeFiles(picked: string | null = null) {
 }
 
 const lastPlanDates = (notifier: ReturnType<typeof fakeNotifier>) =>
-  notifier.replaceAll.mock.calls.at(-1)?.[0].map((plan) => plan.date);
+  notifier.replaceAll.mock.calls
+    .at(-1)?.[0]
+    .filter((plan) => !plan.review)
+    .map((plan) => plan.date);
 
 const METRICS = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } };
 
@@ -492,6 +497,49 @@ describe('notifications', () => {
     await fireEvent.press(await screen.findByText('設定'));
     expect(screen.getByText('端末の設定で通知がオフになっています。')).toBeTruthy();
     expect(notifier.replaceAll).not.toHaveBeenCalled();
+  });
+});
+
+describe('asking how past events went', () => {
+  // PMS期は 10-19〜25。今日は 10-24
+  const PAST: CalendarEvent[] = [
+    { id: 'old', title: '大阪出張', start: '2026-10-16', end: '2026-10-16', allDay: false },
+    { id: 'r1', title: '役員会議', start: '2026-10-20', end: '2026-10-20', allDay: false },
+    { id: 'r2', title: '役員会議', start: '2026-10-22', end: '2026-10-22', allDay: false },
+    { id: 'r3', title: '飲み会', start: '2026-10-23', end: '2026-10-23', allDay: false },
+    { id: 'buy', title: '買い物', start: '2026-10-23', end: '2026-10-23', allDay: false },
+    ...EVENTS,
+  ];
+
+  it('asks about up to 3 recent heavy or normal events at home and learns from two hard answers', async () => {
+    await setup({ calendar: fakeCalendar(true, PAST) });
+    expect(await screen.findByText('予定、どうだった？')).toBeTruthy();
+    expect(screen.getByText('10月23日（金）「飲み会」')).toBeTruthy();
+    expect(screen.queryByText('10月23日（金）「買い物」')).toBeNull();
+    expect(screen.queryByText('10月16日（金）「大阪出張」')).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText('10月22日（木）「役員会議」はきつかった'));
+    await fireEvent.press(await screen.findByLabelText('10月20日（火）「役員会議」はきつかった'));
+    await fireEvent.press(await screen.findByLabelText('10月23日（金）「飲み会」は答えない'));
+    await waitFor(() => expect(screen.queryByText('予定、どうだった？')).toBeNull());
+
+    await fireEvent.press(screen.getByText('設定'));
+    expect(await screen.findByText('2回の答えから')).toBeTruthy();
+    expect(screen.queryByText('飲み会')).toBeNull();
+  });
+
+  it('keeps an answer given with a notification button, and asks the next morning', async () => {
+    const { db, notifier } = await setup({ calendar: fakeCalendar(true, PAST) });
+    await screen.findByText('予定、どうだった？');
+    const reviews = notifier.replaceAll.mock.calls.at(-1)![0].filter((plan) => plan.review);
+    // 予定の次の朝に1件ずつ（今朝の分は時刻が過ぎていれば予約されない）
+    expect(reviews.map((plan) => plan.date)).toEqual(['2026-10-24', '2026-10-28', '2026-11-21']);
+    expect(reviews[1].title).toBe('昨日の「福岡出張」、実際どうでした？');
+
+    const answer = notifier.onReviewAnswer.mock.calls.at(-1)![0];
+    await act(async () => answer({ eventId: 'r3', title: '飲み会', date: '2026-10-23', phase: 'pms', risk: 'medium' }, 'easy'));
+    await waitFor(() => expect(screen.queryByText('10月23日（金）「飲み会」')).toBeNull());
+    expect(await listReviewed(db)).toEqual(new Set(['r3|2026-10-23']));
   });
 });
 

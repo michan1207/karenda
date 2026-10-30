@@ -5,6 +5,7 @@ import type { Database } from './database';
 import { migrate, SCHEMA_VERSION } from './migrations';
 import {
   addPeriodStart,
+  answerReview,
   deleteAllData,
   getConflictStatuses,
   isMetricsEnabled,
@@ -23,6 +24,7 @@ import {
   isOnboarded,
   isReviewAsked,
   listPeriodStarts,
+  listReviewed,
   listTitleWeights,
   loadState,
   readExport,
@@ -208,6 +210,24 @@ describe('title weights', () => {
     expect((await loadState(db)).keywords.learned!.size).toBe(0);
     await deleteAllData(db);
     expect(await listTitleWeights(db)).toEqual([]);
+  });
+});
+
+describe('answers after an event', () => {
+  const target = (eventId: string, date: string) => ({ eventId, title: '役員会議', date, phase: 'pms' as const, risk: 'medium' as const });
+
+  it('learns from answers, not from skips, and counts each event once', async () => {
+    await answerReview(db, target('a', '2026-10-20'), null);
+    expect(await listTitleWeights(db)).toEqual([]);
+    await answerReview(db, target('b', '2026-10-21'), 'hard');
+    await answerReview(db, target('b', '2026-10-21'), 'hard');
+    expect(await listTitleWeights(db)).toMatchObject([{ term: '役員会議', weight: null, observations: 1 }]);
+    await answerReview(db, target('c', '2026-10-22'), 'hard');
+    expect((await loadState(db)).keywords.learned!.get('役員会議')).toBe('heavy');
+    expect(await listReviewed(db)).toEqual(new Set(['a|2026-10-20', 'b|2026-10-21', 'c|2026-10-22']));
+
+    await deleteAllData(db);
+    expect((await listReviewed(db)).size).toBe(0);
   });
 });
 
