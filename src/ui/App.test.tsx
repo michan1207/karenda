@@ -292,12 +292,13 @@ describe('calendar', () => {
 });
 
 describe('alerts', () => {
-  it('lists the next 30 days red first and hides dismissed alerts', async () => {
+  it('lists the next 30 days A first and hides dismissed alerts', async () => {
     await setup();
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
     const titles = screen.getAllByText(/^(福岡出張|企画プレゼン)$/).map((node) => node.props.children);
     expect(titles).toEqual(['福岡出張', '企画プレゼン']);
-    expect(screen.getByText('しっかり注意')).toBeTruthy();
+    // 11-20 のプレゼンは PMS 期の重い予定なので A（2026-10-30 から）
+    expect(screen.getAllByText('A 要注意')).toHaveLength(2);
     await fireEvent.press(screen.getAllByText('わかった')[0]);
     expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
     expect(screen.queryByText('福岡出張')).toBeNull();
@@ -343,8 +344,8 @@ describe('notifications', () => {
   it('schedules reminders before clashing events', async () => {
     const { notifier } = await setup();
     await screen.findByText('お知らせ（2）');
-    // 10-27の出張（レッド）は3日前の今日、11-20のプレゼン（イエロー）は3日前の11-17
-    expect(lastPlanDates(notifier)).toEqual(['2026-10-24', '2026-11-17']);
+    // 10-27の出張（A）は7日前が過ぎているので3日前の今日だけ、11-20のプレゼン（A）は7日前の11-13と3日前の11-17
+    expect(lastPlanDates(notifier)).toEqual(['2026-10-24', '2026-11-13', '2026-11-17']);
   });
 
   it('drops the reminder of a dismissed alert', async () => {
@@ -352,7 +353,7 @@ describe('notifications', () => {
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
     await fireEvent.press(screen.getAllByText('わかった')[0]);
     await screen.findByText('お知らせ（1）');
-    expect(lastPlanDates(notifier)).toEqual(['2026-11-17']);
+    expect(lastPlanDates(notifier)).toEqual(['2026-11-13', '2026-11-17']);
   });
 
   it('clears all reminders when turned off in settings', async () => {

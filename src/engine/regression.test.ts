@@ -65,27 +65,24 @@ describe('today’s guard results', () => {
   });
 
   it('raises the same alerts in the same order', () => {
-    expect(guard.alerts.map((a) => `${a.eventId} ${a.date} ${a.level} ${a.zone} ${a.risk}`)).toEqual([
-      'family 2026-10-19 red heavy high',
-      'trip 2026-10-20 red heavy high',
-      'job 2026-11-17 red heavy high',
-      'exam 2026-11-17 red heavy high',
-      'm1 2026-10-12 yellow pms medium',
-      'm2 2026-10-13 yellow pms medium',
-      'm3 2026-10-14 yellow pms medium',
-      'talk 2026-10-15 yellow pms high',
-      'meet 2026-10-21 yellow heavy medium',
+    expect(guard.alerts.map((a) => `${a.eventId} ${a.date} ${a.grade} ${a.score} ${a.reasons.join('+')}`)).toEqual([
+      // 2026-10-30 Phase 1 で A/B/C の点数に変えた。PMS期の「ふつうの予定が週3件」は C（参考）になり出さない
+      'talk 2026-10-15 A 70 phasePms',
+      'family 2026-10-17 A 97 phasePms+allDayMobility',
+      'trip 2026-10-20 A 100 phaseMostSevere',
+      'job 2026-11-17 A 100 phaseMostSevere',
+      'exam 2026-11-17 A 100 phaseMostSevere',
+      'meet 2026-10-21 B 40 phaseMostSevere',
     ]);
   });
 
   it('plans the same notifications', () => {
     expect(planNotifications(guard.alerts, '2026-10-01').map((n) => `${n.date} | ${n.title} | ${n.body}`)).toEqual([
-      '2026-10-09 | 10/12「打ち合わせ」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
-      '2026-10-10 | 10/13「飲み会」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
-      '2026-10-11 | 10/14「美容院」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
-      '2026-10-12 | 確かめたい予定が2件あります | 10/19 家族旅行、10/15 プレゼン',
+      '2026-10-08 | 10/15「プレゼン」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
+      '2026-10-10 | 10/17「家族旅行」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
+      '2026-10-12 | 10/15「プレゼン」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
       '2026-10-13 | 10/20「大阪出張」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
-      '2026-10-16 | 10/19「家族旅行」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
+      '2026-10-14 | 10/17「家族旅行」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
       '2026-10-17 | 10/20「大阪出張」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
       '2026-10-18 | 10/21「定例会議」の前に | アプリを開いて、準備の予定を確かめてみませんか。',
       '2026-11-10 | 確かめたい予定が2件あります | 11/17 面接、11/17 試験',
@@ -171,6 +168,7 @@ describe('calendar boundaries', () => {
       range: { from: '2027-12-15', until: '2028-01-31' },
       events: [event('home', '帰省', '2027-12-25', '2028-01-02', true)],
     });
-    expect(guard.alerts.map((a) => `${a.date} ${a.level}`)).toEqual(['2027-12-25 red']);
+    // 予測の端（12/25）より、生理1日目の予測（12/27）のほうが重い
+    expect(guard.alerts.map((a) => `${a.date} ${a.grade}`)).toEqual(['2027-12-27 A']);
   });
 });

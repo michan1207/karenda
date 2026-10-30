@@ -149,7 +149,7 @@ export function MascotSays({ colors, text, size = 76 }: { colors: Colors; text: 
   );
 }
 
-/** 予定と重なる印。しっかり注意は塗りの丸、少し注意は枠だけの丸で、色だけに頼らない */
+/** 予定と重なる印。要注意（A）は塗りの丸、注意（B）は枠だけの丸で、色だけに頼らない */
 export function AlertMark({ colors, strong, size = 16 }: { colors: Colors; strong: boolean; size?: number }) {
   const tone = strong ? colors.alertStrong : colors.alertMild;
   return (

@@ -10,12 +10,12 @@ export const DEFAULT_KEYWORDS: RiskKeywords = {
 export type RiskInput = { title: string; allDay: boolean };
 
 // 全角・半角や大文字・小文字の違いで取りこぼさないようにそろえる
-const normalize = (text: string) => text.normalize('NFKC').toLowerCase();
+export const normalizeTitle = (text: string) => text.normalize('NFKC').toLowerCase();
 
 export function classifyRisk(event: RiskInput, keywords: RiskKeywords = DEFAULT_KEYWORDS): Risk {
   if (event.allDay) return 'high';
-  const title = normalize(event.title);
-  const matches = (words: string[]) => words.some((word) => word.trim() && title.includes(normalize(word.trim())));
+  const title = normalizeTitle(event.title);
+  const matches = (words: string[]) => words.some((word) => word.trim() && title.includes(normalizeTitle(word.trim())));
   if (matches(keywords.high)) return 'high';
   if (matches(keywords.medium)) return 'medium';
   return 'low';

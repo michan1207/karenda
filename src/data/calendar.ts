@@ -39,6 +39,13 @@ export function toCalendarEvent(raw: RawEvent): CalendarEvent {
     start: startKey,
     end: endKey,
     allDay: raw.allDay,
+    // 朝早い・長い予定を見分けるため、時刻のある予定だけ開始時刻と長さを持つ
+    ...(raw.allDay
+      ? {}
+      : {
+          startMinutes: start.getHours() * 60 + start.getMinutes(),
+          durationMinutes: Math.max(0, Math.round((end.getTime() - start.getTime()) / 60_000)),
+        }),
   };
 }
 

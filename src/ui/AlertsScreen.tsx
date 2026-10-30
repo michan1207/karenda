@@ -145,7 +145,7 @@ function Chips<T extends string>({
 
 function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () => void }) {
   const colors = useColors();
-  const strong = alert.level === 'red';
+  const strong = alert.grade === 'A';
   const tone = strong ? colors.alertStrong : colors.alertMild;
   return (
     <Card colors={colors} style={{ backgroundColor: strong ? colors.alertStrongSoft : colors.alertMildSoft, borderColor: tone }}>
@@ -159,7 +159,7 @@ function AlertCard({ alert, onDismiss }: { alert: ConflictAlert; onDismiss: () =
               strong ? { color: colors.onAccent, backgroundColor: tone } : { color: tone },
             ]}
           >
-            {strong ? 'しっかり注意' : '少し注意'}
+            {strong ? 'A 要注意' : 'B 注意'}
           </Text>
         </View>
         <Text style={[styles.date, { color: colors.muted }]}>{dayTitle(alert.date)}</Text>

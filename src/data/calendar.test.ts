@@ -14,7 +14,15 @@ describe('toCalendarEvent', () => {
   it('keeps a timed event on its day', () => {
     expect(
       toCalendarEvent({ id: 'a', title: '会議', startDate: local(2026, 10, 27, 10), endDate: local(2026, 10, 27, 11), allDay: false }),
-    ).toEqual({ id: 'a@2026-10-27', title: '会議', start: '2026-10-27', end: '2026-10-27', allDay: false });
+    ).toEqual({
+      id: 'a@2026-10-27',
+      title: '会議',
+      start: '2026-10-27',
+      end: '2026-10-27',
+      allDay: false,
+      startMinutes: 600,
+      durationMinutes: 60,
+    });
   });
 
   it('does not count the next day for an event ending at midnight', () => {
@@ -26,6 +34,7 @@ describe('toCalendarEvent', () => {
       allDay: true,
     });
     expect(event).toMatchObject({ start: '2026-10-24', end: '2026-10-26', allDay: true });
+    expect(event.startMinutes).toBeUndefined();
   });
 
   it('handles an iOS all-day event that ends at 23:59:59', () => {

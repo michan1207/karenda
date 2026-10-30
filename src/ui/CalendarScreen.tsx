@@ -247,11 +247,11 @@ export default function CalendarScreen({ k, today }: Props) {
             return (
               <View key={event.id} style={styles.eventRow}>
                 <View style={styles.eventHead}>
-                  {alert && <AlertMark colors={colors} strong={alert.level === 'red'} />}
+                  {alert && <AlertMark colors={colors} strong={alert.grade === 'A'} />}
                   <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title || '（タイトルなし）'}</Text>
                 </View>
                 {alert && (
-                  <Text style={[styles.detailText, { color: alert.level === 'red' ? colors.alertStrong : colors.alertMild }]}>
+                  <Text style={[styles.detailText, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
                     {alert.message}
                   </Text>
                 )}
@@ -296,7 +296,7 @@ function DayCell({
   isSelected: boolean;
   onPress: () => void;
 }) {
-  const red = alerts.some((alert) => alert.level === 'red');
+  const red = alerts.some((alert) => alert.grade === 'A');
   // 予測の幅のはし（中心の日からずれた日）は薄くする
   const heavyColor = zone?.zone === 'heavy' && zone.predicted && !zone.periodDay ? colors.heavyEdge : colors.heavy;
   const zoneColor = zone?.zone === 'heavy' ? heavyColor : zone?.zone === 'pms' ? colors.pms : 'transparent';
