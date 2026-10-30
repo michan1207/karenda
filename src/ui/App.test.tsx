@@ -133,6 +133,19 @@ describe('calendar', () => {
     expect(screen.queryByText(/起こりやすい心の変化/)).toBeNull();
   });
 
+  it('lets Mia say something different on each period day, with a next step', async () => {
+    await setup();
+    await screen.findByText(/^今日はPMSの時期かも/);
+    const said = new Set<string>();
+    for (const label of [/^10月25日（日）/, /^10月26日（月）/, /^10月27日（火）/, /^10月28日（水）/]) {
+      await fireEvent.press(screen.getByLabelText(label));
+      const line = screen.getByText(/^この日は生理の時期かも。/).props.children as string;
+      expect(line).not.toMatch(/無理しないで|つらいね|休んでね/);
+      said.add(line);
+    }
+    expect(said.size).toBe(4);
+  });
+
   it('shows the predicted window and how sure it is on predicted days', async () => {
     await setup();
     // 28日ずつの3周期 → 10/26 ごろ±1日

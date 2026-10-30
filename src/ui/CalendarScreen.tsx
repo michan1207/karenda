@@ -25,11 +25,24 @@ import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda; today: DateKey };
 
+/** 生理の時期のミアの一言。なぐさめるより、次にできることを少しやさしく言う */
+const DURING_LINES = [
+  '重い予定は、ずらせるか見てみる？',
+  '移動の多い予定は、時間にゆとりを持たせよう',
+  '替えのナプキン、かばんに入れておこう',
+  '夜の予定は、早めに切り上げられると楽だよ',
+  'あたたかい飲みものを用意しておこう',
+  '家のことは、だれかに頼めないかな？',
+  '座って過ごせる予定だと、少し楽かも',
+  'パートナーへのひとことは「お知らせ」から送れるよ',
+];
+
 /** ミアが選んだ日について話す一言。時期は予測なので「かも」「と言われている」で言い切らない */
-function mascotLine(phase: PeriodPhase | undefined, who: string, recorded: boolean): string {
+function mascotLine(phase: PeriodPhase | undefined, who: string, recorded: boolean, day: DateKey): string {
   if (!recorded) return 'はじめまして！生理が始まった日を選んで、記録してみてね';
   if (phase === 'before') return `${who}PMSの時期かも。ゆっくり過ごしてね`;
-  if (phase === 'during') return `${who}生理の時期かも。あたたかくして休んでね`;
+  // 同じ言葉が続かないよう、日付で順番に変える
+  if (phase === 'during') return `${who}生理の時期かも。${DURING_LINES[fromDateKey(day).getDate() % DURING_LINES.length]}`;
   if (phase === 'after') return `${who}生理のあとの時期。疲れが出やすいと言われているよ`;
   return `${who}気をつけたい時期の外だよ。予定もたのしんでね`;
 }
@@ -96,7 +109,7 @@ export default function CalendarScreen({ k, today }: Props) {
         </Pressable>
       </View>
 
-      <MascotSays colors={colors} text={mascotLine(phase, selected === today ? '今日は' : 'この日は', k.starts.length > 0)} />
+      <MascotSays colors={colors} text={mascotLine(phase, selected === today ? '今日は' : 'この日は', k.starts.length > 0, selected)} />
 
       {k.access === 'denied' && (
         <Notice
