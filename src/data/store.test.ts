@@ -5,17 +5,17 @@ import { migrate, SCHEMA_VERSION } from './migrations';
 import {
   addPeriodStart,
   deleteAllData,
-  dismissAlert,
+  getConflictStatuses,
   exportData,
   getKeywords,
   getZoneSettings,
   isDismissed,
+  saveConflictStatus,
   isHideMode,
   isLockEnabled,
   isNotifyEnabled,
   isOnboarded,
   isReviewAsked,
-  listDismissedAlerts,
   listPeriodStarts,
   loadState,
   readExport,
@@ -139,12 +139,25 @@ describe('app lock', () => {
 });
 
 describe('dismissed alerts', () => {
-  it('remembers dismissed alerts per event and date', async () => {
-    await dismissAlert(db, 'ev1', '2026-10-27');
-    await dismissAlert(db, 'ev1', '2026-10-27');
-    const dismissed = await listDismissedAlerts(db);
-    expect(isDismissed(dismissed, 'ev1', '2026-10-27')).toBe(true);
-    expect(isDismissed(dismissed, 'ev1', '2026-11-24')).toBe(false);
+  it('remembers the state of each alert per event and date', async () => {
+    await saveConflictStatus(db, 'ev1', '2026-10-27', { state: 'acknowledged', resolution: null });
+    await saveConflictStatus(db, 'ev2', '2026-10-28', { state: 'resolved', resolution: 'shifted' });
+    const statuses = await getConflictStatuses(db);
+    expect(statuses.get('ev2|2026-10-28')).toEqual({ state: 'resolved', resolution: 'shifted' });
+    expect(isDismissed(statuses, 'ev1', '2026-10-27')).toBe(true);
+    expect(isDismissed(statuses, 'ev1', '2026-11-24')).toBe(false);
+  });
+
+  it('keeps alerts closed with the old "わかった" as acknowledged after updating', async () => {
+    const old = createTestDatabase();
+    await old.execAsync(`
+      CREATE TABLE dismissed_alerts (event_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY (event_id, date));
+      INSERT INTO dismissed_alerts (event_id, date) VALUES ('ev1', '2026-10-27');
+      PRAGMA user_version = 1;
+    `);
+    await migrate(old);
+    expect((await getConflictStatuses(old)).get('ev1|2026-10-27')).toEqual({ state: 'acknowledged', resolution: null });
+    expect(await old.getFirstAsync("SELECT name FROM sqlite_master WHERE name = 'dismissed_alerts'")).toBeNull();
   });
 });
 
@@ -153,7 +166,7 @@ describe('loadState', () => {
     await setOnboarded(db);
     await setNotifyEnabled(db, false);
     await addPeriodStart(db, '2026-10-01');
-    await dismissAlert(db, 'ev1', '2026-10-27');
+    await saveConflictStatus(db, 'ev1', '2026-10-27', { state: 'acknowledged', resolution: null });
     const state = await loadState(db);
     expect(state).toMatchObject({
       onboarded: true,
@@ -162,7 +175,7 @@ describe('loadState', () => {
       settings: DEFAULT_ZONE_SETTINGS,
       keywords: DEFAULT_KEYWORDS,
     });
-    expect(isDismissed(state.dismissed, 'ev1', '2026-10-27')).toBe(true);
+    expect(isDismissed(state.statuses, 'ev1', '2026-10-27')).toBe(true);
   });
 });
 
@@ -185,12 +198,12 @@ describe('export and delete', () => {
     await addPeriodStart(db, '2026-10-01');
     await setZoneSettings(db, { heavyDays: 5, pmsDays: 3 });
     await setKeywords(db, { high: ['ヨガ'], medium: [] });
-    await dismissAlert(db, 'ev1', '2026-10-27');
+    await saveConflictStatus(db, 'ev1', '2026-10-27', { state: 'acknowledged', resolution: null });
     await deleteAllData(db);
     expect(await listPeriodStarts(db)).toEqual([]);
     expect(await getZoneSettings(db)).toEqual(DEFAULT_ZONE_SETTINGS);
     expect(await getKeywords(db)).toEqual(DEFAULT_KEYWORDS);
-    expect((await listDismissedAlerts(db)).size).toBe(0);
+    expect((await getConflictStatuses(db)).size).toBe(0);
   });
 
   it('rolls back a failed transaction', async () => {

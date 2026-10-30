@@ -1,5 +1,6 @@
 export * from './actions';
 export * from './conflicts';
+export * from './conflictState';
 export * from './cycle';
 export * from './date';
 export * from './risk';

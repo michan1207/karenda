@@ -74,7 +74,7 @@ export function Main({
     });
     return () => subscription.remove();
   }, [today]);
-  const upcoming = useUpcomingAlerts(k, day).filter((alert) => !isDismissed(k.dismissed, alert.eventId, alert.date));
+  const upcoming = useUpcomingAlerts(k, day).filter((alert) => !isDismissed(k.statuses, alert.eventId, alert.date));
   useNotificationSync(k, upcoming, day);
 
   let body;
