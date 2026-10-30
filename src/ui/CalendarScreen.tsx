@@ -9,9 +9,11 @@ import {
   DateKey,
   fromDateKey,
   gradeOf,
+  monthlyDigest,
   Guard,
   isInMonth,
   monthGrid,
+  MonthlyDigest,
   nearestPeriod,
   PeriodPhase,
   periodPhase,
@@ -25,7 +27,7 @@ import { Colors, radius, useColors } from './theme';
 import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
 
-type Props = { k: Karenda; today: DateKey };
+type Props = { k: Karenda; today: DateKey; openAlerts: () => void };
 
 /** ミアの一言。短く、やさしく、次にできることを1つだけ言う。時期は予測なので「かな」で言い切らない */
 const MASCOT_LINES: Record<PeriodPhase | 'calm', { lead: string; lines: string[] }> = {
@@ -93,7 +95,7 @@ function mascotLine(phase: PeriodPhase | undefined, recorded: boolean, day: Date
   return `${lead}${lines[fromDateKey(day).getDate() % lines.length]}`;
 }
 
-export default function CalendarScreen({ k, today }: Props) {
+export default function CalendarScreen({ k, today, openAlerts }: Props) {
   const colors = useColors();
   const [{ year, month }, setMonth] = useState(() => {
     const date = fromDateKey(today);
@@ -178,6 +180,18 @@ export default function CalendarScreen({ k, today }: Props) {
           <Text style={[styles.hideText, { color: colors.muted }]}>{hidden ? 'みせる' : 'かくす'}</Text>
         </Pressable>
       </View>
+
+      {!hidden && k.starts.length > 0 && k.access === 'granted' && (
+        <DigestCard
+          colors={colors}
+          digest={monthlyDigest(guard.alerts, `${year}-${String(month).padStart(2, '0')}`, k.statuses)}
+          isThisMonth={today.startsWith(`${year}-${String(month).padStart(2, '0')}-`)}
+          month={month}
+          onPick={setSelected}
+          openAlerts={openAlerts}
+          nextMonth={() => goMonth(1)}
+        />
+      )}
 
       {!hidden && <MascotSays colors={colors} text={mascotLine(phase, k.starts.length > 0, selected)} />}
 
@@ -302,6 +316,70 @@ export default function CalendarScreen({ k, today }: Props) {
   );
 }
 
+/** その月の要注意のまとめ。上位3件を押すとその日を開き、ボタンでお知らせに移る */
+function DigestCard({
+  colors,
+  digest,
+  isThisMonth,
+  month,
+  onPick,
+  openAlerts,
+  nextMonth,
+}: {
+  colors: Colors;
+  digest: MonthlyDigest;
+  isThisMonth: boolean;
+  month: number;
+  onPick: (day: DateKey) => void;
+  openAlerts: () => void;
+  nextMonth: () => void;
+}) {
+  const name = isThisMonth ? '今月' : `${month}月`;
+  if (digest.isEmpty) {
+    return (
+      <Card colors={colors}>
+        <Text style={[styles.digestTitle, { color: colors.text }]}>{name}、重なる予定はありません</Text>
+        {isThisMonth && <Button colors={colors} kind="secondary" label="来月を見る" onPress={nextMonth} />}
+      </Card>
+    );
+  }
+  return (
+    <Card colors={colors}>
+      <View style={styles.digestHead}>
+        <Text style={[styles.digestTitle, { color: colors.text }]}>
+          {name}の要注意 {digest.conflicts.length}件
+        </Text>
+        {digest.unreviewedCount > 0 && (
+          <Text style={[styles.digestBadge, { color: colors.onAccent, backgroundColor: colors.alertStrong }]}>
+            未確認 {digest.unreviewedCount}件
+          </Text>
+        )}
+      </View>
+      {digest.topThree.map((alert) => {
+        const strong = alert.grade === 'A';
+        const label = strong ? 'A 要注意' : 'B 注意';
+        return (
+          <Pressable
+            key={`${alert.eventId}|${alert.date}`}
+            accessibilityRole="button"
+            // 日付の枠の読み上げと見分けがつくよう、予定の名前から読む
+            accessibilityLabel={`「${alert.title}」${dayTitle(alert.date)} ${label}`}
+            onPress={() => onPick(alert.date)}
+            style={styles.digestRow}
+          >
+            <AlertMark colors={colors} strong={strong} />
+            <Text style={[styles.digestGrade, { color: strong ? colors.alertStrong : colors.alertMild }]}>{alert.grade}</Text>
+            <Text style={[styles.detailText, styles.digestText, { color: colors.text }]}>
+              {dayTitle(alert.date)} {alert.title || '（タイトルなし）'}
+            </Text>
+          </Pressable>
+        );
+      })}
+      <Button colors={colors} kind="secondary" label="お知らせで対処する" onPress={openAlerts} />
+    </Card>
+  );
+}
+
 function DayCell({
   day,
   colors,
@@ -412,6 +490,12 @@ const styles = StyleSheet.create({
   navText: { fontSize: 26, lineHeight: 30, fontWeight: '700' },
   hideRow: { flexDirection: 'row', justifyContent: 'flex-end' },
   gradeLabel: { fontSize: 12, fontWeight: '700' },
+  digestHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  digestTitle: { fontSize: 16, fontWeight: '700' },
+  digestBadge: { fontSize: 12, fontWeight: '700', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 2 },
+  digestRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  digestGrade: { fontSize: 14, fontWeight: '700' },
+  digestText: { flexShrink: 1 },
   hideButton: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6, minHeight: 32, justifyContent: 'center' },
   hideText: { fontSize: 13 },
   grid: { padding: 12, gap: 4 },

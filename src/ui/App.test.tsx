@@ -227,6 +227,25 @@ describe('calendar', () => {
     expect(await isHideMode(db)).toBe(false);
   });
 
+  it('sums up the month at the top, and opens the day or the alerts from it', async () => {
+    await setup();
+    expect(await screen.findByText('今月の要注意 1件')).toBeTruthy();
+    expect(screen.getByText('未確認 1件')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('「福岡出張」10月27日（火） A 要注意'));
+    expect(screen.getByText('福岡出張')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('次の月'));
+    expect(await screen.findByText('11月の要注意 1件')).toBeTruthy();
+    await fireEvent.press(screen.getByText('お知らせで対処する'));
+    expect(await screen.findByText('これから30日のお知らせ')).toBeTruthy();
+  });
+
+  it('says when this month has no clashes, and offers next month', async () => {
+    await setup({ calendar: fakeCalendar(true, []) });
+    expect(await screen.findByText('今月、重なる予定はありません')).toBeTruthy();
+    await fireEvent.press(screen.getByText('来月を見る'));
+    expect(await screen.findByText('2026年11月')).toBeTruthy();
+  });
+
   it('shows the predicted window and how sure it is on predicted days', async () => {
     await setup();
     // 28日ずつの3周期 → 10/26 ごろ±1日
