@@ -69,7 +69,7 @@ describe('detectConflicts', () => {
     const [alert] = alerts;
     expect(alert).toMatchObject({ date: '2026-10-26', grade: 'A', score: 100 });
     expect(alert.reasons).toContain('seriesPeak');
-    expect(alert.reasonText).toBe('3日間のうち、いちばんきついのは2日目（10月26日）です。生理1日目と重なる見込みです。');
+    expect(alert.reasonText).toBe('3日間の予定で、いちばんきついのは10月26日（2日目）。生理1日目と重なる見込みです。');
     expect(alert.series).toEqual({
       peakDate: '2026-10-26',
       days: [

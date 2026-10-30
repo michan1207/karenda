@@ -334,11 +334,16 @@ describe('alerts', () => {
       allDay: false,
     }));
     await setup({ calendar: fakeCalendar(true, [...EVENTS, ...osaka]) });
+    // カレンダーでは、いちばんきつい日だけでなく、注意したい日すべてに印を付ける
+    expect(await screen.findByLabelText('10月25日（日）、生理の時期（予測）、予定と重なっています')).toBeTruthy();
+    expect(screen.getByLabelText('10月26日（月）、生理1日目（予測）、予定と重なっています')).toBeTruthy();
     await fireEvent.press(await screen.findByText('お知らせ（3）'));
-    expect(screen.getByText('3日間のうち、いちばんきついのは2日目（10月26日）です。生理1日目と重なる見込みです。')).toBeTruthy();
+    expect(screen.getByText('10月25日（日）〜10月27日（火）')).toBeTruthy();
+    expect(screen.getByText('3日間の予定で、いちばんきついのは10月26日（2日目）。生理1日目と重なる見込みです。')).toBeTruthy();
+    expect(screen.getByText('日ごとのきつさ（色のついた日がいちばんきつい日）')).toBeTruthy();
     expect(screen.getByLabelText('10月26日（月） 生理1日目 いちばんきつい日')).toBeTruthy();
     expect(screen.getByLabelText('10月25日（日） 生理かも')).toBeTruthy();
-    expect(screen.getByText('・2日目（10月26日）がいちばんきつい日です。1日目に予定を寄せて、2日目は移動を少なめに')).toBeTruthy();
+    expect(screen.getByText('・いちばんきついのは2日目。予定は1日目に寄せて、2日目は移動や予定を少なめに')).toBeTruthy();
   });
 
   it('sends a polite message to change plans, without health words', async () => {

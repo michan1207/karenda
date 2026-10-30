@@ -190,7 +190,7 @@ function judgeDay(
   const length = diffDays(event.start, event.end) + 1;
   const reasonText =
     length > 1
-      ? `${prefix}${length}日間のうち、いちばんきついのは${diffDays(event.start, day) + 1}日目（${monthDay(day)}）です。${phaseText(phase)}。`
+      ? `${prefix}${length}日間の予定で、いちばんきついのは${monthDay(day)}（${diffDays(event.start, day) + 1}日目）。${phaseText(phase)}。`
       : `${prefix}${phaseText(phase)}。`;
 
   return {

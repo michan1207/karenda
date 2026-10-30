@@ -8,6 +8,7 @@ import {
   ConflictAlert,
   DateKey,
   fromDateKey,
+  gradeOf,
   Guard,
   isInMonth,
   monthGrid,
@@ -120,7 +121,15 @@ export default function CalendarScreen({ k, today }: Props) {
 
   const alertsByDay = useMemo(() => {
     const map = new Map<DateKey, ConflictAlert[]>();
-    for (const alert of guard.alerts) map.set(alert.date, [...(map.get(alert.date) ?? []), alert]);
+    const add = (day: DateKey, alert: ConflictAlert) => map.set(day, [...(map.get(day) ?? []), alert]);
+    for (const alert of guard.alerts) {
+      // 何日も続く予定は、いちばんきつい日だけでなく、注意したい日（A/B）すべてに、その日の重さで印を付ける
+      const days = alert.series?.days ?? [{ date: alert.date, score: alert.score }];
+      for (const day of days) {
+        const grade = gradeOf(day.score);
+        if (grade !== 'C') add(day.date, { ...alert, grade });
+      }
+    }
     return map;
   }, [guard.alerts]);
 

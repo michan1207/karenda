@@ -46,9 +46,9 @@ const isCalm = (day: DateKey, zones: ZoneMap) => !zones.has(day) && periodPhase(
 function seriesTask(alert: ConflictAlert): string | null {
   if (!alert.series) return null;
   const index = diffDays(alert.event.start, alert.date);
-  const peak = `${index + 1}日目（${monthDay(alert.date)}）がいちばんきつい日です。`;
-  if (index === 0) return `${peak}1日目はゆっくり始めて、2日目以降に予定を寄せる`;
-  return `${peak}${index === 1 ? '1日目' : `${index}日目まで`}に予定を寄せて、${index + 1}日目は移動を少なめに`;
+  if (index === 0) return 'いちばんきついのは初日。初日はゆっくりにして、予定は2日目以降に';
+  const before = index === 1 ? '1日目' : `${index}日目まで`;
+  return `いちばんきついのは${index + 1}日目。予定は${before}に寄せて、${index + 1}日目は移動や予定を少なめに`;
 }
 
 function prepTasks(alert: ConflictAlert, zones: ZoneMap): string[] {
