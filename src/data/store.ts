@@ -77,6 +77,8 @@ export type StoredState = {
   notifyEnabled: boolean;
   /** 隠すモード。カレンダーに生理の色や言葉を出さない */
   hideMode: boolean;
+  /** 開く時と戻った時に Face ID（またはパスコード）を求めるか */
+  lockEnabled: boolean;
   starts: DateKey[];
   settings: ZoneSettings;
   keywords: RiskKeywords;
@@ -84,16 +86,17 @@ export type StoredState = {
 };
 
 export async function loadState(db: Database): Promise<StoredState> {
-  const [onboarded, notifyEnabled, hideMode, starts, settings, keywords, dismissed] = await Promise.all([
+  const [onboarded, notifyEnabled, hideMode, lockEnabled, starts, settings, keywords, dismissed] = await Promise.all([
     isOnboarded(db),
     isNotifyEnabled(db),
     isHideMode(db),
+    isLockEnabled(db),
     listPeriodStarts(db),
     getZoneSettings(db),
     getKeywords(db),
     listDismissedAlerts(db),
   ]);
-  return { onboarded, notifyEnabled, hideMode, starts, settings, keywords, dismissed };
+  return { onboarded, notifyEnabled, hideMode, lockEnabled, starts, settings, keywords, dismissed };
 }
 
 export type ExportedData = {
@@ -227,4 +230,14 @@ export async function isHideMode(db: Database): Promise<boolean> {
 
 export async function setHideMode(db: Database, on: boolean): Promise<void> {
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('hide', ?)", on ? '1' : '0');
+}
+
+/** アプリのロック（はじめは使わない） */
+export async function isLockEnabled(db: Database): Promise<boolean> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'lock'");
+  return row?.value === '1';
+}
+
+export async function setLockEnabled(db: Database, on: boolean): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('lock', ?)", on ? '1' : '0');
 }

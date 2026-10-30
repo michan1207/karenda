@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { DateKey, RiskKeywords, ZoneSettings } from '../engine';
@@ -13,6 +13,20 @@ type Props = { k: Karenda; today: DateKey };
 export default function SettingsScreen({ k, today }: Props) {
   const colors = useColors();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
+  const [lockFailed, setLockFailed] = useState(false);
+
+  useEffect(() => {
+    k.authenticator
+      .isAvailable()
+      .catch(() => false)
+      .then(setLockAvailable);
+  }, [k.authenticator]);
+
+  const changeLock = async (on: boolean) => {
+    setLockFailed(false);
+    if (!(await k.setLock(on))) setLockFailed(true);
+  };
 
   const updateSettings = (patch: Partial<ZoneSettings>) => k.setSettings({ ...k.settings, ...patch });
 
@@ -91,6 +105,32 @@ export default function SettingsScreen({ k, today }: Props) {
               </Pressable>
             </View>
           ))
+        )}
+      </Section>
+
+      <Section colors={colors} title="アプリのロック">
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>Face ID でロックする</Text>
+          <Switch
+            accessibilityLabel="Face ID でロックする"
+            value={k.lockEnabled}
+            onValueChange={changeLock}
+            disabled={lockAvailable === false}
+            trackColor={{ true: colors.pink, false: colors.line }}
+          />
+        </View>
+        <Text style={[styles.help, { color: colors.muted }]}>
+          アプリを開いた時と、ホームから戻った時に Face ID（またはパスコード）を求めます。何度失敗しても、記録は消えません。
+        </Text>
+        {lockAvailable === false && (
+          <Text style={[styles.help, { color: colors.danger }]}>
+            この iPhone にパスコードが設定されていないため、ロックは使えません。
+          </Text>
+        )}
+        {lockFailed && (
+          <Text style={[styles.help, { color: colors.danger }]}>
+            Face ID で確かめられなかったため、ロックはオンにしていません。
+          </Text>
         )}
       </Section>
 
