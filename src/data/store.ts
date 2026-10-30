@@ -40,16 +40,19 @@ export async function getKeywords(db: Database): Promise<RiskKeywords> {
 }
 
 export async function setKeywords(db: Database, keywords: RiskKeywords): Promise<void> {
-  await db.withTransactionAsync(async () => {
-    await db.runAsync('DELETE FROM keywords');
-    // 同じ言葉が両方にあれば高リスクを優先する
-    for (const level of ['high', 'medium'] as const) {
-      for (const raw of keywords[level]) {
-        const word = raw.trim();
-        if (word) await db.runAsync('INSERT OR IGNORE INTO keywords (word, level) VALUES (?, ?)', word, level);
-      }
+  await db.withTransactionAsync(() => writeKeywords(db, keywords));
+}
+
+/** トランザクションの中で呼ぶ */
+async function writeKeywords(db: Database, keywords: RiskKeywords): Promise<void> {
+  await db.runAsync('DELETE FROM keywords');
+  // 同じ言葉が両方にあれば高リスクを優先する
+  for (const level of ['high', 'medium'] as const) {
+    for (const raw of keywords[level]) {
+      const word = raw.trim();
+      if (word) await db.runAsync('INSERT OR IGNORE INTO keywords (word, level) VALUES (?, ?)', word, level);
     }
-  });
+  }
 }
 
 const alertKey = (eventId: string, date: DateKey) => `${eventId}|${date}`;
@@ -109,6 +112,66 @@ export async function exportData(db: Database, now: Date = new Date()): Promise<
     zoneSettings: await getZoneSettings(db),
     keywords: await getKeywords(db),
   };
+}
+
+export type ReadExport = { ok: true; data: ExportedData } | { ok: false; reason: 'broken' | 'notCocomia' | 'newer' };
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+const isWords = (value: unknown): value is string[] => Array.isArray(value) && value.every((v) => typeof v === 'string');
+
+/** 書き出したファイルを読む。外から来た中身なので、形と値をすべて確かめる */
+export function readExport(text: string): ReadExport {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return { ok: false, reason: 'broken' };
+  }
+  if (!isRecord(raw) || raw.app !== 'karenda') return { ok: false, reason: 'notCocomia' };
+  const { schemaVersion, exportedAt, periodStarts, zoneSettings, keywords } = raw;
+  if (typeof schemaVersion === 'number' && schemaVersion > SCHEMA_VERSION) return { ok: false, reason: 'newer' };
+  if (
+    !Number.isInteger(schemaVersion) ||
+    !isWords(periodStarts) ||
+    !isRecord(zoneSettings) ||
+    !isRecord(keywords) ||
+    !isWords(keywords.high) ||
+    !isWords(keywords.medium)
+  ) {
+    return { ok: false, reason: 'broken' };
+  }
+  const settings = { heavyDays: zoneSettings.heavyDays, pmsDays: zoneSettings.pmsDays } as ZoneSettings;
+  try {
+    periodStarts.forEach(fromDateKey);
+    validateZoneSettings(settings);
+  } catch {
+    return { ok: false, reason: 'broken' };
+  }
+  return {
+    ok: true,
+    data: {
+      app: 'karenda',
+      schemaVersion: schemaVersion as number,
+      exportedAt: typeof exportedAt === 'string' ? exportedAt : '',
+      periodStarts,
+      zoneSettings: settings,
+      keywords: { high: keywords.high, medium: keywords.medium },
+    },
+  };
+}
+
+/** replace: ファイルの中身に置き換える / keepMine: 記録は足し、設定は今のまま / preferFile: 記録は足し、設定はファイルのもの */
+export type RestoreMode = 'replace' | 'keepMine' | 'preferFile';
+
+/** 読み込んだ記録を戻す。途中で失敗したら何も変えない */
+export async function restoreData(db: Database, data: ExportedData, mode: RestoreMode): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    if (mode === 'replace') await db.runAsync('DELETE FROM period_starts');
+    for (const start of data.periodStarts) await addPeriodStart(db, start);
+    if (mode === 'keepMine') return;
+    await setZoneSettings(db, data.zoneSettings);
+    await writeKeywords(db, data.keywords);
+  });
 }
 
 /** 記録・設定をすべて消して、はじめて開いたときの状態に戻す */

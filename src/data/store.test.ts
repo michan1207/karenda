@@ -16,7 +16,9 @@ import {
   listDismissedAlerts,
   listPeriodStarts,
   loadState,
+  readExport,
   removePeriodStart,
+  restoreData,
   setKeywords,
   setNotifyEnabled,
   setOnboarded,
@@ -175,5 +177,74 @@ describe('export and delete', () => {
       }),
     ).rejects.toThrow('boom');
     expect(await listPeriodStarts(db)).toEqual(['2026-10-01']);
+  });
+});
+
+describe('reading an exported file back', () => {
+  const exported = async () => JSON.stringify(await exportData(db));
+
+  it('restores records and settings exactly after everything was deleted', async () => {
+    await addPeriodStart(db, '2026-09-01');
+    await addPeriodStart(db, '2026-09-29');
+    await setZoneSettings(db, { heavyDays: 5, pmsDays: 3 });
+    await setKeywords(db, { high: ['ヨガ'], medium: ['会議'] });
+    const before = await loadState(db);
+    const file = await exported();
+
+    await deleteAllData(db);
+    const read = readExport(file);
+    if (!read.ok) throw new Error(read.reason);
+    await restoreData(db, read.data, 'replace');
+
+    const after = await loadState(db);
+    expect(after.starts).toEqual(before.starts);
+    expect(after.settings).toEqual(before.settings);
+    expect(after.keywords).toEqual(before.keywords);
+  });
+
+  it('can add the file’s records to the ones already here, keeping these settings', async () => {
+    await addPeriodStart(db, '2026-08-04');
+    const file = await exported();
+    await deleteAllData(db);
+    await addPeriodStart(db, '2026-09-01');
+    await setZoneSettings(db, { heavyDays: 4, pmsDays: 5 });
+
+    const read = readExport(file);
+    if (!read.ok) throw new Error(read.reason);
+    await restoreData(db, read.data, 'keepMine');
+    expect(await listPeriodStarts(db)).toEqual(['2026-08-04', '2026-09-01']);
+    expect(await getZoneSettings(db)).toEqual({ heavyDays: 4, pmsDays: 5 });
+  });
+
+  it('can add the file’s records and take its settings', async () => {
+    await setZoneSettings(db, { heavyDays: 2, pmsDays: 10 });
+    await addPeriodStart(db, '2026-08-04');
+    const file = await exported();
+    await deleteAllData(db);
+    await addPeriodStart(db, '2026-09-01');
+
+    const read = readExport(file);
+    if (!read.ok) throw new Error(read.reason);
+    await restoreData(db, read.data, 'preferFile');
+    expect(await listPeriodStarts(db)).toEqual(['2026-08-04', '2026-09-01']);
+    expect(await getZoneSettings(db)).toEqual({ heavyDays: 2, pmsDays: 10 });
+  });
+
+  it.each([
+    ['not JSON', 'こんにちは', 'broken'],
+    ['another app', JSON.stringify({ app: 'other' }), 'notCocomia'],
+    ['a newer app', JSON.stringify({ app: 'karenda', schemaVersion: SCHEMA_VERSION + 1 }), 'newer'],
+    ['an impossible date', JSON.stringify({ app: 'karenda', schemaVersion: 1, periodStarts: ['2026-02-30'], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: DEFAULT_KEYWORDS }), 'broken'],
+    ['settings out of range', JSON.stringify({ app: 'karenda', schemaVersion: 1, periodStarts: [], zoneSettings: { heavyDays: 0, pmsDays: 7 }, keywords: DEFAULT_KEYWORDS }), 'broken'],
+    ['keywords that are not lists of words', JSON.stringify({ app: 'karenda', schemaVersion: 1, periodStarts: [], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: { high: 'ヨガ' } }), 'broken'],
+  ])('refuses %s and says why', (_, text, reason) => {
+    expect(readExport(text)).toEqual({ ok: false, reason });
+  });
+
+  it('changes nothing when restoring fails halfway', async () => {
+    await addPeriodStart(db, '2026-09-01');
+    const bad = { ...(await exportData(db)), periodStarts: ['2026-08-04', '2026-02-30'] };
+    await expect(restoreData(db, bad, 'replace')).rejects.toThrow();
+    expect(await listPeriodStarts(db)).toEqual(['2026-09-01']);
   });
 });
