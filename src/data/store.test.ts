@@ -1,4 +1,6 @@
+import { addDays } from '../engine/date';
 import { learnWeight, overrideWeight } from '../engine/learning';
+import { DEFAULT_PMS } from '../engine/pms';
 import { DEFAULT_KEYWORDS } from '../engine/risk';
 import { DEFAULT_ZONE_SETTINGS } from '../engine/zones';
 import type { Database } from './database';
@@ -37,6 +39,7 @@ import {
   setLockEnabled,
   setNotifyEnabled,
   setOnboarded,
+  setPmsManual,
   setReviewAsked,
   setZoneSettings,
 } from './store';
@@ -231,6 +234,57 @@ describe('answers after an event', () => {
   });
 });
 
+describe('PMS length', () => {
+  const STARTS = ['2026-05-04', '2026-06-01', '2026-06-29', '2026-07-27', '2026-08-24', '2026-09-21'];
+
+  /** どの周期も10日前と2日前が「きつかった」、12日前は「平気だった」 */
+  async function answerCycles() {
+    for (const start of STARTS) {
+      await addPeriodStart(db, start);
+      for (const [n, answer] of [[2, 'hard'], [10, 'hard'], [12, 'easy']] as const) {
+        const target = { eventId: `${start}-${n}`, title: '会議', date: addDays(start, -n), phase: 'pms' as const, risk: 'medium' as const };
+        await answerReview(db, target, answer);
+      }
+    }
+  }
+
+  it('stays at 7 days until the records show it, then switches from that day on', async () => {
+    expect((await loadState(db)).pms).toEqual(DEFAULT_PMS);
+    await answerCycles();
+    const state = await loadState(db, new Date(2026, 9, 1, 12));
+    expect(state.pms).toEqual({ daysBefore: 10, source: 'auto', observations: 6, appliedFrom: '2026-10-01', before: 7 });
+    expect(state.settings).toEqual({ heavyDays: 3, pmsDays: 10, pmsBefore: { until: '2026-10-01', days: 7 } });
+    // 読み直しても使い始めた日は変わらない。手動の日数（書き出しに入る）も変えない
+    expect((await loadState(db, new Date(2026, 9, 20, 12))).pms.appliedFrom).toBe('2026-10-01');
+    expect(await getZoneSettings(db)).toEqual(DEFAULT_ZONE_SETTINGS);
+  });
+
+  it('keeps a manual length, starting from the current one, until switched back', async () => {
+    await answerCycles();
+    await loadState(db, new Date(2026, 9, 1, 12));
+    await setPmsManual(db, true);
+    expect((await loadState(db)).pms).toMatchObject({ daysBefore: 10, source: 'manual', appliedFrom: null });
+    await setZoneSettings(db, { heavyDays: 3, pmsDays: 12 });
+    expect((await loadState(db)).settings).toEqual({ heavyDays: 3, pmsDays: 12 });
+
+    await setPmsManual(db, false);
+    expect((await loadState(db, new Date(2026, 9, 20, 12))).pms).toEqual({
+      daysBefore: 10,
+      source: 'auto',
+      observations: 6,
+      appliedFrom: '2026-10-20',
+      before: 12,
+    });
+  });
+
+  it('treats a length changed before this version as manual, and resets with delete all', async () => {
+    await setZoneSettings(db, { heavyDays: 3, pmsDays: 5 });
+    expect((await loadState(db)).pms).toMatchObject({ daysBefore: 5, source: 'manual' });
+    await deleteAllData(db);
+    expect((await loadState(db)).pms).toEqual(DEFAULT_PMS);
+  });
+});
+
 describe('loadState', () => {
   it('reads everything the screens show in one call', async () => {
     await setOnboarded(db);
@@ -336,6 +390,7 @@ describe('reading an exported file back', () => {
     await restoreData(db, read.data, 'preferFile');
     expect(await listPeriodStarts(db)).toEqual(['2026-08-04', '2026-09-01']);
     expect(await getZoneSettings(db)).toEqual({ heavyDays: 2, pmsDays: 10 });
+    expect((await loadState(db)).pms).toMatchObject({ daysBefore: 10, source: 'manual' });
   });
 
   it.each([

@@ -10,6 +10,7 @@ export * from './zones';
 export * from './guard';
 export * from './month';
 export * from './notifications';
+export * from './pms';
 export * from './reflection';
 export * from './review';
 export * from './series';

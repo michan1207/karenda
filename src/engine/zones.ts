@@ -6,6 +6,8 @@ export type ZoneSettings = {
   heavyDays: number;
   /** PMS警戒期の日数（生理予定日の何日前から警戒するか） */
   pmsDays: number;
+  /** 推定で日数が変わる前の日数。until より前に始まる帯はこの日数のまま描く（過去の帯を描き変えない） */
+  pmsBefore?: { until: DateKey; days: number };
 };
 
 export const DEFAULT_ZONE_SETTINGS: ZoneSettings = { heavyDays: 3, pmsDays: 7 };
@@ -36,7 +38,10 @@ export function buildZones(
   recorded: DateKey[] = [prediction.lastStart],
 ): ZoneMap {
   validateZoneSettings(settings);
-  const { heavyDays, pmsDays } = settings;
+  const { heavyDays, pmsDays, pmsBefore } = settings;
+  // 前の日数でも今の日数でも、until より前に始まる帯は前の日数のまま。伸ばして過去の日が塗られることもない
+  const pmsDaysFor = (earliest: DateKey) =>
+    pmsBefore && addDays(earliest, -Math.max(pmsDays, pmsBefore.days)) < pmsBefore.until ? pmsBefore.days : pmsDays;
 
   const zones: ZoneMap = new Map();
   const inRange = (day: DateKey) => day >= range.from && day <= range.until;
@@ -53,7 +58,7 @@ export function buildZones(
 
   for (let n = 1; ; n++) {
     const { expected, earliest, latest } = predictedPeriod(prediction, n);
-    const windowStart = addDays(earliest, -pmsDays);
+    const windowStart = addDays(earliest, -pmsDaysFor(earliest));
     if (windowStart > range.until) break;
 
     for (let day = earliest; day <= addDays(latest, heavyDays - 1); day = addDays(day, 1)) {

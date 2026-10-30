@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
-import { DateKey, RiskKeywords, ZoneSettings } from '../engine';
+import { DateKey, PMS_CYCLES, PmsEstimate, RiskKeywords } from '../engine';
 import BackupPanel from './BackupPanel';
 import { Button, Decorations, Notice, Ribbon, Section, Text } from './components';
 import { dayTitle } from './format';
@@ -28,8 +28,6 @@ export default function SettingsScreen({ k, today }: Props) {
     setLockFailed(false);
     if (!(await k.setLock(on))) setLockFailed(true);
   };
-
-  const updateSettings = (patch: Partial<ZoneSettings>) => k.setSettings({ ...k.settings, ...patch });
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -68,17 +66,54 @@ export default function SettingsScreen({ k, today }: Props) {
           value={k.settings.heavyDays}
           min={1}
           max={7}
-          onChange={(heavyDays) => updateSettings({ heavyDays })}
+          onChange={(heavyDays) => k.setSettings({ heavyDays })}
         />
-        <Stepper
-          colors={colors}
-          label="PMS警戒期（予定日の何日前から）"
-          unit="日前"
-          value={k.settings.pmsDays}
-          min={0}
-          max={14}
-          onChange={(pmsDays) => updateSettings({ pmsDays })}
-        />
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>PMS警戒期</Text>
+          <View style={styles.chips}>
+            {([false, true] as const).map((manual) => {
+              const selected = (k.pms.source === 'manual') === manual;
+              return (
+                <Pressable
+                  key={String(manual)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => !selected && k.setPmsManual(manual)}
+                  hitSlop={4}
+                  style={[
+                    styles.chip,
+                    styles.choice,
+                    selected
+                      ? { borderColor: colors.pink, backgroundColor: colors.pinkSoft }
+                      : { borderColor: colors.line, backgroundColor: colors.surface },
+                  ]}
+                >
+                  <Text style={[styles.chipText, { color: selected ? colors.pinkText : colors.muted }]}>
+                    {manual ? '手動で指定' : '自動（推定）'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        {k.pms.source === 'manual' ? (
+          <Stepper
+            colors={colors}
+            label="PMS警戒期（予定日の何日前から）"
+            unit="日前"
+            value={k.pms.daysBefore}
+            min={0}
+            max={14}
+            onChange={(pmsDays) => k.setSettings({ pmsDays })}
+          />
+        ) : (
+          <View>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>
+              PMS は生理予定日の{k.pms.daysBefore}日前から（{k.pms.source === 'auto' ? 'あなたの記録から推定' : '記録がたまるまでの目安'}）
+            </Text>
+            <Text style={[styles.help, { color: colors.muted }]}>{pmsBasis(k.pms)}</Text>
+          </View>
+        )}
       </Section>
 
       <Section colors={colors} title="予定の重さを決める言葉">
@@ -217,6 +252,13 @@ export default function SettingsScreen({ k, today }: Props) {
   );
 }
 
+/** 推定の根拠。推定できない間は、あと何がそろえば変わるか */
+function pmsBasis({ source, observations }: PmsEstimate): string {
+  if (source === 'auto') return `過去${PMS_CYCLES}周期の体調評価から推定しています。変わるのはこれからの予測だけです。`;
+  if (observations >= PMS_CYCLES) return '周期ごとの差が大きいので、7日前のままにしています。';
+  return `予定のあとの「どうだった？」から始まりが読めた周期：${observations}／${PMS_CYCLES}。そろうと、あなたに合わせた日数に変わります。`;
+}
+
 function Stepper({
   colors,
   label,
@@ -345,6 +387,7 @@ const styles = StyleSheet.create({
   stepValue: { fontSize: 15, minWidth: 48, textAlign: 'center' },
   keywordBlock: { gap: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  choice: { borderWidth: 1 },
   chip: { borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
