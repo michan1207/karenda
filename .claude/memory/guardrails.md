@@ -3,9 +3,10 @@
 入口は `computeGuard({starts, settings, keywords, events, range})`（`guard.ts`）→ `{prediction, zones, alerts}`
 
 ## 周期予測（cycle.ts）
-- 直近6周期の平均。15〜45日以外の間隔は除外（記録漏れ扱い）
-- 有効な周期が2未満なら28日±2日の仮予測（`provisional: true`）
-- n回目の予測は `predictedPeriod`。ずれ幅は直近のmin/maxで固定（先に行くほど広げない）
+- 直近6周期の平均。15〜45日以外の間隔は除外（記録漏れ扱い）し、`excluded` に理由（tooShort/tooLong）つきで返す
+- 有効な周期が3未満なら28日±2日の仮予測（`provisional: true`、確信度 low）
+- n回目の予測は `predictedPeriod`。幅は平均±標準偏差（`spread`、最低1日）で固定（先に行くほど広げない）
+- 確信度: 周期4つ以上かつ幅4日以内→high／2つ以上かつ8日以内→medium／それ以外→low
 
 ## 警戒ゾーン（zones.ts）
 - 既定 `heavyDays=3`（1〜7）, `pmsDays=7`（0〜14）。`validateZoneSettings` で検査

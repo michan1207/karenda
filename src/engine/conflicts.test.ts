@@ -2,7 +2,7 @@ import { detectConflicts } from './conflicts';
 import { predictCycle } from './cycle';
 import { buildZones } from './zones';
 
-// 次の生理は 10-26（ヘビー期 10-26〜28）、PMS期 10-19〜25
+// 次の生理は 10-26 ごろ（10-25〜27。ヘビー期 10-25〜29）、PMS期 10-18〜24
 const zones = buildZones(predictCycle(['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'])!, {
   from: '2026-10-01',
   until: '2026-11-15',
@@ -25,7 +25,7 @@ describe('detectConflicts', () => {
   it('raises yellow for a heavy event in the PMS week and suggests finishing before it', () => {
     const [alert] = detectConflicts([ev('1', '企画プレゼン', '2026-10-22')], zones);
     expect(alert).toMatchObject({ level: 'yellow', zone: 'pms', risk: 'high' });
-    expect(alert.message).toContain('10月18日');
+    expect(alert.message).toContain('10月17日');
   });
 
   it('flags medium events in the PMS week only when that week has three or more', () => {
@@ -39,9 +39,9 @@ describe('detectConflicts', () => {
   });
 
   it('counts medium events per Monday-to-Sunday week', () => {
-    // 10-25 is a Sunday, 10-19 a Monday; 10-18 belongs to the previous week
+    // 10-19 is a Monday; 10-18, a Sunday, belongs to the previous week
     const alerts = detectConflicts(
-      [ev('1', '会議', '2026-10-18'), ev('2', '会議', '2026-10-19'), ev('3', '会議', '2026-10-25')],
+      [ev('1', '会議', '2026-10-18'), ev('2', '会議', '2026-10-19'), ev('3', '会議', '2026-10-24')],
       zones,
     );
     expect(alerts).toEqual([]);
@@ -53,7 +53,7 @@ describe('detectConflicts', () => {
 
   it('checks every day of a multi-day event and keeps the most severe', () => {
     const [alert] = detectConflicts([ev('1', '家族旅行', '2026-10-24', '2026-10-27')], zones);
-    expect(alert).toMatchObject({ level: 'red', date: '2026-10-26' });
+    expect(alert).toMatchObject({ level: 'red', date: '2026-10-25' });
   });
 
   it('sorts red before yellow, then by date', () => {

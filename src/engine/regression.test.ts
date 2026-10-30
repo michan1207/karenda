@@ -1,4 +1,16 @@
-import { addDays, CalendarEvent, computeGuard, DEFAULT_KEYWORDS, DEFAULT_ZONE_SETTINGS, diffDays, planNotifications, predictCycle, buildZones, ZoneMap } from './index';
+import {
+  addDays,
+  buildZones,
+  CalendarEvent,
+  computeGuard,
+  DEFAULT_KEYWORDS,
+  DEFAULT_ZONE_SETTINGS,
+  diffDays,
+  planNotifications,
+  predictCycle,
+  predictedPeriod,
+  ZoneMap,
+} from './index';
 
 // 判定を作り直す前に、いまの結果をそのまま固定しておく。変わるときは意図した変更として、このテストも書き換える
 
@@ -35,10 +47,11 @@ describe('today’s guard results', () => {
     expect(guard.prediction).toEqual({
       lastStart: '2026-09-22',
       averageLength: 28,
-      minLength: 27,
-      maxLength: 29,
+      spread: 1,
       cyclesUsed: 5,
+      excluded: [],
       provisional: false,
+      confidence: 'high',
     });
   });
 
@@ -85,7 +98,8 @@ describe('cycle boundaries', () => {
   it.each([
     [['2026-01-01'], 0, true],
     [['2026-01-01', '2026-01-29'], 1, true],
-    [['2026-01-01', '2026-01-29', '2026-02-26'], 2, false],
+    [['2026-01-01', '2026-01-29', '2026-02-26'], 2, true],
+    [['2026-01-01', '2026-01-29', '2026-02-26', '2026-03-26'], 3, false],
   ])('with %j uses %i cycles (provisional: %s)', (starts, cyclesUsed, provisional) => {
     expect(predictCycle(starts)).toMatchObject({ cyclesUsed, provisional });
   });
@@ -93,7 +107,8 @@ describe('cycle boundaries', () => {
   it('keeps 15- and 45-day gaps and drops 14- and 46-day ones', () => {
     // 間隔 15, 45, 14, 46 日
     const p = predictCycle(['2026-01-01', '2026-01-16', '2026-03-02', '2026-03-16', '2026-05-01'])!;
-    expect(p).toMatchObject({ cyclesUsed: 2, minLength: 15, maxLength: 45, averageLength: 30 });
+    expect(p.cyclesUsed).toBe(2);
+    expect(p.excluded.map((gap) => `${gap.days} ${gap.reason}`)).toEqual(['14 tooShort', '46 tooLong']);
   });
 });
 
@@ -110,18 +125,23 @@ describe('calendar boundaries', () => {
   });
 
   it('keeps a predicted period whole across the skipped midnight', () => {
-    // 周期 28, 29 日 → 9/5 ごろ（9/4〜9/5）
-    const zones = buildZones(predictCycle(['2026-06-11', '2026-07-09', '2026-08-07'])!, { from: '2026-08-20', until: '2026-09-15' });
+    // 周期が2つなので 28日±2日 → 9/4 ごろ（9/2〜9/6）
+    const p = predictCycle(['2026-06-11', '2026-07-09', '2026-08-07'])!;
+    const { earliest, latest } = predictedPeriod(p, 1);
+    expect(diffDays(earliest, latest) + 1).toBe(p.spread * 2 + 1);
+    const zones = buildZones(p, { from: '2026-08-20', until: '2026-09-15' });
     expect(zoneList(zones).filter((z) => z.includes('heavy'))).toEqual([
-      '2026-09-04 heavy -', '2026-09-05 heavy 1', '2026-09-06 heavy 2', '2026-09-07 heavy 3',
+      '2026-09-02 heavy -', '2026-09-03 heavy -', '2026-09-04 heavy 1', '2026-09-05 heavy 2', '2026-09-06 heavy 3',
+      '2026-09-07 heavy -', '2026-09-08 heavy -',
     ]);
   });
 
   it('predicts across February 29', () => {
     const zones = buildZones(predictCycle(['2027-12-06', '2028-01-03', '2028-01-31'])!, { from: '2028-02-20', until: '2028-03-05' });
     expect(zoneList(zones)).toEqual([
-      '2028-02-21 pms', '2028-02-22 pms', '2028-02-23 pms', '2028-02-24 pms', '2028-02-25 pms', '2028-02-26 pms', '2028-02-27 pms',
-      '2028-02-28 heavy 1', '2028-02-29 heavy 2', '2028-03-01 heavy 3',
+      '2028-02-20 pms', '2028-02-21 pms', '2028-02-22 pms', '2028-02-23 pms', '2028-02-24 pms', '2028-02-25 pms',
+      '2028-02-26 heavy -', '2028-02-27 heavy -', '2028-02-28 heavy 1', '2028-02-29 heavy 2', '2028-03-01 heavy 3',
+      '2028-03-02 heavy -', '2028-03-03 heavy -',
     ]);
   });
 
@@ -129,15 +149,17 @@ describe('calendar boundaries', () => {
     const zones = buildZones(predictCycle(['2027-10-04', '2027-11-01', '2027-11-29'])!, { from: '2027-12-15', until: '2028-01-31' });
     const heavy = zoneList(zones).filter((z) => z.includes('heavy'));
     expect(heavy).toEqual([
-      '2027-12-27 heavy 1', '2027-12-28 heavy 2', '2027-12-29 heavy 3',
-      '2028-01-24 heavy 1', '2028-01-25 heavy 2', '2028-01-26 heavy 3',
+      '2027-12-25 heavy -', '2027-12-26 heavy -', '2027-12-27 heavy 1', '2027-12-28 heavy 2', '2027-12-29 heavy 3',
+      '2027-12-30 heavy -', '2027-12-31 heavy -',
+      '2028-01-22 heavy -', '2028-01-23 heavy -', '2028-01-24 heavy 1', '2028-01-25 heavy 2', '2028-01-26 heavy 3',
+      '2028-01-27 heavy -', '2028-01-28 heavy -',
     ]);
   });
 
   it('never marks days outside the requested month', () => {
-    // 次の生理は 12/1 ごろで、PMS は 11 月末にかかる
+    // 次の生理は 12/1 ごろ（11/29〜12/3）で、11 月末にかかる
     const zones = buildZones(predictCycle(['2026-09-08', '2026-10-06', '2026-11-03'])!, { from: '2026-11-01', until: '2026-11-30' });
-    expect(zones.get('2026-11-30')?.zone).toBe('pms');
+    expect(zones.get('2026-11-30')?.zone).toBe('heavy');
     expect([...zones.keys()].every((day) => day >= '2026-11-01' && day <= '2026-11-30')).toBe(true);
   });
 
@@ -149,6 +171,6 @@ describe('calendar boundaries', () => {
       range: { from: '2027-12-15', until: '2028-01-31' },
       events: [event('home', '帰省', '2027-12-25', '2028-01-02', true)],
     });
-    expect(guard.alerts.map((a) => `${a.date} ${a.level}`)).toEqual(['2027-12-27 red']);
+    expect(guard.alerts.map((a) => `${a.date} ${a.level}`)).toEqual(['2027-12-25 red']);
   });
 });
