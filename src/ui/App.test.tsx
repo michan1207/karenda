@@ -325,6 +325,22 @@ describe('alerts', () => {
     expect(screen.getByText('ずらすなら：11月3日（火）、11月4日（水）、11月5日（木）')).toBeTruthy();
   });
 
+  it('shows how hard each day of a run of events is, and plans around the hardest', async () => {
+    const osaka = ['2026-10-25', '2026-10-26', '2026-10-27'].map((day, i) => ({
+      id: `osaka${i}`,
+      title: '大阪出張',
+      start: day,
+      end: day,
+      allDay: false,
+    }));
+    await setup({ calendar: fakeCalendar(true, [...EVENTS, ...osaka]) });
+    await fireEvent.press(await screen.findByText('お知らせ（3）'));
+    expect(screen.getByText('3日間のうち、いちばんきついのは2日目（10月26日）です。生理1日目と重なる見込みです。')).toBeTruthy();
+    expect(screen.getByLabelText('10月26日（月） 生理1日目 いちばんきつい日')).toBeTruthy();
+    expect(screen.getByLabelText('10月25日（日） 生理かも')).toBeTruthy();
+    expect(screen.getByText('・2日目（10月26日）がいちばんきつい日です。1日目に予定を寄せて、2日目は移動を少なめに')).toBeTruthy();
+  });
+
   it('sends a polite message to change plans, without health words', async () => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     await setup();

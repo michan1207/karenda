@@ -21,7 +21,7 @@ export function zoneLabel(zone: ZoneDay | undefined): string {
 
 const CONFIDENCE = { high: '高', medium: '中', low: '低' } as const;
 
-const shortDate = (day: DateKey) => {
+export const shortDate = (day: DateKey) => {
   const date = fromDateKey(day);
   return `${date.getMonth() + 1}/${date.getDate()}`;
 };

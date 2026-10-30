@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } fr
 
 import { addDays, ConflictAlert, DateKey, Impact, planActions, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
-import { dayTitle } from './format';
+import { dayTitle, shortDate } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
@@ -143,6 +143,30 @@ function Chips<T extends string>({
   );
 }
 
+/** 何日も続く予定の、日ごとのきつさ。いちばんきつい日だけ色を付ける */
+function SeriesBars({ colors, tone, series }: { colors: Colors; tone: string; series: NonNullable<ConflictAlert['series']> }) {
+  return (
+    <View style={styles.bars}>
+      {series.days.map((day) => {
+        const peak = day.date === series.peakDate;
+        return (
+          <View
+            key={day.date}
+            accessible
+            accessibilityLabel={`${dayTitle(day.date)} ${day.label}${peak ? ' いちばんきつい日' : ''}`}
+            style={styles.barColumn}
+          >
+            <View style={[styles.barTrack, { backgroundColor: colors.line }]}>
+              <View style={[styles.bar, { height: `${Math.max(8, day.score)}%`, backgroundColor: peak ? tone : colors.muted }]} />
+            </View>
+            <Text style={[styles.barLabel, { color: peak ? tone : colors.muted }]}>{shortDate(day.date)}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 const IMPACT_LABEL: Record<Impact, string> = {
   moveable: '日にちを動かせる予定',
   mitigable: '準備で軽くできる予定',
@@ -191,6 +215,7 @@ function AlertCard({ alert, k, today }: { alert: ConflictAlert; k: Karenda; toda
       </View>
       <Text style={[styles.eventTitle, { color: colors.text }]}>{title}</Text>
       <Text style={[styles.message, { color: colors.text }]}>{alert.reasonText}</Text>
+      {alert.series && <SeriesBars colors={colors} tone={tone} series={alert.series} />}
       {alert.confidenceNote && <Text style={[styles.sub, { color: colors.muted }]}>{alert.confidenceNote}</Text>}
       <Text style={[styles.sub, { color: colors.muted }]}>{IMPACT_LABEL[alert.impact]}</Text>
       {deadline && <Text style={[styles.message, styles.strongText, { color: colors.text }]}>{deadline}</Text>}
@@ -261,4 +286,9 @@ const styles = StyleSheet.create({
   eventTitle: { fontSize: 16, fontWeight: '700' },
   message: { fontSize: 14, lineHeight: 21 },
   strongText: { fontWeight: '700' },
+  bars: { flexDirection: 'row', gap: 6, paddingVertical: 4 },
+  barColumn: { flex: 1, alignItems: 'center', gap: 4 },
+  barTrack: { width: 14, height: 48, borderRadius: radius.pill, overflow: 'hidden', justifyContent: 'flex-end' },
+  bar: { width: '100%', borderRadius: radius.pill },
+  barLabel: { fontSize: 11 },
 });

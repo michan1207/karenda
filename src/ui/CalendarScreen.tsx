@@ -126,7 +126,9 @@ export default function CalendarScreen({ k, today }: Props) {
 
   const goMonth = (delta: number) => setMonth(shiftMonth(year, month, delta));
   const selectedEvents = events.filter((event) => event.start <= selected && event.end >= selected);
-  const alertFor = (eventId: string) => guard.alerts.find((alert) => alert.eventId === eventId);
+  // 同じ名前で続く予定はまとめて1件のお知らせになるので、元の予定のどれからでも引けるようにする
+  const alertFor = (eventId: string) =>
+    guard.alerts.find((alert) => (alert.event.memberIds ?? [alert.eventId]).includes(eventId));
   const isRecorded = k.starts.includes(selected);
   const phase = periodPhase(selected, guard.zones);
   const selectedZone = guard.zones.get(selected);

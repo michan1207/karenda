@@ -63,6 +63,30 @@ describe('detectConflicts', () => {
     expect(alert).toMatchObject({ date: '2026-10-26', grade: 'A', score: 100 });
   });
 
+  it('makes one alert for a run of same-titled days, on the hardest day', () => {
+    const alerts = detect([ev('a', '大阪出張', '2026-10-25'), ev('b', '大阪出張', '2026-10-26'), ev('c', '大阪出張', '2026-10-27')]);
+    expect(alerts).toHaveLength(1);
+    const [alert] = alerts;
+    expect(alert).toMatchObject({ date: '2026-10-26', grade: 'A', score: 100 });
+    expect(alert.reasons).toContain('seriesPeak');
+    expect(alert.reasonText).toBe('3日間のうち、いちばんきついのは2日目（10月26日）です。生理1日目と重なる見込みです。');
+    expect(alert.series).toEqual({
+      peakDate: '2026-10-26',
+      days: [
+        { date: '2026-10-25', score: 69, label: '生理かも' },
+        { date: '2026-10-26', score: 100, label: '生理1日目' },
+        { date: '2026-10-27', score: 100, label: '生理2日目' },
+      ],
+    });
+  });
+
+  it('finds the one hard day of a trip that touches the PMS days only at its end', () => {
+    const [alert] = detect([ev('t', '家族旅行', '2026-10-14', { end: '2026-10-18', allDay: true })]);
+    expect(alert).toMatchObject({ date: '2026-10-18', grade: 'A' });
+    expect(alert.reasons).toContain('seriesPeak');
+    expect(alert.series?.days.map((d) => d.label)).toEqual(['おだやか', 'おだやか', 'おだやか', 'おだやか', 'PMS']);
+  });
+
   it('says when the prediction is too uncertain to rely on', () => {
     // 22, 35, 24, 36 日 → 確信度「低」
     const loose = ['2026-01-01', '2026-01-23', '2026-02-27', '2026-03-23', '2026-04-28'];

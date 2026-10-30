@@ -80,7 +80,12 @@ describe('planActions', () => {
       '2026-10-13',
     ]);
     expect(actions).toContainEqual({ kind: 'deadline', resolveBy: '2026-10-19', text: '10月19日までに日程を決めると、動かしやすいです' });
-    expect(actions.find((a) => a.kind === 'prepTask')).toEqual({ kind: 'prepTask', text: '移動の時間にゆとりを持たせる', done: false });
+    expect(actions.filter((a) => a.kind === 'prepTask').map((a) => a.kind === 'prepTask' && a.text)).toEqual([
+      '3日目（10月26日）がいちばんきつい日です。2日目までに予定を寄せて、3日目は移動を少なめに',
+      '移動の時間にゆとりを持たせる',
+      '鎮痛剤や着替えを用意しておく',
+      '前の日は早めに休む',
+    ]);
   });
 
   it('helps prepare for an event that is hard to move, without other dates', () => {
@@ -91,6 +96,17 @@ describe('planActions', () => {
     expect(actions).toContainEqual({
       kind: 'declineTemplate',
       text: '申し訳ありません、その日は都合が悪くなってしまいました。別の日に変えていただくことはできますか？',
+    });
+  });
+
+  it('plans a multi-day event around its hardest day', () => {
+    const event = { id: 'a', title: '大阪出張', start: '2026-10-25', end: '2026-10-27', allDay: false };
+    const [alert] = detectConflicts([event], zones, undefined, prediction);
+    const actions = planActions({ alert, event: alert.event, starts, settings: DEFAULT_ZONE_SETTINGS, today: '2026-10-01' });
+    expect(actions.find((a) => a.kind === 'prepTask')).toEqual({
+      kind: 'prepTask',
+      text: '2日目（10月26日）がいちばんきつい日です。1日目に予定を寄せて、2日目は移動を少なめに',
+      done: false,
     });
   });
 

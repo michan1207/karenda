@@ -9,3 +9,4 @@ export * from './guard';
 export * from './month';
 export * from './notifications';
 export * from './review';
+export * from './series';

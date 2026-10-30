@@ -68,7 +68,8 @@ describe('today’s guard results', () => {
     expect(guard.alerts.map((a) => `${a.eventId} ${a.date} ${a.grade} ${a.score} ${a.reasons.join('+')}`)).toEqual([
       // 2026-10-30 Phase 1 で A/B/C の点数に変えた。PMS期の「ふつうの予定が週3件」は C（参考）になり出さない
       'talk 2026-10-15 A 70 phasePms',
-      'family 2026-10-17 A 97 phasePms+allDayMobility',
+      // 何日も続く予定はいちばんきつい日に +0.15（2026-10-30 Phase 1-6）
+      'family 2026-10-17 A 100 phasePms+allDayMobility+seriesPeak',
       'trip 2026-10-20 A 100 phaseMostSevere',
       'job 2026-11-17 A 100 phaseMostSevere',
       'exam 2026-11-17 A 100 phaseMostSevere',
