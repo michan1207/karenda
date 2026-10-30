@@ -139,8 +139,8 @@ describe('calendar', () => {
     const phases = [
       ['PMSの時期かも。', ['10月18日（日）', '10月19日（月）', '10月20日（火）', '10月21日（水）']],
       ['生理の時期かも。', ['10月25日（日）', '10月26日（月）', '10月27日（火）', '10月28日（水）']],
-      ['生理のあとの時期。', ['10月1日（木）', '10月2日（金）', '10月3日（土）', '10月4日（日）']],
-      ['気をつけたい時期の外だよ。', ['10月5日（月）', '10月6日（火）', '10月7日（水）', '10月8日（木）']],
+      ['生理のあとの時期かも。', ['10月1日（木）', '10月2日（金）', '10月3日（土）', '10月4日（日）']],
+      ['おだやかな時期かも。', ['10月5日（月）', '10月6日（火）', '10月7日（水）', '10月8日（木）']],
     ] as const;
     for (const [lead, days] of phases) {
       const said = new Set<string>();
@@ -148,6 +148,8 @@ describe('calendar', () => {
         await fireEvent.press(screen.getByLabelText(new RegExp(`^${day}`)));
         const line = screen.getByText(new RegExp(`^この日は${lead}`)).props.children as string;
         expect(line).not.toMatch(/無理しないで|つらいね|休んでね|過ごしてね/);
+        // ひと目で読める短さにする
+        expect(line.length - `この日は${lead}`.length).toBeLessThanOrEqual(18);
         said.add(line);
       }
       expect(said.size).toBe(4);
