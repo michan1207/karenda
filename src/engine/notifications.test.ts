@@ -23,7 +23,7 @@ const actionsWith =
   (lead = 3) =>
   (a: ConflictAlert): Action[] => [
     ...(a.impact === 'fixed' ? [] : [{ kind: 'suggestAltDate' as const, date: addDays(a.date, 9), score: 10 }]),
-    { kind: 'deadline', resolveBy: addDays(a.date, -lead), text: '' },
+    { kind: 'deadline', resolveBy: addDays(a.event.start, -lead), text: '' },
     { kind: 'prepTask', text: '鎮痛剤や着替えを用意しておく', done: false },
     { kind: 'prepTask', text: '前後の予定をゆるめにする', done: false },
     { kind: 'prepTask', text: '前の日は早めに休む', done: false },
@@ -40,6 +40,15 @@ describe('planNotifications', () => {
     ]);
     // 期限が前日（会議など）なら、A は 7日前・3日前・前日の3回
     expect(plan([alert('meet', '2026-11-20', 'A')], '2026-10-24', 1).map((p) => p.date)).toEqual(['2026-11-13', '2026-11-17', '2026-11-19']);
+  });
+
+  it('counts reminders and the title from the first day of a multi-day event, not its hardest day', () => {
+    const trip = { ...alert('trip', '2026-11-12', 'A', '旅行'), event: { id: 'trip', title: '旅行', start: '2026-11-10', end: '2026-11-13', allDay: true } };
+    const plans = plan([trip]);
+    expect(plans.map((p) => p.date)).toEqual(['2026-11-03', '2026-11-07']);
+    expect(plans[0].title).toBe('11/10「旅行」の前に');
+    // 旅行が始まってから知らせ直しても遅い
+    expect(plan([trip], '2026-11-08', 3, new Map([['trip|2026-11-12', '2026-11-11']])).map((p) => p.date)).toEqual([]);
   });
 
   it('writes the deadline and concrete steps, leaving out words about how the user feels', () => {

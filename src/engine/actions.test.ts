@@ -79,7 +79,8 @@ describe('planActions', () => {
       '2026-11-03',
       '2026-10-13',
     ]);
-    expect(actions).toContainEqual({ kind: 'deadline', resolveBy: '2026-10-19', text: '10月19日までに日程を決めると、動かしやすいです' });
+    // 期限は、いちばんきつい日（3日目）ではなく出発の日から数える
+    expect(actions).toContainEqual({ kind: 'deadline', resolveBy: '2026-10-17', text: '10月17日までに日程を決めると、動かしやすいです' });
     expect(actions.filter((a) => a.kind === 'prepTask').map((a) => a.kind === 'prepTask' && a.text)).toEqual([
       'いちばんきついのは3日目。予定は2日目までに寄せて、3日目は移動や予定を少なめに',
       '移動の時間にゆとりを持たせる',
@@ -113,6 +114,9 @@ describe('planActions', () => {
   it('suggests finishing preparation before the PMS days', () => {
     const { actions } = actionsFor(ev('プレゼン', '2026-10-22'));
     expect(actions).toContainEqual({ kind: 'prepTask', text: '準備を10月17日までに終わらせる', done: false });
+    // PMSの時期に入ってからは、過ぎた日を目安にしない
+    const late = actionsFor(ev('プレゼン', '2026-10-22'), '2026-10-19').actions;
+    expect(late.filter((a) => a.kind === 'prepTask').map((a) => a.kind === 'prepTask' && a.text)).toEqual(['前後の予定をゆるめにする', '前の日は早めに休む']);
   });
 
   it('never names the period or PMS in a message meant for others', () => {
