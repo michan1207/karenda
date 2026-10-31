@@ -225,13 +225,20 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
 
       {!hidden && <MascotSays colors={colors} text={mascotLine(phase, k.starts.length > 0, selected)} />}
 
-      {k.access === 'denied' && (
-        <Notice
-          colors={colors}
-          text="カレンダーへのアクセスが許可されていないため、予定との重なりは表示できません。予定はこの端末の中で読むだけで、外には送りません。"
-          action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
-        />
-      )}
+      {k.access === 'denied' &&
+        (k.calendarSkipped ? (
+          <Notice
+            colors={colors}
+            text="カレンダーは使っていません。日付を選んで「この日に予定を入れる」から、このアプリの中だけに予定を入れられます。"
+            action={{ label: 'カレンダーを使う', onPress: () => void k.enableCalendar() }}
+          />
+        ) : (
+          <Notice
+            colors={colors}
+            text="カレンダーへのアクセスが許可されていないため、予定との重なりは表示できません。予定はこの端末の中で読むだけで、外には送りません。"
+            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
+          />
+        ))}
       {k.starts.length === 0 && !hidden && (
         <Notice colors={colors} text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
       )}

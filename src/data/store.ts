@@ -331,6 +331,8 @@ export type StoredState = {
   deferrals: Map<string, DateKey>;
   /** このアプリの中だけに入れた予定 */
   manualEvents: CalendarEvent[];
+  /** カレンダーを「今はしない」にしている */
+  calendarSkipped: boolean;
   /** 覚えた重さ（learned）も入れてある */
   keywords: RiskKeywords;
   /** 覚えた予定の重さ（設定の一覧用） */
@@ -377,6 +379,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     consultDismissed: await getConsultDismissed(db),
     deferrals: await listDeferrals(db),
     manualEvents: await listManualEvents(db),
+    calendarSkipped: await isCalendarSkipped(db),
     keywords,
     titleWeights,
     reviewed,
@@ -514,6 +517,16 @@ export async function isNotifyEnabled(db: Database): Promise<boolean> {
 
 export async function setNotifyEnabled(db: Database, enabled: boolean): Promise<void> {
   await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('notify', ?)", enabled ? '1' : '0');
+}
+
+/** はじめの案内でカレンダーを「今はしない」にしたか。そのあいだは、開くたびに許可を求めない */
+export async function isCalendarSkipped(db: Database): Promise<boolean> {
+  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'calendar_skipped'");
+  return row?.value === '1';
+}
+
+export async function setCalendarSkipped(db: Database, on: boolean): Promise<void> {
+  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('calendar_skipped', ?)", on ? '1' : '0');
 }
 
 /** 隠すモード（はじめは使わない）。電車などで開いても、生理の記録だと分からないようにする */

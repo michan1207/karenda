@@ -99,7 +99,7 @@ export function Main({
   } else if (k.locked) {
     body = <LockScreen onUnlock={k.unlock} />;
   } else if (!k.onboarded) {
-    body = <OnboardingScreen onDone={k.finishOnboarding} />;
+    body = <OnboardingScreen k={k} today={day} />;
   } else {
     body = (
       <>
