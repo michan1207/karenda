@@ -1,6 +1,6 @@
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 
-import type { Database } from './database';
+import { type Database, oneTransactionAtATime } from './database';
 
 /** テスト用：Node 内蔵の SQLite を expo-sqlite と同じ形で包む（アプリ本体からは使わない） */
 export function createTestDatabase(): Database {
@@ -8,7 +8,7 @@ export function createTestDatabase(): Database {
   const bind = (params: unknown[]) =>
     params.map((value) => (typeof value === 'boolean' ? Number(value) : value)) as SQLInputValue[];
 
-  return {
+  return oneTransactionAtATime({
     async execAsync(source) {
       db.exec(source);
     },
@@ -22,9 +22,10 @@ export function createTestDatabase(): Database {
       const row = db.prepare(source).get(...bind(params));
       return (row ? { ...row } : null) as T | null;
     },
+    // expo-sqlite と同じく BEGIN も try の中。重なった時の壊れ方も同じになり、それを oneTransactionAtATime が防ぐ
     async withTransactionAsync(task) {
-      db.exec('BEGIN');
       try {
+        db.exec('BEGIN');
         await task();
         db.exec('COMMIT');
       } catch (error) {
@@ -32,5 +33,5 @@ export function createTestDatabase(): Database {
         throw error;
       }
     },
-  };
+  });
 }

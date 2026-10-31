@@ -86,6 +86,9 @@ export type Karenda = StoredState & {
   notifyAccess: Access;
   /** 通知の「代替日を見る」を押した回数。増えたらお知らせを開く */
   alertsRequested: number;
+  /** 保存に失敗した。次に保存できるか、閉じるまで案内を出す */
+  saveFailed: boolean;
+  dismissSaveFailed(): void;
   /** 案内を終える。カレンダーを使うなら許可を求め、「今はしない」なら求めない（どちらも通知の許可は求める） */
   finishOnboarding(useCalendar: boolean): Promise<void>;
   /** 「今はしない」にしていたカレンダーを使い始める。許可されたら true */
@@ -159,6 +162,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
   const [notifyAccess, setNotifyAccess] = useState<Access>('checking');
   const [stored, setStored] = useState<StoredState>(INITIAL_STATE);
   const [alertsRequested, setAlertsRequested] = useState(0);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const reload = useCallback(async (opened: Database) => {
     const loaded = await loadState(opened);
@@ -281,10 +285,16 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     });
   }, [db, notifier, reload]);
 
+  // 失敗しても今の保存内容で読み直し、画面の上に案内を出す。ボタンの多くは待たずに呼ぶので、失敗は投げ返さない
   const withDb = useCallback(
     async (task: (opened: Database) => Promise<void>) => {
       if (!db) return;
-      await task(db);
+      try {
+        await task(db);
+        setSaveFailed(false);
+      } catch {
+        setSaveFailed(true);
+      }
       await reload(db);
     },
     [db, reload],
@@ -298,6 +308,8 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     notifier,
     notifyAccess,
     alertsRequested,
+    saveFailed,
+    dismissSaveFailed: () => setSaveFailed(false),
     finishOnboarding: async (useCalendar) => {
       await withDb(async (opened) => {
         await setOnboarded(opened);
@@ -317,7 +329,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     addStart: (day) =>
       withDb(async (opened) => {
         await recordPeriodStart(opened, day);
-        await recordMetric(opened, 'period_recorded', { source: 'app' });
+        track('period_recorded', { source: 'app' });
         if ((await isReviewAsked(opened)) || !shouldAskReview(await listPeriodStarts(opened), day)) return;
         await setReviewAsked(opened);
         // 記録はもう済んでいるので、お願いが出せなくても止めない
@@ -357,14 +369,14 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
         const current = statusOf(stored.statuses, eventId, date);
         if (current.state !== 'unreviewed') return;
         await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'acknowledged'));
-        await recordMetric(opened, 'conflict_acknowledged');
+        track('conflict_acknowledged');
       }),
     resolve: (eventId, date, resolution) =>
       withDb(async (opened) => {
         let current = statusOf(stored.statuses, eventId, date);
         if (current.state === 'unreviewed') current = advanceStatus(current, 'acknowledged');
         await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'resolved', resolution));
-        await recordMetric(opened, 'conflict_resolved', { resolution });
+        track('conflict_resolved', { resolution });
       }),
     exportBackup: async (passphrase, today) => {
       if (!db) return;
@@ -376,11 +388,16 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       track('export_created');
     },
     pickBackup: () => files.pick(),
-    restoreBackup: (data, mode) =>
-      withDb(async (opened) => {
-        await restoreData(opened, data, mode);
-        await recordMetric(opened, 'import_completed', { mode });
-      }),
+    // 失敗はバックアップの画面が自分で知らせるので、withDb を使わずに投げ返す
+    restoreBackup: async (data, mode) => {
+      if (!db) return;
+      try {
+        await restoreData(db, data, mode);
+      } finally {
+        await reload(db);
+      }
+      track('import_completed', { mode });
+    },
     deleteAll: async () => {
       await withDb(deleteAllData);
       // 案内からやり直しになると予約の組み直しが止まるので、予定名入りの予約をここで消す
