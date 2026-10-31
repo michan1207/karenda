@@ -10,6 +10,8 @@ export type GuardInput = {
   keywords: RiskKeywords;
   events: CalendarEvent[];
   range: DateRange;
+  /** 渡すと、生理が遅れている間の日も見る（buildZones） */
+  today?: DateKey;
 };
 
 export type Guard = {
@@ -19,8 +21,8 @@ export type Guard = {
 };
 
 /** 記録・設定・予定から、表示する期間のゾーンと警告をまとめて出す */
-export function computeGuard({ starts, settings, keywords, events, range }: GuardInput): Guard {
+export function computeGuard({ starts, settings, keywords, events, range, today }: GuardInput): Guard {
   const prediction = predictCycle(starts);
-  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts) : new Map();
+  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts, today) : new Map();
   return { prediction, zones, alerts: detectConflicts(events, zones, keywords, prediction) };
 }

@@ -11,7 +11,7 @@ export function useReviewTargets(k: Karenda, today: DateKey): ReviewTarget[] {
   const events = useEvents(k.calendar, k.access, range.from, range.until, k.manualEvents);
 
   return useMemo(() => {
-    const { zones } = computeGuard({ starts: k.starts, settings: k.settings, keywords: k.keywords, events, range });
+    const { zones } = computeGuard({ starts: k.starts, settings: k.settings, keywords: k.keywords, events, range, today });
     return reviewTargets({ events, zones, starts: k.starts, pmsDays: k.settings.pmsDays, keywords: k.keywords });
-  }, [k.starts, k.settings, k.keywords, events, range]);
+  }, [k.starts, k.settings, k.keywords, events, range, today]);
 }

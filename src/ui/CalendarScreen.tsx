@@ -126,8 +126,9 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
         events,
         // 月初の日も「生理の終わりごろ」を判定できるよう、少し前から作る
         range: { from: addDays(grid.from, -AFTER_PERIOD_DAYS), until: grid.until },
+        today,
       }),
-    [k.starts, k.settings, k.keywords, events, grid],
+    [k.starts, k.settings, k.keywords, events, grid, today],
   );
   const hidden = k.hideMode;
   const guard = hidden ? HIDDEN : computed;

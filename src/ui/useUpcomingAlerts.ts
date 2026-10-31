@@ -14,7 +14,7 @@ export function useUpcomingAlerts(k: Karenda, today: DateKey): ConflictAlert[] {
 
   return useMemo(
     () =>
-      computeGuard({ starts: k.starts, settings: k.settings, keywords: k.keywords, events, range }).alerts.filter(
+      computeGuard({ starts: k.starts, settings: k.settings, keywords: k.keywords, events, range, today }).alerts.filter(
         (alert) => alert.date >= today && alert.date <= last,
       ),
     [k.starts, k.settings, k.keywords, events, range, today, last],

@@ -86,7 +86,7 @@ export function planActions({
   const prediction = predictCycle(starts);
   // 探す範囲の外は「落ち着いている」と取り違えないよう、ここで広めに時期を作り直す
   const range = { from: addDays(event.start, -SEARCH_DAYS - AFTER_PERIOD_DAYS), until: addDays(event.end, SEARCH_DAYS) };
-  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts) : new Map();
+  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts, today) : new Map();
   const actions: Action[] = [];
 
   if (alert.impact === 'moveable') {
