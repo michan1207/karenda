@@ -60,6 +60,14 @@ describe('toCalendarEvent', () => {
     expect(event).toMatchObject({ start: '2026-10-24', end: '2026-10-24' });
   });
 
+  it('reads an Android all-day event, kept at midnight UTC, on its own days', () => {
+    // Android は終日予定を UTC の0時で持ち、expo-calendar はその時刻を UTC の文字で返す（日本では9時〜翌日9時になる）
+    const one = toCalendarEvent({ id: 'g', title: '休み', startDate: '2026-11-03T00:00:00.000Z', endDate: '2026-11-04T00:00:00.000Z', allDay: true });
+    expect(one).toMatchObject({ id: 'g@2026-11-03', start: '2026-11-03', end: '2026-11-03' });
+    const three = toCalendarEvent({ id: 'h', title: '旅行', startDate: '2026-11-03T00:00:00.000Z', endDate: '2026-11-06T00:00:00.000Z', allDay: true });
+    expect(three).toMatchObject({ start: '2026-11-03', end: '2026-11-05' });
+  });
+
   it('keeps an overnight event on both days', () => {
     const event = toCalendarEvent({ id: 'd', title: '夜勤', startDate: local(2026, 10, 24, 22), endDate: local(2026, 10, 25, 6), allDay: false });
     expect(event).toMatchObject({ start: '2026-10-24', end: '2026-10-25' });
