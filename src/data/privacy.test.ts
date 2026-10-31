@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { BANNED_PHRASES } from '../engine/wording';
 import { migrate } from './migrations';
 import { CALENDAR_NOTE, PRIVACY_FACTS, STORED_DATA } from './privacy';
 import { createTestDatabase } from './testDatabase';
@@ -16,7 +17,10 @@ describe('privacy facts', () => {
 
   it('states facts without absolute claims', () => {
     const texts = [CALENDAR_NOTE, ...PRIVACY_FACTS.flatMap((f) => [f.label, f.value, f.note]), ...STORED_DATA.flatMap((d) => [d.what, d.why])];
-    for (const text of texts) expect(text).not.toMatch(/絶対|100%|必ず|保証|安全/);
+    for (const text of texts) {
+      for (const rule of BANNED_PHRASES) expect(text).not.toMatch(rule.pattern);
+      expect(text).not.toMatch(/安全/);
+    }
   });
 
   it('uses no analytics, ads, crash reporting or remote update packages', () => {

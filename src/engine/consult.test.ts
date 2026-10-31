@@ -1,5 +1,6 @@
 import { ConsultReason, consultReasons, consultText } from './consult';
 import { addDays } from './date';
+import { BANNED_PHRASES } from './wording';
 
 /** 間隔の日数から開始日の並びを作る */
 const fromGaps = (gaps: number[]) => gaps.reduce((starts, days) => [...starts, addDays(starts[starts.length - 1], days)], ['2026-01-05']);
@@ -41,11 +42,10 @@ describe('consultText', () => {
     expect(consultText(['frequentExclusion', 'shortCycle', 'longCycle'])).toContain('15日より短い・45日より長い間隔が何度かあります。');
   });
 
-  // 仕様 §6.2: 病名の断定・推測や強い言葉を使わない
+  // 仕様 §6.2: 病名の断定・推測や強い言葉を使わない。組み立てた文でも、共通の禁止語に加えて病名・「PMS」を出さない
   it.each(all)('uses none of the forbidden words (%s)', (...reasons) => {
     const text = consultText(reasons);
-    for (const word of ['PMS', 'PMDD', '子宮内膜症', '可能性が高い', '警戒', '警告', '危険', '診断', '治療', '絶対', '100%', '保証', '病気']) {
-      expect(text).not.toContain(word);
-    }
+    for (const rule of BANNED_PHRASES) expect(text).not.toMatch(rule.pattern);
+    for (const word of ['PMS', '子宮内膜症', '病気']) expect(text).not.toContain(word);
   });
 });

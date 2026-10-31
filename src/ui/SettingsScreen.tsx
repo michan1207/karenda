@@ -94,7 +94,7 @@ export default function SettingsScreen({ k, today }: Props) {
           onChange={(heavyDays) => k.setSettings({ heavyDays })}
         />
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>PMS警戒期</Text>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>PMSの時期</Text>
           <View style={styles.chips}>
             {([false, true] as const).map((manual) => {
               const selected = (k.pms.source === 'manual') === manual;
@@ -124,7 +124,7 @@ export default function SettingsScreen({ k, today }: Props) {
         {k.pms.source === 'manual' ? (
           <Stepper
             colors={colors}
-            label="PMS警戒期（予定日の何日前から）"
+            label="PMSの時期（予定日の何日前から）"
             unit="日前"
             value={k.pms.daysBefore}
             min={0}
@@ -238,12 +238,13 @@ export default function SettingsScreen({ k, today }: Props) {
             <View style={styles.row}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>±1日以内</Text>
               <Text style={[styles.rowLabel, { color: colors.text }]}>
-                {n}回中{Math.round(rate * n)}回（{Math.round(rate * 100)}%）
+                {n}回中{Math.round(rate * n)}回
               </Text>
             </View>
             <Text style={[styles.help, { color: colors.muted }]}>直近{n}回（n={n}）の予測と、実際の開始日を比べています。</Text>
           </>
         )}
+        <Text style={[styles.help, { color: colors.muted }]}>予測は目安です。体調の判断は医師にご相談ください。</Text>
       </Section>
 
       <Section colors={colors} title="アプリのロック">

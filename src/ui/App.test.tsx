@@ -36,6 +36,7 @@ import {
 import { createTestDatabase } from '../data/testDatabase';
 import { addDays, learnWeight, type CalendarEvent, type NotificationPlan } from '../engine';
 import { Main } from './App';
+import { MASCOT_LINES } from './CalendarScreen';
 
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 jest.mock('expo-calendar/legacy', () => ({}));
@@ -192,7 +193,7 @@ describe('first run', () => {
     expect(screen.getByText('選んだ日：10月5日（月）')).toBeTruthy();
     await fireEvent.press(screen.getByText('この日を記録する'));
     expect(await screen.findByText('次の生理は10/31〜11/4ごろ（確信度：低）')).toBeTruthy();
-    expect(screen.getByText('予測は目安です。医療的な診断や避妊には使えません。')).toBeTruthy();
+    expect(screen.getByText('予測は目安で、医療や避妊の目的には使えません。体調の判断は医師にご相談ください。')).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual(['2026-10-05']);
     expect(calendar.requestAccess).not.toHaveBeenCalled();
     expect(notifier.requestAccess).not.toHaveBeenCalled();
@@ -239,7 +240,7 @@ describe('calendar', () => {
   it('colors the zones and marks days where events clash', async () => {
     const { calendar } = await setup();
     expect(await screen.findByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています')).toBeTruthy();
-    expect(screen.getByLabelText('10月20日（火）、PMS警戒期（予測）')).toBeTruthy();
+    expect(screen.getByLabelText('10月20日（火）、PMSの時期（予測）')).toBeTruthy();
     expect(calendar.getEvents).toHaveBeenCalledWith('2026-09-28', '2026-11-01');
   });
 
@@ -255,7 +256,7 @@ describe('calendar', () => {
 
   it('shows the feelings that the phase of the tapped day tends to bring, without naming illnesses', async () => {
     await setup();
-    // 今日 10-24 は PMS警戒期
+    // 今日 10-24 は PMSの時期
     expect(await screen.findByText('生理前に起こりやすい心の変化')).toBeTruthy();
     expect(screen.getByText(/集中力や判断力が落ちる/)).toBeTruthy();
     // 病名は診断のように読めるので出さない。相談先だけ案内する
@@ -284,15 +285,21 @@ describe('calendar', () => {
       const said = new Set<string>();
       for (const day of days) {
         await fireEvent.press(screen.getByLabelText(new RegExp(`^${day}`)));
-        const line = screen.getByText(new RegExp(`^${lead}`)).props.children as string;
-        expect(line).not.toMatch(/無理しないで|つらいね|休んでね|過ごしてね/);
-        // 「しよっ」「しちゃお」のような縮めた言い方はしない
-        expect(line).not.toMatch(/(っ|しよ|ちゃお|とこ|みよ)$/);
-        // ひと目で読める短さにする
-        expect(line.length - lead.length).toBeLessThanOrEqual(18);
-        said.add(line);
+        said.add(screen.getByText(new RegExp(`^${lead}`)).props.children as string);
       }
       expect(said.size).toBe(4);
+    }
+  });
+
+  // 仕様 F18: ミアは段取り係。なぐさめだけの言葉は言わず、提案か問いかけにする
+  it.each(Object.entries(MASCOT_LINES))('has Mia suggest or ask in the %s phase, never only comfort', (_, { lines }) => {
+    for (const line of lines) {
+      expect(line).not.toMatch(/無理しないで|つらいね|つらいよね|休んでね|過ごしてね|がんばってるね/);
+      expect(line).toMatch(/(ね|？|よ|大丈夫|かも)$/);
+      // 「しよっ」「しちゃお」のような縮めた言い方はしない
+      expect(line).not.toMatch(/(っ|しよ|ちゃお|とこ|みよ)$/);
+      // ひと目で読める短さにする
+      expect(line.length).toBeLessThanOrEqual(18);
     }
   });
 
@@ -741,7 +748,7 @@ describe('settings', () => {
     expect(screen.queryByText('7日前')).toBeNull();
     await fireEvent.press(screen.getByText('手動で指定'));
     expect(await screen.findByText('7日前')).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText('PMS警戒期（予定日の何日前から）を減らす'));
+    await fireEvent.press(screen.getByLabelText('PMSの時期（予定日の何日前から）を減らす'));
     expect(await screen.findByText('6日前')).toBeTruthy();
   });
 
@@ -791,7 +798,7 @@ describe('settings', () => {
     expect(screen.getByText('平均のズレ')).toBeTruthy();
     expect(screen.getByText('0.7日')).toBeTruthy();
     expect(screen.getByText('±1日以内')).toBeTruthy();
-    expect(screen.getByText('3回中3回（100%）')).toBeTruthy();
+    expect(screen.getByText('3回中3回')).toBeTruthy();
     expect(screen.getByText(/n=3/)).toBeTruthy();
   });
 

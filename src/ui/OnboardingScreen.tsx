@@ -34,7 +34,7 @@ export default function OnboardingScreen({ k, today }: { k: Karenda; today: Date
           <View style={styles.hero}>
             <Mascot colors={colors} size={150} />
             <Text style={[styles.name, { color: colors.pinkText, backgroundColor: colors.surface }]}>
-              案内役の{MASCOT_NAME}だよ。よろしくね
+              案内役の{MASCOT_NAME}だよ。予定の段取り、いっしょにしようね
             </Text>
             <Ribbon colors={colors} text="Cocomia" />
           </View>
@@ -84,7 +84,7 @@ export default function OnboardingScreen({ k, today }: { k: Karenda; today: Date
           ) : (
             <Text style={[styles.body, { color: colors.muted }]}>記録すると、次の生理の予測がここに出ます。</Text>
           )}
-          <Text style={[styles.body, { color: colors.muted }]}>予測は目安です。医療的な診断や避妊には使えません。</Text>
+          <Text style={[styles.body, { color: colors.muted }]}>予測は目安で、医療や避妊の目的には使えません。体調の判断は医師にご相談ください。</Text>
           <Button colors={colors} label="次へ" onPress={next} />
         </Step>
       )}
