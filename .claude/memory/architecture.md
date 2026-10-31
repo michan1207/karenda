@@ -42,6 +42,7 @@
 - Android: expo-calendar は読み取りでも READ_CALENDAR と WRITE_CALENDAR の両方を要求・確認する。`blockedPermissions` で WRITE を塞ぐと常に「許可なし」になる（10-28修正）
 - 祝日カレンダー（名前に 祝日/holiday）の予定は `holiday: true` を付ける（終日でも重くしない）
 - `toCalendarEvent`: IDは `元ID@開始日`（繰り返し予定の区別）。0時ちょうど終わりは前日までに丸める
+- Android の終日予定は UTC の0時〜翌日の UTC の0時で届く（expo-calendar が端末の値を UTC の文字にするため。日本では9時〜翌日9時になり1日長く見えていた）。終日で両端が UTC の0時なら UTC の日付で読む。iPhone の終日予定はその土地の0時なのでそのまま（2026-10-31）
 - `CalendarSource` 型で差し替え可能（画面テストは偽物を渡す）
 
 ## 通知（expo-notifications）
