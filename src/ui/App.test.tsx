@@ -396,6 +396,26 @@ describe('calendar', () => {
     expect(screen.getByLabelText('10月26日（月）、生理1日目（予測）')).toBeTruthy();
   });
 
+  it('says so when saving fails, and the message can be closed', async () => {
+    await setup({
+      calendar: fakeCalendar(false),
+      prepare: async (db) => {
+        const run = db.runAsync;
+        db.runAsync = async (source, ...params) => {
+          if (source.startsWith('INSERT INTO manual_events')) throw new Error('disk full');
+          return run(source, ...params);
+        };
+      },
+    });
+    await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）'));
+    await fireEvent.press(screen.getByText('この日に予定を入れる'));
+    await fireEvent.changeText(screen.getByLabelText('10月27日（火）に入れる予定の名前'), '発表');
+    await fireEvent.press(screen.getByText('入れる'));
+    expect(await screen.findByText('保存できませんでした。もう一度お試しください。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('閉じる'));
+    expect(screen.queryByText('保存できませんでした。もう一度お試しください。')).toBeNull();
+  });
+
   it('lets the user put an event in this app only, and alerts on it without calendar access', async () => {
     const calendar = fakeCalendar(false);
     const { db } = await setup({ calendar });

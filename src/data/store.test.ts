@@ -474,6 +474,14 @@ describe('export and delete', () => {
     ).rejects.toThrow('boom');
     expect(await listPeriodStarts(db)).toEqual(['2026-10-01']);
   });
+
+  it('runs overlapping transactions one after the other, so neither is half done', async () => {
+    await Promise.all([
+      setKeywords(db, { high: ['面接'], medium: [] }),
+      setKeywords(db, { high: ['試験'], medium: ['会議'] }),
+    ]);
+    expect(await getKeywords(db)).toEqual({ high: ['試験'], medium: ['会議'] });
+  });
 });
 
 describe('reading an exported file back', () => {
