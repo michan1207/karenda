@@ -37,10 +37,11 @@ export type Notifier = {
 };
 
 /**
- * Android の通知チャンネル。鍵のかかったロック画面では中身を隠す（2026-10-31 オーナー決定 Q5）。
- * 見せ方は作ったあとに変えられないので、隠す前の 'guard' とは別の id で作り直す
+ * Android の通知チャンネル。通知の文は何の予定か分からないもの（quietNotifications）だけなので、
+ * 鍵のかかったロック画面でも「内容を非表示」にせず、その文を出す（2026-11-01 オーナー決定）。
+ * 見せ方は作ったあとに変えられないので、前の 'guard' とは別の id で作り直す
  */
-const CHANNEL_ID = 'guard-private';
+const CHANNEL_ID = 'guard-public';
 const OLD_CHANNEL_ID = 'guard';
 const REVIEW_CATEGORY = 'review';
 const DECIDE_CATEGORY = 'decide';
@@ -93,12 +94,12 @@ async function configure() {
   await setNotificationCategoryAsync(DECIDE_CATEGORY, [acknowledge, { identifier: 'alternatives', buttonTitle: '代替日を見る' }, defer]).catch(() => {});
   await setNotificationCategoryAsync(DECIDE_FIXED_CATEGORY, [acknowledge, defer]).catch(() => {});
   if (Platform.OS === 'android') {
-    // 隠す前のチャンネルは設定の一覧に残らないよう消す（無ければ何もしない）
+    // 前のチャンネルは設定の一覧に残らないよう消す（無ければ何もしない）
     await deleteNotificationChannelAsync(OLD_CHANNEL_ID).catch(() => {});
     await setNotificationChannelAsync(CHANNEL_ID, {
       name: '予定と体調のお知らせ',
       importance: AndroidImportance.DEFAULT,
-      lockscreenVisibility: AndroidNotificationVisibility.PRIVATE,
+      lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
     });
   }
 }

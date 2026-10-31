@@ -2,7 +2,7 @@ import type { Action } from './actions';
 import type { ConflictAlert, Impact } from './conflicts';
 import { addDays } from './date';
 import type { ReviewTarget } from './learning';
-import { planNotifications, planReviewNotifications } from './notifications';
+import { planNotifications, planReviewNotifications, quietNotifications } from './notifications';
 
 const alert = (eventId: string, date: string, grade: 'A' | 'B', title = eventId, impact: Impact = 'mitigable'): ConflictAlert => ({
   eventId,
@@ -143,5 +143,21 @@ describe('planReviewNotifications', () => {
   it('keeps health words off the lock screen', () => {
     const [plan] = planReviewNotifications([target('会議', '2026-10-24')], new Set(), '2026-10-24');
     expect(`${plan.title}${plan.body}`).not.toMatch(/生理|PMS|体調/);
+  });
+});
+
+describe('quietNotifications', () => {
+  it('says only that there is something to check, without the event or any buttons', () => {
+    const plans = [
+      ...plan([alert('trip', '2026-11-12', 'A', '出張')]),
+      ...planReviewNotifications([{ eventId: '会議', title: '会議', date: '2026-10-24', phase: 'other', risk: 'medium' }], new Set(), '2026-10-24'),
+    ];
+    const quiet = quietNotifications(plans);
+    expect(quiet.map(({ id, date }) => ({ id, date }))).toEqual(plans.map(({ id, date }) => ({ id, date })));
+    expect(new Set(quiet.map((p) => p.title))).toEqual(new Set(['Cocomia からのお知らせ']));
+    expect(quiet.at(-1)!.body).toBe('予定のふり返りがあります');
+    expect(quiet[0].body).toBe('予定の確認があります');
+    expect(quiet.every((p) => !p.review && !p.decide)).toBe(true);
+    expect(JSON.stringify(quiet)).not.toMatch(/出張|会議/);
   });
 });

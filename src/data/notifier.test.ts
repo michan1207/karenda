@@ -9,7 +9,7 @@ jest.mock('expo-notifications', () => ({
   getLastNotificationResponse: jest.fn(() => null),
   setNotificationCategoryAsync: jest.fn(async () => ({})),
   AndroidImportance: { DEFAULT: 3 },
-  AndroidNotificationVisibility: { PRIVATE: 2 },
+  AndroidNotificationVisibility: { PUBLIC: 1 },
   SchedulableTriggerInputTypes: { DATE: 'date' },
   cancelAllScheduledNotificationsAsync: jest.fn(async () => {}),
   getPermissionsAsync: jest.fn(),
@@ -37,7 +37,7 @@ describe('deviceNotifier.replaceAll', () => {
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith({
       identifier: 'guard-2026-10-26',
       content: { title: '出張の前に', body: '本文' },
-      trigger: { type: 'date', date: new Date(2026, 9, 26, 9, 0), channelId: 'guard-private' },
+      trigger: { type: 'date', date: new Date(2026, 9, 26, 9, 0), channelId: 'guard-public' },
     });
   });
 
@@ -137,7 +137,7 @@ describe('deviceNotifier.requestAccess', () => {
 });
 
 describe('the Android channel', () => {
-  it('hides the content on a locked screen, in a new channel that replaces the old one', async () => {
+  it('shows the quiet text on a locked screen, in a new channel that replaces the old one', async () => {
     // Android として読み込み直す（はじめの設定は一度きりなので、ほかのテストとは別に読み込む）
     let notifications!: typeof mocked;
     let notifier!: typeof deviceNotifier;
@@ -148,9 +148,9 @@ describe('the Android channel', () => {
     });
     await notifier.replaceAll([{ id: 'a', date: '2026-10-26', title: 't', body: 'b' }], new Date(2026, 9, 24));
     expect(notifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('guard');
-    expect(notifications.setNotificationChannelAsync).toHaveBeenCalledWith('guard-private', expect.objectContaining({ lockscreenVisibility: 2 }));
+    expect(notifications.setNotificationChannelAsync).toHaveBeenCalledWith('guard-public', expect.objectContaining({ lockscreenVisibility: 1 }));
     expect(notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ trigger: expect.objectContaining({ channelId: 'guard-private' }) }),
+      expect.objectContaining({ trigger: expect.objectContaining({ channelId: 'guard-public' }) }),
     );
   });
 });

@@ -49,7 +49,7 @@
 - `Notifier` 型で差し替え可能。`onReviewAnswer` は「どうだった？」のボタン（カテゴリ `review`）、`onDecision` は重なる予定のボタン（`decide`: 確認した/代替日を見る/今日は決めない、動かせない予定だけなら `decideFixed` で代替日なし）。起動のきっかけになった分は `getLastNotificationResponse` で拾い、受け取った側だけが消す（`listen`）
 - 確認した→確認済み、今日は決めない→版7の `deferred_alerts(event_id, date, remind_on)` に翌日を1回だけ（INSERT OR IGNORE）、代替日を見る→`alertsRequested` が増えて App がお知らせタブを開く
 - タイムゾーンが変わったら、戻った時（AppState active）に `getTimezoneOffset` の変化で予約し直す
-- Android の通知チャンネルは `guard-private`（2026-11-01、Q5）: `lockscreenVisibility` PRIVATE で、鍵のかかったロック画面では中身を隠す（アプリ名と「内容は非表示」だけ。expo-notifications は publicVersion を付けられないので、決めた文言は出せない）。チャンネルの見せ方は作ったあと変えられないため、前の `guard` は起動時の設定で消して作り直す
+- Android の通知（2026-11-01、Q5 のあとオーナーが「文をやわらかくする」を選んだ）: `useNotificationSync` が `quietNotifications` で題名「Cocomia からのお知らせ」、本文「予定の確認があります」／「予定のふり返りがあります」だけにし、ボタンも付けない（見ないまま「確認した」で消したり、どの予定か分からずに答えたりしないため。押すとアプリが開く）。チャンネルは `guard-public`（`lockscreenVisibility` PUBLIC。文が中身を含まないので、鍵のかかったロック画面でも「内容を非表示」にせずこの文を出す）。チャンネルの見せ方は作ったあと変えられないため、前の `guard` は起動時の設定で消して作り直す。iPhone は今までどおり（本体の設定でロック中は中身を隠す）
 
 ## レビュー依頼（expo-store-review）
 - 開始日が3つそろい最新日を記録した直後に1回だけ（`shouldAskReview`）。`ReviewPrompt` 型で差し替え可能
