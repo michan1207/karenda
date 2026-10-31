@@ -2,6 +2,7 @@
 
 ## 構成
 - `App.tsx` が3タブ（calendar / alerts / settings）＋初回は `OnboardingScreen`。Expo Router は使っていない（AGENTS.md の Router 節は当てはまらない）
+- はじめの案内（2026-10-31）は5つの手順を1つずつ: 何ができるか → 通信を切っても使える（外部への送信の件数）→ その場で生理開始日を1回記録（iPhone は datetimepicker の inline、「まだ記録しない」も可）→ 予測（`predictionLines`＋目安の注意）→ 最後にカレンダー（「カレンダーを使う」「今はしない」を同じ見た目で）。通知の許可はどちらの道でも最後に求める
 - 共有状態は `useKarenda`（DB・許可・設定）。予定は `useEvents`、今後30日の警告は `useUpcomingAlerts`、通知の予約は `useNotificationSync`
 - 部品は `components.tsx`（Card / PillHeading / Heart / AlertMark / Notice / Button / Section）。日付表示・ゾーン名は `format.ts`（`dayTitle`, `zoneLabel`）
 

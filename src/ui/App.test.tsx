@@ -29,6 +29,7 @@ import {
   recordPeriodStart,
   saveConflictStatus,
   saveTitleWeight,
+  setCalendarSkipped,
   setLockEnabled,
   setOnboarded,
 } from '../data';
@@ -47,12 +48,21 @@ jest.mock('expo-local-authentication', () => ({}));
 jest.mock('@react-native-community/datetimepicker', () => {
   const { createElement } = jest.requireActual<typeof import('react')>('react');
   const { TextInput } = jest.requireActual<typeof import('react-native')>('react-native');
-  const Picker = ({ accessibilityLabel, onChange }: { accessibilityLabel: string; onChange: (event: unknown, date?: Date) => void }) =>
+  // 日付は「2026-10-05」、時刻は「14:00」と打つ
+  const Picker = ({
+    accessibilityLabel,
+    mode,
+    onChange,
+  }: {
+    accessibilityLabel: string;
+    mode: 'date' | 'time';
+    onChange: (event: unknown, date?: Date) => void;
+  }) =>
     createElement(TextInput, {
       accessibilityLabel,
       onChangeText: (text: string) => {
-        const [hours, minutes] = text.split(':').map(Number);
-        onChange({}, new Date(2000, 0, 1, hours, minutes));
+        const [a, b, c] = text.split(/[-:]/).map(Number);
+        onChange({}, mode === 'date' ? new Date(a, b - 1, c) : new Date(2000, 0, 1, a, b));
       },
     });
   return { __esModule: true, default: Picker, DateTimePickerAndroid: { open: jest.fn() } };
@@ -170,15 +180,58 @@ async function setup({
 }
 
 describe('first run', () => {
-  it('explains the app before asking for calendar access', async () => {
-    const { calendar, notifier } = await setup({ onboarded: false, starts: [] });
-    expect(await screen.findByText('データはこの端末の中だけ')).toBeTruthy();
+  it('shows one step at a time, has a start recorded, and asks for the calendar only at the end', async () => {
+    const { calendar, notifier, db } = await setup({ onboarded: false, starts: [] });
+    expect(await screen.findByText('生理と大事な予定がぶつかる前に、教えます')).toBeTruthy();
+    await fireEvent.press(screen.getByText('はじめる'));
+    expect(screen.getByText('通信を切っても、そのまま使えます')).toBeTruthy();
+    expect(screen.getByText('0件')).toBeTruthy();
+    await fireEvent.press(screen.getByText('次へ'));
+
+    await fireEvent.changeText(screen.getByLabelText('生理が始まった日'), '2026-10-05');
+    expect(screen.getByText('選んだ日：10月5日（月）')).toBeTruthy();
+    await fireEvent.press(screen.getByText('この日を記録する'));
+    expect(await screen.findByText('次の生理は10/31〜11/4ごろ（確信度：低）')).toBeTruthy();
+    expect(screen.getByText('予測は目安です。医療的な診断や避妊には使えません。')).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual(['2026-10-05']);
     expect(calendar.requestAccess).not.toHaveBeenCalled();
     expect(notifier.requestAccess).not.toHaveBeenCalled();
-    await fireEvent.press(screen.getByText('はじめる'));
+
+    await fireEvent.press(screen.getByText('次へ'));
+    expect(screen.getByText('今はしない')).toBeTruthy();
+    await fireEvent.press(screen.getByText('カレンダーを使う'));
     expect(await screen.findByText('2026年10月')).toBeTruthy();
     expect(calendar.requestAccess).toHaveBeenCalled();
     expect(notifier.requestAccess).toHaveBeenCalled();
+  });
+
+  it('finishes without the calendar, and lets the user turn it on later in settings', async () => {
+    const { calendar, notifier, db } = await setup({ onboarded: false, starts: [] });
+    await fireEvent.press(await screen.findByText('はじめる'));
+    await fireEvent.press(screen.getByText('次へ'));
+    await fireEvent.press(screen.getByText('まだ記録しない'));
+    expect(screen.getByText('記録すると、次の生理の予測がここに出ます。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('次へ'));
+    await fireEvent.press(screen.getByText('今はしない'));
+
+    expect(await screen.findByText(/カレンダーは使っていません。日付を選んで/)).toBeTruthy();
+    expect(calendar.requestAccess).not.toHaveBeenCalled();
+    expect(notifier.requestAccess).toHaveBeenCalled();
+    expect((await loadState(db)).calendarSkipped).toBe(true);
+
+    await fireEvent.press(screen.getByText('設定'));
+    await fireEvent.press(screen.getByText('カレンダーを使う'));
+    await waitFor(() => expect(calendar.requestAccess).toHaveBeenCalled());
+    expect(await screen.findByText(/カレンダーの予定を読んで/)).toBeTruthy();
+    expect((await loadState(db)).calendarSkipped).toBe(false);
+  });
+
+  it('does not ask for the calendar each time the app opens after "今はしない"', async () => {
+    const calendar = fakeCalendar(false);
+    await setup({ calendar, prepare: (db) => setCalendarSkipped(db, true) });
+    expect(await screen.findByText(/カレンダーは使っていません。日付を選んで/)).toBeTruthy();
+    expect(calendar.requestAccess).not.toHaveBeenCalled();
+    expect(calendar.hasAccess).toHaveBeenCalled();
   });
 });
 

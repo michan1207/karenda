@@ -37,6 +37,7 @@ import {
   setMetricsEnabled,
   setLockEnabled as saveLockEnabled,
   setNotifyEnabled,
+  setCalendarSkipped,
   setOnboarded,
   setPmsManual as savePmsManual,
   setReviewAsked,
@@ -85,7 +86,10 @@ export type Karenda = StoredState & {
   notifyAccess: Access;
   /** 通知の「代替日を見る」を押した回数。増えたらお知らせを開く */
   alertsRequested: number;
-  finishOnboarding(): Promise<void>;
+  /** 案内を終える。カレンダーを使うなら許可を求め、「今はしない」なら求めない（どちらも通知の許可は求める） */
+  finishOnboarding(useCalendar: boolean): Promise<void>;
+  /** 「今はしない」にしていたカレンダーを使い始める。許可されたら true */
+  enableCalendar(): Promise<boolean>;
   addStart(day: DateKey): Promise<void>;
   removeStart(day: DateKey): Promise<void>;
   /** このアプリの中だけに予定を入れる（iPhone のカレンダーには書かない） */
@@ -141,6 +145,7 @@ const INITIAL_STATE: StoredState = {
   consultDismissed: null,
   deferrals: new Map(),
   manualEvents: [],
+  calendarSkipped: false,
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
   reviewed: new Set(),
@@ -184,9 +189,11 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
         const loaded = await reload(opened);
         if (!active) return;
         setStatus('ready');
-        // はじめての案内で説明してから許可を求める。案内が済んでいれば起動時に確認する
+        // はじめての案内で説明してから許可を求める。案内が済んでいれば起動時に確認する。
+        // 「今はしない」にした人には、開くたびに確認画面を出さない（いまの許可だけ見る）
         if (loaded.onboarded) {
-          await requestAccess();
+          if (loaded.calendarSkipped) setAccess((await calendar.hasAccess().catch(() => false)) ? 'granted' : 'denied');
+          else await requestAccess();
           if (loaded.notifyEnabled) await requestNotifyAccess();
         }
       })
@@ -194,7 +201,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     return () => {
       active = false;
     };
-  }, [loadDatabase, reload, requestAccess, requestNotifyAccess]);
+  }, [loadDatabase, reload, requestAccess, requestNotifyAccess, calendar]);
 
   // 設定アプリで許可を変えて戻った時に読み直す。戻るたびに確認画面は出さない
   const { onboarded, notifyEnabled } = stored;
@@ -291,11 +298,21 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     notifier,
     notifyAccess,
     alertsRequested,
-    finishOnboarding: async () => {
-      await withDb(setOnboarded);
+    finishOnboarding: async (useCalendar) => {
+      await withDb(async (opened) => {
+        await setOnboarded(opened);
+        if (!useCalendar) await setCalendarSkipped(opened, true);
+      });
       track('onboarding_completed');
-      track('calendar_permission_result', { granted: await requestAccess() });
+      if (useCalendar) track('calendar_permission_result', { granted: await requestAccess() });
+      else setAccess('denied');
       await requestNotifyAccess();
+    },
+    enableCalendar: async () => {
+      await withDb((opened) => setCalendarSkipped(opened, false));
+      const granted = await requestAccess();
+      track('calendar_permission_result', { granted });
+      return granted;
     },
     addStart: (day) =>
       withDb(async (opened) => {

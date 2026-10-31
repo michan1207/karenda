@@ -40,6 +40,27 @@ export default function SettingsScreen({ k, today }: Props) {
         <Ribbon colors={colors} text="設定" />
       </View>
 
+      <Section colors={colors} title="カレンダー">
+        {k.access === 'granted' ? (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            カレンダーの予定を読んで、生理の時期との重なりを見ています。書き換えはしません。
+          </Text>
+        ) : k.calendarSkipped ? (
+          <>
+            <Text style={[styles.help, { color: colors.muted }]}>
+              カレンダーは使っていません。予定はカレンダー画面から、このアプリの中だけに入れられます。
+            </Text>
+            <Button colors={colors} kind="secondary" label="カレンダーを使う" onPress={() => void k.enableCalendar()} />
+          </>
+        ) : (
+          <Notice
+            colors={colors}
+            text="端末の設定でカレンダーがオフになっています。"
+            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
+          />
+        )}
+      </Section>
+
       <Section colors={colors} title="お知らせ通知">
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>重なる予定の前に通知する</Text>
