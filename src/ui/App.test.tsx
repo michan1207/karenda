@@ -31,6 +31,7 @@ import {
   saveTitleWeight,
   setCalendarSkipped,
   setLockEnabled,
+  setNotifyEnabled,
   setOnboarded,
 } from '../data';
 import { createTestDatabase } from '../data/testDatabase';
@@ -642,6 +643,12 @@ describe('notifications', () => {
     await fireEvent(screen.getByLabelText('重なる予定の前に通知する'), 'valueChange', false);
     expect(await screen.findByText('お知らせ（2）')).toBeTruthy();
     expect(lastPlanDates(notifier)).toEqual([]);
+  });
+
+  it('clears scheduled reminders when turned off here, even if the device took the permission away', async () => {
+    const notifier = fakeNotifier(false);
+    await setup({ notifier, prepare: (db) => setNotifyEnabled(db, false) });
+    await waitFor(() => expect(notifier.replaceAll).toHaveBeenCalledWith([]));
   });
 
   it('does not schedule when the device has notifications off, and says so', async () => {
