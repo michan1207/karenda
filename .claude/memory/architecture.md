@@ -46,6 +46,7 @@
 
 ## 通知（expo-notifications）
 - ローカル通知のみ（`notifier.ts`）。`replaceAll` で全取消→再予約。毎朝 `NOTIFY_HOUR`=9時
+- `replaceAll` は前の組み直しが終わってから行う（重なると古い予約が後から入るため）。1件予約できなくても残りは予約する。はじめの設定（ボタンの種類・Android の通知チャンネル）は失敗したら次の呼び出しでやり直す。通知を切った時は、端末の許可が外れていても `replaceAll([])` で消す（2026-10-31）
 - `Notifier` 型で差し替え可能。`onReviewAnswer` は「どうだった？」のボタン（カテゴリ `review`）、`onDecision` は重なる予定のボタン（`decide`: 確認した/代替日を見る/今日は決めない、動かせない予定だけなら `decideFixed` で代替日なし）。起動のきっかけになった分は `getLastNotificationResponse` で拾い、受け取った側だけが消す（`listen`）
 - 確認した→確認済み、今日は決めない→版7の `deferred_alerts(event_id, date, remind_on)` に翌日を1回だけ（INSERT OR IGNORE）、代替日を見る→`alertsRequested` が増えて App がお知らせタブを開く
 - タイムゾーンが変わったら、戻った時（AppState active）に `getTimezoneOffset` の変化で予約し直す

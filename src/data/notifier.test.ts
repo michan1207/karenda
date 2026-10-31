@@ -46,6 +46,45 @@ describe('deviceNotifier.replaceAll', () => {
     );
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
   });
+
+  it('runs overlapping calls one after the other, so an older plan is not added after a newer one', async () => {
+    const now = new Date(2026, 9, 24);
+    await Promise.all([
+      deviceNotifier.replaceAll([{ id: 'old', date: '2026-10-26', title: 'old', body: '' }], now),
+      deviceNotifier.replaceAll([{ id: 'new', date: '2026-10-27', title: 'new', body: '' }], now),
+    ]);
+    const lastCancel = Math.max(...mocked.cancelAllScheduledNotificationsAsync.mock.invocationCallOrder);
+    const { calls, invocationCallOrder } = mocked.scheduleNotificationAsync.mock;
+    const kept = calls.filter((_, i) => invocationCallOrder[i] > lastCancel).map(([request]) => request.identifier);
+    expect(kept).toEqual(['new']);
+  });
+
+  it('schedules the rest when one reminder cannot be scheduled', async () => {
+    mocked.scheduleNotificationAsync.mockRejectedValueOnce(new Error('full'));
+    await deviceNotifier.replaceAll(
+      [
+        { id: 'a', date: '2026-10-26', title: 'a', body: '' },
+        { id: 'b', date: '2026-10-27', title: 'b', body: '' },
+      ],
+      new Date(2026, 9, 24),
+    );
+    expect(mocked.scheduleNotificationAsync).toHaveBeenLastCalledWith(expect.objectContaining({ identifier: 'b' }));
+  });
+
+  it('creates the Android channel again when the first try failed', async () => {
+    // Android として読み込み直す（はじめの設定は一度きりなので、ほかのテストとは別に読み込む）
+    let notifications!: typeof mocked;
+    let notifier!: typeof deviceNotifier;
+    jest.isolateModules(() => {
+      jest.doMock('react-native', () => ({ Platform: { OS: 'android' } }));
+      notifications = jest.requireMock('expo-notifications');
+      notifier = jest.requireActual<typeof import('./notifier')>('./notifier').deviceNotifier;
+    });
+    notifications.setNotificationChannelAsync.mockRejectedValueOnce(new Error('busy'));
+    await expect(notifier.replaceAll([], new Date(2026, 9, 24))).rejects.toThrow('busy');
+    await notifier.replaceAll([], new Date(2026, 9, 24));
+    expect(notifications.setNotificationChannelAsync).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('asking how an event went', () => {
