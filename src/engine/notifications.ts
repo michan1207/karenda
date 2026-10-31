@@ -20,7 +20,7 @@ export type NotificationPlan = {
   decide?: { conflicts: { eventId: string; date: DateKey }[]; fixed: boolean };
 };
 
-/** 直前に言われても動かせないので、前もって知らせる。A（要注意）は7日前と3日前、B（注意）は3日前 */
+/** 直前に言われても動かせないので、前もって知らせる。A（要注意）は7日前と3日前、B（注意）は3日前。何日も続く予定は初日から数える */
 const LEAD_DAYS = { A: [7, 3], B: [3] } as const;
 /** 1つの予定の通知は、判断期限・「今日は決めない」の翌日・7日前・3日前の順に、違う日を3つまで */
 const MAX_PER_ALERT = 3;
@@ -37,7 +37,7 @@ const DECIDE_WORDS = { moveable: '決めれば', mitigable: '準備を始めれ�
 
 /** 判断期限と具体策の1文。動かせない予定には別の日を勧めない。通知が届く日にもう過ぎている別の日も勧めない */
 function decisionText(alert: ConflictAlert, day: DateKey, actions: Action[]): string {
-  const deadline = actions.find((action) => action.kind === 'deadline')?.resolveBy ?? addDays(alert.date, -1);
+  const deadline = actions.find((action) => action.kind === 'deadline')?.resolveBy ?? addDays(alert.event.start, -1);
   const [alt] = actions.flatMap((action) => (action.kind === 'suggestAltDate' && action.date > day ? [action.date] : []));
   const steps = [
     ...(alt && alert.impact !== 'fixed' ? [`${monthDay(alt)}に変える`] : alert.impact === 'moveable' ? ['別の日に変える'] : []),
@@ -54,8 +54,8 @@ function alertDays(alert: ConflictAlert, actions: Action[], remindOn: DateKey | 
   const deadline = actions.find((action) => action.kind === 'deadline')?.resolveBy;
   const candidates = [
     deadline,
-    remindOn && remindOn < alert.date ? remindOn : undefined,
-    ...LEAD_DAYS[alert.grade].map((lead) => addDays(alert.date, -lead)),
+    remindOn && remindOn < alert.event.start ? remindOn : undefined,
+    ...LEAD_DAYS[alert.grade].map((lead) => addDays(alert.event.start, -lead)),
   ];
   const days: DateKey[] = [];
   for (const day of candidates) if (day && !days.includes(day) && days.length < MAX_PER_ALERT) days.push(day);
@@ -102,7 +102,7 @@ export function planNotifications(
         return {
           id: `guard-${date}`,
           date,
-          title: `${monthDay(first.date)}「${first.title}」の前に`,
+          title: `${monthDay(first.event.start)}「${first.title}」の前に`,
           body: decisionText(first, date, actions.get(first)!),
           decide,
         };
@@ -111,7 +111,7 @@ export function planNotifications(
         id: `guard-${date}`,
         date,
         title: `確かめたい予定が${sorted.length}件あります`,
-        body: sorted.map((alert) => `${monthDay(alert.date)} ${alert.title}：${decisionText(alert, date, actions.get(alert)!)}`).join('\n'),
+        body: sorted.map((alert) => `${monthDay(alert.event.start)} ${alert.title}：${decisionText(alert, date, actions.get(alert)!)}`).join('\n'),
         decide,
       };
     });
