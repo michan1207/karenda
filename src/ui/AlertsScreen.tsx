@@ -87,13 +87,20 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
         </Text>
       </Card>
 
-      {k.access === 'denied' && (
-        <Notice
-          colors={colors}
-          text="カレンダーへのアクセスが許可されていないため、予定との重なりを調べられません。"
-          action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
-        />
-      )}
+      {k.access === 'denied' &&
+        (k.calendarSkipped ? (
+          <Notice
+            colors={colors}
+            text="カレンダーは使っていません。このアプリの中だけに入れた予定との重なりを調べています。"
+            action={{ label: 'カレンダーを使う', onPress: () => void k.enableCalendar() }}
+          />
+        ) : (
+          <Notice
+            colors={colors}
+            text="カレンダーへのアクセスが許可されていないため、予定との重なりを調べられません。"
+            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
+          />
+        ))}
       {k.starts.length === 0 ? (
         <Notice colors={colors} text="生理の記録がまだ無いため、お知らせはありません。カレンダーで開始日を記録してください。" />
       ) : (

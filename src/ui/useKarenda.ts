@@ -86,6 +86,8 @@ export type Karenda = StoredState & {
   notifyAccess: Access;
   /** 通知の「代替日を見る」を押した回数。増えたらお知らせを開く */
   alertsRequested: number;
+  /** アプリに戻ってきた回数。増えたらカレンダーの予定を読み直す */
+  resumed: number;
   /** 案内を終える。カレンダーを使うなら許可を求め、「今はしない」なら求めない（どちらも通知の許可は求める） */
   finishOnboarding(useCalendar: boolean): Promise<void>;
   /** 「今はしない」にしていたカレンダーを使い始める。許可されたら true */
@@ -159,6 +161,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
   const [notifyAccess, setNotifyAccess] = useState<Access>('checking');
   const [stored, setStored] = useState<StoredState>(INITIAL_STATE);
   const [alertsRequested, setAlertsRequested] = useState(0);
+  const [resumed, setResumed] = useState(0);
 
   const reload = useCallback(async (opened: Database) => {
     const loaded = await loadState(opened);
@@ -204,12 +207,14 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
   }, [loadDatabase, reload, requestAccess, requestNotifyAccess, calendar]);
 
   // 設定アプリで許可を変えて戻った時に読み直す。戻るたびに確認画面は出さない
+  // 離れている間にカレンダーアプリで予定が変わることがあるので、予定も読み直す
   const { onboarded, notifyEnabled } = stored;
   useEffect(() => {
     if (status !== 'ready' || !onboarded) return;
     const subscription = AppState.addEventListener('change', async (state) => {
       if (state !== 'active') return;
       setAccess((await calendar.hasAccess().catch(() => false)) ? 'granted' : 'denied');
+      setResumed((count) => count + 1);
       if (notifyEnabled) setNotifyAccess((await notifier.hasAccess().catch(() => false)) ? 'granted' : 'denied');
     });
     return () => subscription.remove();
@@ -298,6 +303,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     notifier,
     notifyAccess,
     alertsRequested,
+    resumed,
     finishOnboarding: async (useCalendar) => {
       await withDb(async (opened) => {
         await setOnboarded(opened);

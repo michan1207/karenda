@@ -43,6 +43,7 @@
 - 祝日カレンダー（名前に 祝日/holiday）の予定は `holiday: true` を付ける（終日でも重くしない）
 - `toCalendarEvent`: IDは `元ID@開始日`（繰り返し予定の区別）。0時ちょうど終わりは前日までに丸める
 - `CalendarSource` 型で差し替え可能（画面テストは偽物を渡す）
+- アプリに戻るたびに（AppState が active、`useKarenda` の `resumed` が増える）`useEvents` が予定を読み直す。離れている間にカレンダーアプリで足した・動かした予定も、判定と通知に入る（2026-10-31）
 
 ## 通知（expo-notifications）
 - ローカル通知のみ（`notifier.ts`）。`replaceAll` で全取消→再予約。毎朝 `NOTIFY_HOUR`=9時
