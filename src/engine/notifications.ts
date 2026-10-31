@@ -1,6 +1,5 @@
 import type { Action } from './actions';
 import type { ConflictAlert } from './conflicts';
-import { statusKey } from './conflictState';
 import { addDays, DateKey, fromDateKey } from './date';
 import type { ReviewTarget } from './learning';
 
@@ -70,7 +69,7 @@ function monthDay(day: DateKey): string {
 /**
  * 警告から通知の予定を作る。本文は判断期限と具体策。今日より前に出すはずだった分は作らない。
  * 同じ日に複数あるときは1件にまとめ、要注意（A）を先に書く。
- * deferrals は「今日は決めない」を押した予定（`statusKey`）と、もう一度知らせる日
+ * deferrals は「今日は決めない」を押した予定（ID）と、もう一度知らせる日
  */
 export function planNotifications(
   alerts: ConflictAlert[],
@@ -81,7 +80,7 @@ export function planNotifications(
   const byDay = new Map<DateKey, ConflictAlert[]>();
   const actions = new Map(alerts.map((alert) => [alert, actionsOf(alert)]));
   for (const alert of alerts) {
-    for (const day of alertDays(alert, actions.get(alert)!, deferrals.get(statusKey(alert.eventId, alert.date)))) {
+    for (const day of alertDays(alert, actions.get(alert)!, deferrals.get(alert.eventId))) {
       if (day < today) continue;
       byDay.set(day, [...(byDay.get(day) ?? []), alert]);
     }
@@ -126,7 +125,7 @@ export function planReviewNotifications(targets: ReviewTarget[], reviewed: Set<s
   for (const target of targets) {
     const day = addDays(target.date, 1);
     const kept = byDay.get(day);
-    if (day < today || reviewed.has(statusKey(target.eventId, target.date))) continue;
+    if (day < today || reviewed.has(target.eventId)) continue;
     if (!kept || (kept.risk === 'medium' && target.risk === 'high')) byDay.set(day, target);
   }
   return [...byDay.entries()]

@@ -1,4 +1,4 @@
-import { advanceStatus, statusOf, statusKey, UNREVIEWED } from './conflictState';
+import { advanceStatus, statusOf, UNREVIEWED } from './conflictState';
 
 describe('advanceStatus', () => {
   it('goes from unreviewed to acknowledged to resolved, in that order only', () => {
@@ -24,8 +24,8 @@ describe('advanceStatus', () => {
 
 describe('statusOf', () => {
   it('treats an alert with no saved state as unreviewed', () => {
-    const statuses = new Map([[statusKey('trip', '2026-10-27'), { state: 'acknowledged' as const, resolution: null }]]);
-    expect(statusOf(statuses, 'trip', '2026-10-27').state).toBe('acknowledged');
-    expect(statusOf(statuses, 'trip', '2026-11-24')).toEqual(UNREVIEWED);
+    const statuses = new Map([['trip', { state: 'acknowledged' as const, resolution: null }]]);
+    expect(statusOf(statuses, 'trip').state).toBe('acknowledged');
+    expect(statusOf(statuses, 'talk')).toEqual(UNREVIEWED);
   });
 });

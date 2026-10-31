@@ -542,7 +542,7 @@ describe('alerts', () => {
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
     await fireEvent.press(screen.getByLabelText('「企画プレゼン」はずらした'));
     await waitFor(async () =>
-      expect((await getConflictStatuses(db)).get('talk|2026-11-20')).toEqual({
+      expect((await getConflictStatuses(db)).get('talk')).toEqual({
         state: 'resolved',
         resolution: 'shifted',
       }),
@@ -619,7 +619,7 @@ describe('notifications', () => {
     expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
 
     await act(async () => decide([{ eventId: 'talk', date: '2026-11-20' }], 'defer'));
-    await waitFor(async () => expect([...(await loadState(db)).deferrals.keys()]).toEqual(['talk|2026-11-20']));
+    await waitFor(async () => expect([...(await loadState(db)).deferrals.keys()]).toEqual(['talk']));
 
     expect(screen.queryByText('これから30日のお知らせ')).toBeNull();
     await act(async () => decide([{ eventId: 'talk', date: '2026-11-20' }], 'alternatives'));
@@ -692,7 +692,7 @@ describe('asking how past events went', () => {
     const answer = notifier.onReviewAnswer.mock.calls.at(-1)![0];
     await act(async () => answer({ eventId: 'r3', title: '飲み会', date: '2026-10-23', phase: 'pms', risk: 'medium' }, 'easy'));
     await waitFor(() => expect(screen.queryByText('10月23日（金）「飲み会」')).toBeNull());
-    expect(await listReviewed(db)).toEqual(new Set(['r3|2026-10-23']));
+    expect(await listReviewed(db)).toEqual(new Set(['r3']));
   });
 });
 
