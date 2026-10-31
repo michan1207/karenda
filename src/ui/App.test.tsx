@@ -4,6 +4,7 @@ import { AppState, Linking, Share } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {
+  addManualEvent,
   addPeriodStart,
   answerReview,
   Authenticator,
@@ -904,9 +905,10 @@ describe('settings', () => {
     const other = createTestDatabase();
     await migrate(other);
     await addPeriodStart(other, '2026-04-02');
+    await addManualEvent(other, { title: '発表', date: '2026-04-20', weight: 'heavy', color: 'orange' });
     const { db } = await openSettings({ starts: [], files: fakeFiles(JSON.stringify(await exportData(other))) });
     await fireEvent.press(screen.getByText('ファイルから戻す'));
-    expect(await screen.findByText('記録 1件（2026年4月2日〜2026年4月2日）')).toBeTruthy();
+    expect(await screen.findByText('記録 1件（2026年4月2日〜2026年4月2日）・このアプリの予定 1件')).toBeTruthy();
     expect(screen.queryByLabelText('バックアップのパスワード')).toBeNull();
     await fireEvent.press(screen.getByText('記録を足す（設定はファイルのもの）'));
     await waitFor(async () => expect(await listPeriodStarts(db)).toEqual(['2026-04-02']));

@@ -3,7 +3,7 @@ import { ConflictState, ConflictStatus, Resolution, statusKey, statusOf } from '
 import { predictCycle } from '../engine/cycle';
 import { DateKey, fromDateKey, toDateKey } from '../engine/date';
 import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
-import { Answer, learnWeight, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
+import { Answer, learnWeight, ReviewPhase, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
 import { DEFAULT_PMS, nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
 import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
@@ -388,24 +388,60 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
   };
 }
 
+/** 書き出しの形の版。表の版（SCHEMA_VERSION）とは別に、書き出しの形を変えた時だけ上げる。これを持たない前のファイルは 0 */
+export const EXPORT_VERSION = 1;
+
+/** このアプリだけの予定。id は、戻した時に「どうだった？」の答えを付け直すために使う */
+export type ExportedManualEvent = {
+  id: string;
+  title: string;
+  date: DateKey;
+  weight: Weight;
+  color: EventColor;
+  startMinutes: number | null;
+  durationMinutes: number | null;
+};
+export type ExportedReview = { eventId: string; date: DateKey; phase: ReviewPhase; answer: Answer | null; answeredAt: string };
+/** ロック・隠すモード・お知らせ通知の設定 */
+export type ExportedFlags = { lock: boolean; hide: boolean; notify: boolean };
+
 export type ExportedData = {
   app: 'karenda';
+  exportVersion: number;
+  /** 表の版。exportVersion を知らない前のアプリが「新しいアプリのファイル」と見分けられるよう、書き続ける */
   schemaVersion: number;
   exportedAt: string;
   periodStarts: DateKey[];
   zoneSettings: ZoneSettings;
   keywords: RiskKeywords;
+  manualEvents: ExportedManualEvent[];
+  titleWeights: TitleWeight[];
+  reviews: ExportedReview[];
+  predictionRecords: PredictionRecord[];
+  /** 前のファイルには無い（戻しても今の設定のまま） */
+  flags: ExportedFlags | null;
 };
 
-/** 機種変更などのための書き出し。閉じた警告は端末の予定IDに結びつくので含めない */
+/** 機種変更などのための書き出し。お知らせの状態と「今日は決めない」は端末の予定IDに結びつくので含めない */
 export async function exportData(db: Database, now: Date = new Date()): Promise<ExportedData> {
   return {
     app: 'karenda',
+    exportVersion: EXPORT_VERSION,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: now.toISOString(),
     periodStarts: await listPeriodStarts(db),
     zoneSettings: await getZoneSettings(db),
     keywords: await getKeywords(db),
+    manualEvents: await db.getAllAsync<ExportedManualEvent>(
+      `SELECT '${MANUAL_PREFIX}' || id AS id, title, date, weight, color, start_minutes AS startMinutes, duration_minutes AS durationMinutes
+       FROM manual_events ORDER BY id`,
+    ),
+    titleWeights: await listTitleWeights(db),
+    reviews: await db.getAllAsync<ExportedReview>(
+      'SELECT event_id AS eventId, date, phase, answer, answered_at AS answeredAt FROM event_reviews ORDER BY date, event_id',
+    ),
+    predictionRecords: await listPredictionRecords(db),
+    flags: { lock: await isLockEnabled(db), hide: await isHideMode(db), notify: await isNotifyEnabled(db) },
   };
 }
 
@@ -413,6 +449,58 @@ export type ReadExport = { ok: true; data: ExportedData } | { ok: false; reason:
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 const isWords = (value: unknown): value is string[] => Array.isArray(value) && value.every((v) => typeof v === 'string');
+const isListOf = <T>(value: unknown, check: (item: Record<string, unknown>) => boolean): value is T[] =>
+  Array.isArray(value) && value.every((item) => isRecord(item) && check(item));
+const isOneOf = (values: readonly unknown[], value: unknown) => values.includes(value);
+const isWhole = (value: unknown, min = 0, max = Infinity): value is number =>
+  Number.isInteger(value) && (value as number) >= min && (value as number) <= max;
+const isDay = (value: unknown): value is DateKey => {
+  if (typeof value !== 'string') return false;
+  try {
+    fromDateKey(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const isManualEvent = (event: Record<string, unknown>) =>
+  typeof event.id === 'string' &&
+  typeof event.title === 'string' &&
+  event.title.trim() !== '' &&
+  isDay(event.date) &&
+  isOneOf(['heavy', 'normal'], event.weight) &&
+  isOneOf(EVENT_COLORS, event.color) &&
+  (event.startMinutes === null || isWhole(event.startMinutes, 0, 24 * 60 - 1)) &&
+  (event.durationMinutes === null || isWhole(event.durationMinutes, 1, 24 * 60));
+
+const isTitleWeight = (entry: Record<string, unknown>) =>
+  typeof entry.term === 'string' &&
+  entry.term !== '' &&
+  typeof entry.label === 'string' &&
+  (entry.weight === null || isOneOf(['heavy', 'normal'], entry.weight)) &&
+  isOneOf(['learned', 'user'], entry.source) &&
+  isWhole(entry.observations) &&
+  Number.isInteger(entry.lean);
+
+const isReview = (review: Record<string, unknown>) =>
+  typeof review.eventId === 'string' &&
+  isDay(review.date) &&
+  isOneOf(['period', 'pms', 'other'], review.phase) &&
+  (review.answer === null || isOneOf(['hard', 'normal', 'easy'], review.answer)) &&
+  typeof review.answeredAt === 'string';
+
+const isPrediction = (record: Record<string, unknown>) =>
+  isDay(record.basedOn) &&
+  isDay(record.predictedStart) &&
+  isDay(record.earliest) &&
+  isDay(record.latest) &&
+  isOneOf(['high', 'medium', 'low'], record.confidence) &&
+  (record.actualStart === null || isDay(record.actualStart)) &&
+  (record.absErrorDays === null || isWhole(record.absErrorDays));
+
+const isFlags = (flags: unknown): flags is ExportedFlags =>
+  isRecord(flags) && typeof flags.lock === 'boolean' && typeof flags.hide === 'boolean' && typeof flags.notify === 'boolean';
 
 /** 書き出したファイルを読む。外から来た中身なので、形と値をすべて確かめる */
 export function readExport(text: string): ReadExport {
@@ -424,14 +512,25 @@ export function readExport(text: string): ReadExport {
   }
   if (!isRecord(raw) || raw.app !== 'karenda') return { ok: false, reason: 'notCocomia' };
   const { schemaVersion, exportedAt, periodStarts, zoneSettings, keywords } = raw;
-  if (typeof schemaVersion === 'number' && schemaVersion > SCHEMA_VERSION) return { ok: false, reason: 'newer' };
+  const version = raw.exportVersion ?? 0;
+  if (typeof version === 'number' && version > EXPORT_VERSION) return { ok: false, reason: 'newer' };
+  // exportVersion を持たない前のファイルは、表の版で新しさを見ていた
+  if (version === 0 && typeof schemaVersion === 'number' && schemaVersion > SCHEMA_VERSION) return { ok: false, reason: 'newer' };
+  const old = version === 0;
+  const extra: Record<string, unknown> = old ? { manualEvents: [], titleWeights: [], reviews: [], predictionRecords: [] } : raw;
   if (
+    !isWhole(version) ||
     !Number.isInteger(schemaVersion) ||
     !isWords(periodStarts) ||
     !isRecord(zoneSettings) ||
     !isRecord(keywords) ||
     !isWords(keywords.high) ||
-    !isWords(keywords.medium)
+    !isWords(keywords.medium) ||
+    !isListOf<ExportedManualEvent>(extra.manualEvents, isManualEvent) ||
+    !isListOf<TitleWeight>(extra.titleWeights, isTitleWeight) ||
+    !isListOf<ExportedReview>(extra.reviews, isReview) ||
+    !isListOf<PredictionRecord>(extra.predictionRecords, isPrediction) ||
+    !(old || isFlags(raw.flags))
   ) {
     return { ok: false, reason: 'broken' };
   }
@@ -446,11 +545,17 @@ export function readExport(text: string): ReadExport {
     ok: true,
     data: {
       app: 'karenda',
+      exportVersion: version,
       schemaVersion: schemaVersion as number,
       exportedAt: typeof exportedAt === 'string' ? exportedAt : '',
       periodStarts,
       zoneSettings: settings,
       keywords: { high: keywords.high, medium: keywords.medium },
+      manualEvents: extra.manualEvents,
+      titleWeights: extra.titleWeights,
+      reviews: extra.reviews,
+      predictionRecords: extra.predictionRecords,
+      flags: old ? null : (raw.flags as ExportedFlags),
     },
   };
 }
@@ -458,17 +563,82 @@ export function readExport(text: string): ReadExport {
 /** replace: ファイルの中身に置き換える / keepMine: 記録は足し、設定は今のまま / preferFile: 記録は足し、設定はファイルのもの */
 export type RestoreMode = 'replace' | 'keepMine' | 'preferFile';
 
-/** 読み込んだ記録を戻す。途中で失敗したら何も変えない */
+/**
+ * 読み込んだ記録を戻す。途中で失敗したら何も変えない。
+ * 覚えた重さは記録として足す（同じ名前があれば keepMine は今のもの、ほかはファイルのもの）。
+ * ロック・隠すモード・通知は設定として扱い、keepMine では変えない
+ */
 export async function restoreData(db: Database, data: ExportedData, mode: RestoreMode): Promise<void> {
   await db.withTransactionAsync(async () => {
-    if (mode === 'replace') await db.runAsync('DELETE FROM period_starts');
+    if (mode === 'replace') {
+      await db.execAsync(`
+        DELETE FROM period_starts;
+        DELETE FROM manual_events;
+        DELETE FROM title_weights;
+        DELETE FROM event_reviews;
+        DELETE FROM prediction_records;
+      `);
+    }
     for (const start of data.periodStarts) await addPeriodStart(db, start);
+    // このアプリだけの予定は、戻すと ID が変わる。答えはその新しい ID に付け直す
+    const movedIds = new Map<string, string>();
+    for (const event of data.manualEvents) movedIds.set(event.id, await restoreManualEvent(db, event));
+    for (const review of data.reviews) {
+      await db.runAsync(
+        'INSERT OR IGNORE INTO event_reviews (event_id, date, phase, answer, answered_at) VALUES (?, ?, ?, ?, ?)',
+        movedIds.get(review.eventId) ?? review.eventId,
+        review.date,
+        review.phase,
+        review.answer,
+        review.answeredAt,
+      );
+    }
+    for (const record of data.predictionRecords) await savePrediction(db, record);
+    for (const entry of data.titleWeights) {
+      await db.runAsync(
+        `INSERT OR ${mode === 'keepMine' ? 'IGNORE' : 'REPLACE'} INTO title_weights (term, label, weight, source, observations, lean, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        entry.term,
+        entry.label,
+        entry.weight,
+        entry.source,
+        entry.observations,
+        entry.lean,
+        data.exportedAt,
+      );
+    }
     if (mode === 'keepMine') return;
     await setZoneSettings(db, data.zoneSettings);
     // ファイルの PMS の日数が7日前でなければ、手動で決めたものとして戻す
     await db.runAsync("DELETE FROM settings WHERE key = 'pms'");
     await writeKeywords(db, data.keywords);
+    if (!data.flags) return;
+    await setLockEnabled(db, data.flags.lock);
+    await setHideMode(db, data.flags.hide);
+    await setNotifyEnabled(db, data.flags.notify);
   });
+}
+
+/** 同じ日・名前・時刻の予定がもうあれば足さない（同じファイルを2回戻しても増えない）。戻した先の ID を返す */
+async function restoreManualEvent(db: Database, event: ExportedManualEvent): Promise<string> {
+  const same = await db.getFirstAsync<{ id: number }>(
+    'SELECT id FROM manual_events WHERE title = ? AND date = ? AND start_minutes IS ? AND duration_minutes IS ?',
+    event.title.trim(),
+    event.date,
+    event.startMinutes,
+    event.durationMinutes,
+  );
+  if (same) return `${MANUAL_PREFIX}${same.id}`;
+  await addManualEvent(db, {
+    title: event.title,
+    date: event.date,
+    weight: event.weight,
+    color: event.color,
+    startMinutes: event.startMinutes ?? undefined,
+    durationMinutes: event.durationMinutes ?? undefined,
+  });
+  const added = await db.getFirstAsync<{ id: number }>('SELECT last_insert_rowid() AS id');
+  return `${MANUAL_PREFIX}${added!.id}`;
 }
 
 /** 記録・設定をすべて消して、はじめて開いたときの状態に戻す */
