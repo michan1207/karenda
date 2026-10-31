@@ -32,6 +32,19 @@ describe('estimatePmsDays', () => {
     expect(estimatePmsDays(cycles([4, 12, 4, 12, 4, 12]), STARTS)).toEqual({ daysBefore: null, observations: 6 });
   });
 
+  it('uses the starts in any order and counts a repeated start once', () => {
+    const shuffled = [STARTS[3], STARTS[0], STARTS[5], STARTS[1], STARTS[1], STARTS[4], STARTS[2]];
+    expect(estimatePmsDays(cycles([9, 9, 10, 8, 9, 9]), shuffled)).toEqual({ daysBefore: 9, observations: 6 });
+  });
+
+  it('leaves out cycles from more than the last 12 starts (about a year)', () => {
+    // 6周期読めたあと、答えの無い周期が続いた
+    const later = Array.from({ length: 7 }, (_, i) => addDays(STARTS[5], 28 * (i + 1)));
+    const answers = cycles([9, 9, 10, 8, 9, 9]);
+    expect(estimatePmsDays(answers, [...STARTS, ...later.slice(0, 6)])).toEqual({ daysBefore: 9, observations: 6 });
+    expect(estimatePmsDays(answers, [...STARTS, ...later])).toEqual({ daysBefore: null, observations: 5 });
+  });
+
   it('does not count cycles without a hard answer', () => {
     expect(estimatePmsDays(STARTS.flatMap((start) => before(start, { 3: 'easy' })), STARTS).observations).toBe(0);
   });
