@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { Button, Text } from './components';
+import { BIOMETRIC, Button, PASSCODE, Text } from './components';
 import { useColors } from './theme';
 
 /** ロック中の画面。何の記録かが分からないよう、アプリの中身は何も出さない */
@@ -9,7 +9,7 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   return (
     <View style={styles.center}>
       <Text style={[styles.title, { color: colors.text }]}>ロックしています</Text>
-      <Text style={[styles.help, { color: colors.muted }]}>Face ID（またはパスコード）で開けます。</Text>
+      <Text style={[styles.help, { color: colors.muted }]}>{BIOMETRIC}（または{PASSCODE}）で開けます。</Text>
       <Button colors={colors} label="ロックを解除" onPress={onUnlock} />
     </View>
   );

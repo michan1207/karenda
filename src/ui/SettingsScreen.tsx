@@ -4,7 +4,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } f
 import { AccuracyReport, DateKey, PMS_CYCLES, PmsEstimate, predictCycle, RiskKeywords } from '../engine';
 import { CALENDAR_NOTE, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import BackupPanel from './BackupPanel';
-import { Button, Decorations, Notice, Ribbon, Section, Text } from './components';
+import { BIOMETRIC, Button, Decorations, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
@@ -249,9 +249,9 @@ export default function SettingsScreen({ k, today }: Props) {
 
       <Section colors={colors} title="アプリのロック">
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>Face ID でロックする</Text>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>{BIOMETRIC}でロックする</Text>
           <Switch
-            accessibilityLabel="Face ID でロックする"
+            accessibilityLabel={`${BIOMETRIC}でロックする`}
             value={k.lockEnabled}
             onValueChange={changeLock}
             disabled={lockAvailable === false}
@@ -259,32 +259,32 @@ export default function SettingsScreen({ k, today }: Props) {
           />
         </View>
         <Text style={[styles.help, { color: colors.muted }]}>
-          アプリを開いた時と、ホームから戻った時に Face ID（またはパスコード）を求めます。何度失敗しても、記録は消えません。
+          アプリを開いた時と、ホームから戻った時に{BIOMETRIC}（または{PASSCODE}）を求めます。何度失敗しても、記録は消えません。
         </Text>
         {lockAvailable === false && (
           <Text style={[styles.help, { color: colors.danger }]}>
-            この iPhone にパスコードが設定されていないため、ロックは使えません。
+            この端末に{PASSCODE}が設定されていないため、ロックは使えません。
           </Text>
         )}
         {lockFailed && (
           <Text style={[styles.help, { color: colors.danger }]}>
-            Face ID で確かめられなかったため、ロックはオンにしていません。
+            {BIOMETRIC}で確かめられなかったため、ロックはオンにしていません。
           </Text>
         )}
       </Section>
 
       <Section colors={colors} title="利用状況の記録">
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>利用状況をこの iPhone に記録する</Text>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>利用状況をこの端末に記録する</Text>
           <Switch
-            accessibilityLabel="利用状況をこの iPhone に記録する"
+            accessibilityLabel="利用状況をこの端末に記録する"
             value={k.metricsEnabled}
             onValueChange={k.setMetrics}
             trackColor={{ true: colors.pink, false: colors.line }}
           />
         </View>
         <Text style={[styles.help, { color: colors.muted }]}>
-          記録した回数などを、この iPhone の中だけで数えます。外には送りません。オフにしても、アプリの使い方は変わりません。
+          記録した回数などを、この端末の中だけで数えます。外には送りません。オフにしても、アプリの使い方は変わりません。
         </Text>
       </Section>
 

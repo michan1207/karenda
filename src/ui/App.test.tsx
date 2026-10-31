@@ -951,7 +951,7 @@ describe('usage records', () => {
   it('can be turned off in settings', async () => {
     const { db } = await setup();
     await fireEvent.press(await screen.findByText('設定'));
-    await fireEvent(screen.getByLabelText('利用状況をこの iPhone に記録する'), 'valueChange', false);
+    await fireEvent(screen.getByLabelText('利用状況をこの端末に記録する'), 'valueChange', false);
     await waitFor(async () => expect(await isMetricsEnabled(db)).toBe(false));
   });
 });
@@ -989,22 +989,22 @@ describe('app lock', () => {
     const authenticator = fakeAuthenticator(true, [false, true]);
     const { db } = await setup({ authenticator });
     await fireEvent.press(await screen.findByText('設定'));
-    await fireEvent(screen.getByLabelText('Face ID でロックする'), 'valueChange', true);
-    expect(await screen.findByText('Face ID で確かめられなかったため、ロックはオンにしていません。')).toBeTruthy();
+    await fireEvent(screen.getByLabelText('Face IDでロックする'), 'valueChange', true);
+    expect(await screen.findByText('Face IDで確かめられなかったため、ロックはオンにしていません。')).toBeTruthy();
     expect(await isLockEnabled(db)).toBe(false);
-    await fireEvent(screen.getByLabelText('Face ID でロックする'), 'valueChange', true);
+    await fireEvent(screen.getByLabelText('Face IDでロックする'), 'valueChange', true);
     await waitFor(async () => expect(await isLockEnabled(db)).toBe(true));
     // オンにした直後は、自分で開いているのでロックしない
     expect(screen.queryByText('ロックしています')).toBeNull();
-    await fireEvent(screen.getByLabelText('Face ID でロックする'), 'valueChange', false);
+    await fireEvent(screen.getByLabelText('Face IDでロックする'), 'valueChange', false);
     await waitFor(async () => expect(await isLockEnabled(db)).toBe(false));
   });
 
   it('cannot turn the lock on when the iPhone has no passcode', async () => {
     await setup({ authenticator: fakeAuthenticator(false) });
     await fireEvent.press(await screen.findByText('設定'));
-    expect(await screen.findByText('この iPhone にパスコードが設定されていないため、ロックは使えません。')).toBeTruthy();
-    expect(screen.getByLabelText('Face ID でロックする').props.disabled).toBe(true);
+    expect(await screen.findByText('この端末にパスコードが設定されていないため、ロックは使えません。')).toBeTruthy();
+    expect(screen.getByLabelText('Face IDでロックする').props.disabled).toBe(true);
   });
 });
 
