@@ -84,11 +84,11 @@ export type Karenda = StoredState & {
   notifier: Notifier;
   /** 端末の通知の許可 */
   notifyAccess: Access;
-  /** 通知の「代替日を見る」を押した回数。増えたらお知らせを開く */
-  alertsRequested: number;
   /** 保存に失敗した。次に保存できるか、閉じるまで案内を出す */
   saveFailed: boolean;
   dismissSaveFailed(): void;
+  /** 通知の「代替日を見る」を押した回数。増えたらお知らせを開く */
+  alertsRequested: number;
   /** 案内を終える。カレンダーを使うなら許可を求め、「今はしない」なら求めない（どちらも通知の許可は求める） */
   finishOnboarding(useCalendar: boolean): Promise<void>;
   /** 「今はしない」にしていたカレンダーを使い始める。許可されたら true */
@@ -160,9 +160,9 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
   const [status, setStatus] = useState<Karenda['status']>('loading');
   const [access, setAccess] = useState<Access>('checking');
   const [notifyAccess, setNotifyAccess] = useState<Access>('checking');
+  const [saveFailed, setSaveFailed] = useState(false);
   const [stored, setStored] = useState<StoredState>(INITIAL_STATE);
   const [alertsRequested, setAlertsRequested] = useState(0);
-  const [saveFailed, setSaveFailed] = useState(false);
 
   const reload = useCallback(async (opened: Database) => {
     const loaded = await loadState(opened);
@@ -307,9 +307,9 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     calendar,
     notifier,
     notifyAccess,
-    alertsRequested,
     saveFailed,
     dismissSaveFailed: () => setSaveFailed(false),
+    alertsRequested,
     finishOnboarding: async (useCalendar) => {
       await withDb(async (opened) => {
         await setOnboarded(opened);
