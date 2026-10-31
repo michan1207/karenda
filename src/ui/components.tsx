@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Image, Pressable, Text as BaseText, StyleProp, StyleSheet, TextProps, View, ViewStyle } from 'react-native';
+import { Image, Platform, Pressable, Text as BaseText, StyleProp, StyleSheet, TextProps, View, ViewStyle } from 'react-native';
 
 import { Colors, fonts, radius } from './theme';
 
@@ -126,6 +126,10 @@ export function PillHeading({ colors, text }: { colors: Colors; text: string }) 
 
 /** 案内役のクマ「ミア」の名前（2026-10-29 オーナー命名） */
 export const MASCOT_NAME = 'ミア';
+
+/** ロックを開ける方法の呼び名。Android は機種により指紋か顔なので両方を書く */
+export const BIOMETRIC = Platform.OS === 'ios' ? 'Face ID' : '指紋・顔認証';
+export const PASSCODE = Platform.OS === 'ios' ? 'パスコード' : '画面ロック';
 
 /** ミアの丸い絵（assets/mascot.png。アイコンと同じ絵から切り出し）。飾りなので読み上げない */
 export function Mascot({ colors, size }: { colors: Colors; size: number }) {

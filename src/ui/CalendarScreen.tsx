@@ -411,7 +411,7 @@ function ManualEventForm({
   };
   return (
     <View style={styles.manualForm}>
-      <Text style={[styles.reviewHelp, { color: colors.muted }]}>このアプリの中だけに残し、iPhone のカレンダーには書きません。</Text>
+      <Text style={[styles.reviewHelp, { color: colors.muted }]}>このアプリの中だけに残し、端末のカレンダーには書きません。</Text>
       <TextInput
         accessibilityLabel={`${dayTitle(day)}に入れる予定の名前`}
         value={title}
