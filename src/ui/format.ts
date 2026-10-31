@@ -14,7 +14,7 @@ export function fullDate(day: DateKey): string {
 
 export function zoneLabel(zone: ZoneDay | undefined): string {
   if (!zone) return '通常';
-  if (zone.zone === 'pms') return 'PMS警戒期（予測）';
+  if (zone.zone === 'pms') return 'PMSの時期（予測）';
   const name = zone.periodDay ? `生理${zone.periodDay}日目` : '生理の時期';
   return zone.predicted ? `${name}（予測）` : name;
 }

@@ -57,5 +57,8 @@
 - お知らせタブのボタン→ `Share.share` の共有メニューだけで送る（LINE SDK・URL・通信は入れない）
 - 見本はオーナー指定の8文（2026-10-28 差し替え。省エネモード／緊急速報／ポンコツ化／HPほぼゼロ／体調重め／イライラごめん／予定ゆっくり／マイペース）。日付・予測・予定・記録の中身は入れない。入力欄で自由に書き換えられ、見本を押すと元の文に戻る（保存しない）
 
+## 文言（wording.ts、2026-10-31 F18）
+- engine が作る文（consultText・通知・提案・理由）も `BANNED_PHRASES`（理由 medicalClaim／absoluteClaim／fearAppeal と言い換え）に従う。`src/wording.test.ts` が src・app.json・locales・docs・store の文字列を検査する
+
 ## 変更するとき
 - テストを先に書く（`*.test.ts` が同じ場所にある）。Expo を import しない

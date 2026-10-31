@@ -41,7 +41,7 @@ import type { Karenda } from './useKarenda';
 type Props = { k: Karenda; today: DateKey; reviews: ReviewTarget[]; openAlerts: () => void };
 
 /** ミアの一言。短く、やさしく、次にできることを1つだけ言う。時期は予測なので「かな」で言い切らない */
-const MASCOT_LINES: Record<PeriodPhase | 'calm', { lead: string; lines: string[] }> = {
+export const MASCOT_LINES: Record<PeriodPhase | 'calm', { lead: string; lines: string[] }> = {
   before: {
     lead: 'そろそろPMSのころかな。',
     lines: [
@@ -281,7 +281,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
           <View style={styles.legend}>
             <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
             <LegendItem color={colors.heavyEdge} label="生理かもしれない日" textColor={colors.muted} />
-            <LegendItem color={colors.pms} label="PMS警戒期" textColor={colors.muted} />
+            <LegendItem color={colors.pms} label="PMSの時期" textColor={colors.muted} />
             <View style={styles.legendItem}>
               <AlertMark colors={colors} strong size={12} />
               <Text style={[styles.legendText, { color: colors.muted }]}>予定と重なる日</Text>
@@ -359,7 +359,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
 
       {!hidden && (
         <Text style={[styles.footnote, { color: colors.muted }]}>
-          予測は目安です。医療的な診断や避妊には使えません。データはこの端末の中だけで扱います。
+          予測は目安で、医療や避妊の目的には使えません。体調の判断は医師にご相談ください。データはこの端末の中だけで扱います。
         </Text>
       )}
     </ScrollView>
