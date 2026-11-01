@@ -19,6 +19,7 @@ import {
   listResolutions,
   recordMetric,
   setMetricsEnabled,
+  EXPORT_VERSION,
   exportData,
   getKeywords,
   getZoneSettings,
@@ -29,6 +30,7 @@ import {
   isNotifyEnabled,
   isOnboarded,
   isReviewAsked,
+  listManualEvents,
   listPeriodStarts,
   listPredictionRecords,
   listDeferrals,
@@ -473,11 +475,17 @@ describe('export and delete', () => {
     const data = await exportData(db, new Date('2026-10-24T00:00:00Z'));
     expect(data).toEqual({
       app: 'karenda',
+      exportVersion: EXPORT_VERSION,
       schemaVersion: SCHEMA_VERSION,
       exportedAt: '2026-10-24T00:00:00.000Z',
       periodStarts: ['2026-10-01'],
       zoneSettings: DEFAULT_ZONE_SETTINGS,
       keywords: DEFAULT_KEYWORDS,
+      manualEvents: [],
+      titleWeights: [],
+      reviews: [],
+      predictionRecords: [],
+      flags: { lock: false, hide: false, notify: true },
     });
     expect(JSON.parse(JSON.stringify(data))).toEqual(data);
   });
@@ -517,12 +525,21 @@ describe('export and delete', () => {
 describe('reading an exported file back', () => {
   const exported = async () => JSON.stringify(await exportData(db));
 
-  it('restores records and settings exactly after everything was deleted', async () => {
-    await addPeriodStart(db, '2026-09-01');
-    await addPeriodStart(db, '2026-09-29');
+  it('restores everything exactly after everything was deleted', async () => {
+    const today = new Date(2026, 9, 24, 12);
+    for (const start of ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28']) await addPeriodStart(db, start);
     await setZoneSettings(db, { heavyDays: 5, pmsDays: 3 });
     await setKeywords(db, { high: ['ヨガ'], medium: ['会議'] });
-    const before = await loadState(db);
+    await addManualEvent(db, { title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange', startMinutes: 600, durationMinutes: 90 });
+    await addManualEvent(db, { title: '通院', date: '2026-10-22', weight: 'normal', color: 'blue' });
+    const review = { eventId: 'manual:2', title: '通院', date: '2026-10-22', phase: 'pms' as const, risk: 'medium' as const };
+    await answerReview(db, review, 'hard', new Date('2026-10-23T00:00:00Z'));
+    await saveTitleWeight(db, overrideWeight(learnWeight(undefined, '役員会議', 'hard', 'pms'), '役員会議', 'normal'));
+    await setLockEnabled(db, true);
+    await setHideMode(db, true);
+    await setNotifyEnabled(db, false);
+    const before = await loadState(db, today);
+    const predictions = await listPredictionRecords(db);
     const file = await exported();
 
     await deleteAllData(db);
@@ -530,29 +547,50 @@ describe('reading an exported file back', () => {
     if (!read.ok) throw new Error(read.reason);
     await restoreData(db, read.data, 'replace');
 
-    const after = await loadState(db);
+    const after = await loadState(db, today);
     expect(after.starts).toEqual(before.starts);
     expect(after.settings).toEqual(before.settings);
     expect(after.keywords).toEqual(before.keywords);
+    expect(after.pms).toEqual(before.pms);
+    expect(after.titleWeights).toHaveLength(2);
+    expect(after.titleWeights).toEqual(expect.arrayContaining(before.titleWeights));
+    expect(predictions).toHaveLength(1);
+    expect(await listPredictionRecords(db)).toEqual(predictions);
+    // このアプリだけの予定は新しい ID で戻り、「どうだった？」の答えもその ID に付く
+    const withoutId = (events: { id: string }[]) => events.map(({ id: _, ...rest }) => rest);
+    expect(withoutId(after.manualEvents)).toEqual(withoutId(before.manualEvents));
+    expect(after.manualEvents[1].id).not.toBe('manual:2');
+    expect(await db.getAllAsync('SELECT event_id FROM event_reviews')).toEqual([{ event_id: after.manualEvents[1].id }]);
+    expect([await isLockEnabled(db), await isHideMode(db), await isNotifyEnabled(db)]).toEqual([true, true, false]);
   });
 
   it('can add the file’s records to the ones already here, keeping these settings', async () => {
     await addPeriodStart(db, '2026-08-04');
+    await addManualEvent(db, { title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange' });
+    await saveTitleWeight(db, overrideWeight(learnWeight(undefined, '役員会議', 'hard', 'pms'), '役員会議', 'heavy'));
+    await setHideMode(db, true);
     const file = await exported();
     await deleteAllData(db);
     await addPeriodStart(db, '2026-09-01');
     await setZoneSettings(db, { heavyDays: 4, pmsDays: 5 });
+    await saveTitleWeight(db, overrideWeight(learnWeight(undefined, '役員会議', 'hard', 'pms'), '役員会議', 'normal'));
 
     const read = readExport(file);
     if (!read.ok) throw new Error(read.reason);
     await restoreData(db, read.data, 'keepMine');
+    // 同じファイルをもう一度戻しても、予定は増えない
+    await restoreData(db, read.data, 'keepMine');
     expect(await listPeriodStarts(db)).toEqual(['2026-08-04', '2026-09-01']);
+    expect((await listManualEvents(db)).map((event) => event.title)).toEqual(['発表']);
     expect(await getZoneSettings(db)).toEqual({ heavyDays: 4, pmsDays: 5 });
+    expect((await listTitleWeights(db)).map((entry) => entry.weight)).toEqual(['normal']);
+    expect(await isHideMode(db)).toBe(false);
   });
 
   it('can add the file’s records and take its settings', async () => {
     await setZoneSettings(db, { heavyDays: 2, pmsDays: 10 });
     await addPeriodStart(db, '2026-08-04');
+    await setLockEnabled(db, true);
     const file = await exported();
     await deleteAllData(db);
     await addPeriodStart(db, '2026-09-01');
@@ -563,12 +601,51 @@ describe('reading an exported file back', () => {
     expect(await listPeriodStarts(db)).toEqual(['2026-08-04', '2026-09-01']);
     expect(await getZoneSettings(db)).toEqual({ heavyDays: 2, pmsDays: 10 });
     expect((await loadState(db)).pms).toMatchObject({ daysBefore: 10, source: 'manual' });
+    expect(await isLockEnabled(db)).toBe(true);
+  });
+
+  it('still reads a file from before everything was included, and leaves the settings it does not have', async () => {
+    await setLockEnabled(db, true);
+    const before = { app: 'karenda', schemaVersion: 9, periodStarts: ['2026-09-01'], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: DEFAULT_KEYWORDS };
+    const read = readExport(JSON.stringify(before));
+    expect(read).toMatchObject({ ok: true, data: { exportVersion: 0, manualEvents: [], reviews: [], flags: null } });
+    if (!read.ok) throw new Error(read.reason);
+    await restoreData(db, read.data, 'replace');
+    expect(await listPeriodStarts(db)).toEqual(['2026-09-01']);
+    expect(await isLockEnabled(db)).toBe(true);
+  });
+
+  it('reads a file from an app whose tables are newer, as long as the file shape is known', async () => {
+    const file = JSON.stringify({ ...(await exportData(db)), schemaVersion: SCHEMA_VERSION + 5 });
+    expect(readExport(file).ok).toBe(true);
+  });
+
+  const full = {
+    app: 'karenda',
+    exportVersion: EXPORT_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    periodStarts: [],
+    zoneSettings: DEFAULT_ZONE_SETTINGS,
+    keywords: DEFAULT_KEYWORDS,
+    manualEvents: [{ id: 'manual:1', title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange', startMinutes: null, durationMinutes: null }],
+    titleWeights: [],
+    reviews: [{ eventId: 'manual:1', date: '2026-10-20', phase: 'pms', answer: 'hard', answeredAt: '2026-10-21T00:00:00.000Z' }],
+    predictionRecords: [],
+    flags: { lock: false, hide: false, notify: true },
+  };
+
+  it('accepts a whole file written now', () => {
+    expect(readExport(JSON.stringify(full)).ok).toBe(true);
   });
 
   it.each([
     ['not JSON', 'こんにちは', 'broken'],
     ['another app', JSON.stringify({ app: 'other' }), 'notCocomia'],
     ['a newer app', JSON.stringify({ app: 'karenda', schemaVersion: SCHEMA_VERSION + 1 }), 'newer'],
+    ['a newer file shape', JSON.stringify({ ...full, exportVersion: EXPORT_VERSION + 1 }), 'newer'],
+    ['an event with an unknown color', JSON.stringify({ ...full, manualEvents: [{ ...full.manualEvents[0], color: 'pink' }] }), 'broken'],
+    ['an answer with an unknown time of the cycle', JSON.stringify({ ...full, reviews: [{ ...full.reviews[0], phase: 'luteal' }] }), 'broken'],
+    ['a new file without its settings', JSON.stringify({ ...full, flags: undefined }), 'broken'],
     ['an impossible date', JSON.stringify({ app: 'karenda', schemaVersion: 1, periodStarts: ['2026-02-30'], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: DEFAULT_KEYWORDS }), 'broken'],
     ['settings out of range', JSON.stringify({ app: 'karenda', schemaVersion: 1, periodStarts: [], zoneSettings: { heavyDays: 0, pmsDays: 7 }, keywords: DEFAULT_KEYWORDS }), 'broken'],
     ['keywords that are not lists of words', JSON.stringify({ app: 'karenda', schemaVersion: 1, periodStarts: [], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: { high: 'ヨガ' } }), 'broken'],

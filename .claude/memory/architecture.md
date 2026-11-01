@@ -9,13 +9,13 @@
 - 表: `period_starts(start)` / `settings(key,value)` / `keywords(word,level: high|medium)` / `conflict_states(event_id,date,state,resolution,updated_at)`（版2。2026-10-30 に dismissed_alerts を「確認済み」として移した）
 - `settings` のキー: `zone`（JSON: heavyDays, pmsDays）, `onboarded`（'1'）, `notify`（'1'/'0'）, `review_asked`（'1'）, `hide`（隠すモード）, `lock`（アプリのロック）
 - 利用状況の記録（版3の `metric_events(name, props, occurred_at)`、settings の `metrics`。はじめはオン）: `recordMetric` はオフなら何もしない。props に予定の名前・日付・本文は入れない。全削除で消える。外には送らない
-- 覚えた予定の重さ（版4の `title_weights(term, label, weight, source, observations, lean, updated_at)`）: `listTitleWeights` / `saveTitleWeight` / `removeTitleWeight`。`loadState` が決まったものだけ `keywords.learned` に入れる。全削除で消える。バックアップには入れていない
+- 覚えた予定の重さ（版4の `title_weights(term, label, weight, source, observations, lean, updated_at)`）: `listTitleWeights` / `saveTitleWeight` / `removeTitleWeight`。`loadState` が決まったものだけ `keywords.learned` に入れる。全削除で消える。バックアップに入る（2026-11-01）
 - 「どうだった？」の答え（版5の `event_reviews(event_id, date, phase, answer, answered_at)`、answer NULL＝答えない）: `answerReview` が1トランザクションで残して学ぶ（同じ予定は最初の1回だけ）。`loadState` の `reviewed`。全削除で消える
 - PMS の日数の決め方（settings の `pms` 行、PmsEstimate の JSON）: `loadState` が毎回 `nextPmsEstimate` で計算し直し、変われば保存。`loadState().settings` は推定を反映した帯用の設定、手動の日数は zone の pmsDays（書き出しに入る）。`pms` 行が無い時は zone の pmsDays が7なら自動、それ以外は手動。バックアップを設定ごと戻すと `pms` 行を消す
-- 予測の当たり具合（版6の `prediction_records(based_on PK, predicted_start, earliest, latest, confidence, actual_start, abs_error_days)`）: `loadState` が毎回、まだ比べていない予測を今の予測に合わせる（幅が過ぎていたら残さない）。画面からの記録は `recordPeriodStart`（いちばん新しい開始日なら直前の予測と1回だけ比べる。復元は `addPeriodStart` で比べない）。比べた行は upsert の WHERE で書き換えない。`removePeriodStart` はその日から出した予測を消し、その日と比べた予測を待ちに戻す。全削除で消える。バックアップには入れていない
+- 予測の当たり具合（版6の `prediction_records(based_on PK, predicted_start, earliest, latest, confidence, actual_start, abs_error_days)`）: `loadState` が毎回、まだ比べていない予測を今の予測に合わせる（幅が過ぎていたら残さない）。画面からの記録は `recordPeriodStart`（いちばん新しい開始日なら直前の予測と1回だけ比べる。復元は `addPeriodStart` で比べない）。比べた行は upsert の WHERE で書き換えない。`removePeriodStart` はその日から出した予測を消し、その日と比べた予測を待ちに戻す。全削除で消える。バックアップに入る（2026-11-01）
 - 受診の目安カードを閉じた月: settings の `consult_dismissed`（YYYY-MM）。`loadState` の `consultDismissed`。全削除で消える
 - カレンダーの「今はしない」: settings の `calendar_skipped`。そのあいだは起動時に許可を求めず `hasAccess` だけ見る。カレンダー画面の案内と設定の「カレンダーを使う」（`enableCalendar`）で外して許可を求める
-- このアプリだけの予定（版8の `manual_events(id, title, date, weight)`、2026-10-31）: `listManualEvents` は CalendarEvent の形（id `manual:N`、`manual: true`、`weight`）。`useEvents` がカレンダーの予定（許可がある時だけ）と合わせて返すので、判定・通知・「どうだった？」は同じに動く。版9で `start_minutes`・`duration_minutes`（NULL＝時刻なし）・`color`（EVENT_COLORS、既定 blue）を足した。iPhone のカレンダーには書かない。全削除で消える。バックアップにはまだ入れていない
+- このアプリだけの予定（版8の `manual_events(id, title, date, weight)`、2026-10-31）: `listManualEvents` は CalendarEvent の形（id `manual:N`、`manual: true`、`weight`）。`useEvents` がカレンダーの予定（許可がある時だけ）と合わせて返すので、判定・通知・「どうだった？」は同じに動く。版9で `start_minutes`・`duration_minutes`（NULL＝時刻なし）・`color`（EVENT_COLORS、既定 blue）を足した。iPhone のカレンダーには書かない。全削除で消える。バックアップに入る（戻すと ID が変わるので、「どうだった？」の答えを新しい ID に付け直す。同じ日・名前・時刻の予定があれば足さない）
 - 表を足したら `src/data/privacy.ts` の `STORED_DATA` にも足す（設定の「プライバシー」に出す。実際の表と一致するかテストで確かめる）
 - 通信の件数（`network.ts`、2026-10-31）: `index.ts` で `watchNetwork()` が XMLHttpRequest.open と WebSocket を数える（開発中は LAN・localhost の開発用サーバーを除く）。通信のAPIに触れてよいのはこのファイルだけ（ESLint と `src/noNetwork.test.ts` の例外）
 - お知らせの状態は engine の `advanceStatus`（未確認→確認済み→対応済みだけ）を通してから `saveConflictStatus` で保存。未確認は行を持たない。確認済み・対応済みは一覧と通知から外す。お知らせの状態・「今日は決めない」・「どうだった？」は予定のID（`元ID@開始日`）だけで引く（版10で表の鍵も event_id だけ。お知らせの日は予測が動くとずれ、日付も鍵にしていた頃は同じ予定が未確認に戻っていた。date 列はその時の日として残すだけ）
@@ -24,6 +24,7 @@
 - トランザクションは `oneTransactionAtATime`（`database.ts`）で1つずつ順番に行う（expo-sqlite の withTransactionAsync は割り込まれ、重なると片方の ROLLBACK がもう片方を消すため）。`open.ts` と `testDatabase.ts` の両方で包む。入れ子にしない（待ち続ける）。テスト用DBも BEGIN を try の中に置き、本物と同じ壊れ方にしてある（2026-10-31）
 - 画面からの保存は `useKarenda` の `withDb`: 失敗しても読み直し、`saveFailed` で画面の上に「保存できませんでした」を出す（投げ返さない）。バックアップの読み込みだけは失敗を投げ返し、BackupPanel が自分で知らせる。数え上げ（metrics）は `track` で、失敗しても保存の失敗にしない
 - 書き出したファイルの読み込みは `readExport`（外から来た中身なので形と値をすべて検査し、理由 broken/notCocomia/newer を返す）→ `restoreData(db, data, 'replace'|'keepMine'|'preferFile')`（1トランザクション。閉じた警告・案内済み・通知の設定は触らない）
+- 2026-11-01 からバックアップは全部入り（書き出しの形の版 `EXPORT_VERSION`=1。表の版 `SCHEMA_VERSION` とは別で、書き出しの形を変えた時だけ上げる）: 生理の記録・設定・キーワードに加えて、このアプリだけの予定・覚えた重さ・「どうだった？」の答え・予測の当たり具合・ロック/隠すモード/通知（flags）。戻す時は flags も keepMine 以外でファイルのものにする（上の「通知の設定は触らない」より新しい）。お知らせの状態と「今日は決めない」は端末の予定IDに結びつくので入れない。ファイルには schemaVersion も書く（exportVersion を知らない前のアプリが newer と言えるように）。exportVersion の無い前のファイル（版0）も読め、無い項目は空、flags は null で触らない
 - テストは `createTestDatabase()`（`testDatabase.ts`、Node内蔵SQLite）
 
 ## 暗号化したバックアップ（backup.ts）

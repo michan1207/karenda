@@ -107,7 +107,10 @@ export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }
   };
 
   const starts = data ? [...data.periodStarts].sort() : [];
-  const summary = `記録 ${starts.length}件${starts.length ? `（${fullDate(starts[0])}〜${fullDate(starts[starts.length - 1])}）` : ''}`;
+  const events = data?.manualEvents.length ?? 0;
+  const summary =
+    `記録 ${starts.length}件${starts.length ? `（${fullDate(starts[0])}〜${fullDate(starts[starts.length - 1])}）` : ''}` +
+    (events ? `・このアプリの予定 ${events}件` : '');
 
   return (
     <View style={styles.panel}>
