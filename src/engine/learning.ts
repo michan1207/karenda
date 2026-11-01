@@ -2,7 +2,7 @@ import type { CalendarEvent } from './conflicts';
 import { addDays, DateKey } from './date';
 import { classifyRisk, RiskKeywords, termOf } from './risk';
 import { groupSeries } from './series';
-import type { ZoneMap } from './zones';
+import { inPeriod, phaseOn, ZoneMap } from './zones';
 
 export type Weight = 'heavy' | 'normal';
 /** 予定のあとの3択。答えない（スキップ）時は learnWeight を呼ばない */
@@ -88,10 +88,10 @@ export function reviewTargets({
 function phaseOf(event: CalendarEvent, zones: ZoneMap, starts: DateKey[], pmsDays: number): ReviewPhase {
   let phase: ReviewPhase = 'other';
   for (let day = event.start; day <= event.end; day = addDays(day, 1)) {
-    const zone = zones.get(day)?.zone;
-    if (zone === 'heavy') return 'period';
+    const onDay = phaseOn(day, zones);
+    if (inPeriod(onDay)) return 'period';
     // 生理を記録すると予測が次へ移り、その前の PMS は塗られなくなるので、記録した開始日からも見る
-    if (zone === 'pms' || starts.some((start) => day < start && day >= addDays(start, -pmsDays))) phase = 'pms';
+    if (onDay.kind === 'pms' || starts.some((start) => day < start && day >= addDays(start, -pmsDays))) phase = 'pms';
   }
   return phase;
 }

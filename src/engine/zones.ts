@@ -91,15 +91,44 @@ export function buildZones(
 /** ヘビー期の翌日から何日を「生理の終わりごろ〜直後」とみなすか */
 export const AFTER_PERIOD_DAYS = 4;
 
+/**
+ * その日の時期。お知らせ・心の変化の目安・「どうだった？」・代わりの日・準備のすすめは、すべてこれで読む。
+ * mostSevere は生理N日目の日（濃いピンク）、edge は生理かもしれない日（淡いピンク）
+ */
+export type Phase =
+  | { kind: 'mostSevere'; periodDay: number; predicted: boolean }
+  | { kind: 'edge'; predicted: true }
+  | { kind: 'pms'; windowStart: DateKey; predicted: true }
+  | { kind: 'after'; predicted: false }
+  | { kind: 'other'; predicted: false };
+
+/** 前の日のゾーンも見る（生理の終わりごろ）ので、zones は AFTER_PERIOD_DAYS 日前から作っておく */
+export function phaseOn(day: DateKey, zones: ZoneMap): Phase {
+  const zone = zones.get(day);
+  if (zone?.zone === 'heavy') {
+    return zone.periodDay
+      ? { kind: 'mostSevere', periodDay: zone.periodDay, predicted: zone.predicted }
+      : { kind: 'edge', predicted: true };
+  }
+  if (zone?.zone === 'pms') return { kind: 'pms', windowStart: zone.windowStart, predicted: true };
+  for (let i = 1; i <= AFTER_PERIOD_DAYS; i++) {
+    if (zones.get(addDays(day, -i))?.zone === 'heavy') return { kind: 'after', predicted: false };
+  }
+  return { kind: 'other', predicted: false };
+}
+
+/** 生理の時期（ヘビー期か、生理かもしれない日） */
+export const inPeriod = (phase: Phase) => phase.kind === 'mostSevere' || phase.kind === 'edge';
+
 export type PeriodPhase = 'before' | 'during' | 'after';
 
-/** 心の変化の目安を出すための時期。前の日のゾーンも見るので、zones は AFTER_PERIOD_DAYS 日前から作っておく */
-export function periodPhase(day: DateKey, zones: ZoneMap): PeriodPhase | undefined {
-  const zone = zones.get(day)?.zone;
-  if (zone === 'heavy') return 'during';
-  if (zone === 'pms') return 'before';
-  for (let i = 1; i <= AFTER_PERIOD_DAYS; i++) {
-    if (zones.get(addDays(day, -i))?.zone === 'heavy') return 'after';
-  }
-  return undefined;
-}
+const PERIOD_PHASE: Record<Phase['kind'], PeriodPhase | undefined> = {
+  mostSevere: 'during',
+  edge: 'during',
+  pms: 'before',
+  after: 'after',
+  other: undefined,
+};
+
+/** 心の変化の目安を出すための時期 */
+export const periodPhase = (day: DateKey, zones: ZoneMap): PeriodPhase | undefined => PERIOD_PHASE[phaseOn(day, zones).kind];

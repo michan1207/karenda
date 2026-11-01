@@ -2,7 +2,7 @@ import { CalendarEvent, ConflictAlert, Impact, scoreOn } from './conflicts';
 import { predictCycle } from './cycle';
 import { addDays, DateKey, diffDays, fromDateKey } from './date';
 import { classifyRisk, DEFAULT_KEYWORDS, RiskKeywords, traitsOf } from './risk';
-import { AFTER_PERIOD_DAYS, buildZones, periodPhase, ZoneMap, ZoneSettings } from './zones';
+import { AFTER_PERIOD_DAYS, buildZones, inPeriod, phaseOn, ZoneMap, ZoneSettings } from './zones';
 
 /** ぶつかりへの対処。画面のカードと、あとで通知に使う */
 export type Action =
@@ -34,7 +34,7 @@ const DEADLINE_TEXT: Record<Impact, (day: string) => string> = {
 };
 
 /** 生理の時期でも、終わりごろでもない日 */
-const isCalm = (day: DateKey, zones: ZoneMap) => !zones.has(day) && periodPhase(day, zones) !== 'after';
+const isCalm = (day: DateKey, zones: ZoneMap) => phaseOn(day, zones).kind === 'other';
 
 /** 何日も続く予定は、いちばんきつい日を軸に段取りを決める */
 function seriesTask(alert: ConflictAlert): string | null {
@@ -46,15 +46,15 @@ function seriesTask(alert: ConflictAlert): string | null {
 }
 
 function prepTasks(alert: ConflictAlert, zones: ZoneMap, today: DateKey): string[] {
-  const zone = zones.get(alert.date);
+  const phase = phaseOn(alert.date, zones);
   // PMSの時期に入ってからは、過ぎた日を準備の目安にしない
-  const prepBy = zone?.zone === 'pms' ? addDays(zone.windowStart, -1) : null;
+  const prepBy = phase.kind === 'pms' ? addDays(phase.windowStart, -1) : null;
   const tasks: string[] = [];
   const series = seriesTask(alert);
   if (series) tasks.push(series);
   if (alert.reasons.includes('allDayMobility')) tasks.push('移動の時間にゆとりを持たせる');
   if (prepBy && prepBy >= today) tasks.push(`準備を${monthDay(prepBy)}までに終わらせる`);
-  else if (zone?.zone === 'heavy') tasks.push('鎮痛剤や着替えを用意しておく');
+  else if (inPeriod(phase)) tasks.push('鎮痛剤や着替えを用意しておく');
   else tasks.push('前後の予定をゆるめにする');
   tasks.push('前の日は早めに休む');
   return tasks;
