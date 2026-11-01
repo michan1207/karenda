@@ -60,11 +60,18 @@ export function fireTime(plan: NotificationPlan): Date {
   return date;
 }
 
-let configured = false;
+let configuring: Promise<void> | null = null;
 
-async function configure() {
-  if (configured) return;
-  configured = true;
+/** はじめの設定。何度呼んでも1回だけ行い、失敗したら（Android の通知チャンネルが作れなかった時など）次の呼び出しでやり直す */
+function configure(): Promise<void> {
+  configuring ??= setUp();
+  configuring.catch(() => {
+    configuring = null;
+  });
+  return configuring;
+}
+
+async function setUp() {
   setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
@@ -112,27 +119,11 @@ export const deviceNotifier: Notifier = {
   async hasAccess() {
     return (await getPermissionsAsync()).granted;
   },
-  async replaceAll(plans, now = new Date()) {
-    await configure();
-    await cancelAllScheduledNotificationsAsync();
-    for (const plan of plans) {
-      const date = fireTime(plan);
-      if (date <= now) continue;
-      await scheduleNotificationAsync({
-        identifier: plan.id,
-        content: plan.review
-          ? { title: plan.title, body: plan.body, categoryIdentifier: REVIEW_CATEGORY, data: { review: plan.review } }
-          : plan.decide
-            ? {
-                title: plan.title,
-                body: plan.body,
-                categoryIdentifier: plan.decide.fixed ? DECIDE_FIXED_CATEGORY : DECIDE_CATEGORY,
-                data: { decide: plan.decide.conflicts },
-              }
-            : { title: plan.title, body: plan.body },
-        trigger: { type: SchedulableTriggerInputTypes.DATE, date, channelId: CHANNEL_ID },
-      });
-    }
+  replaceAll(plans, now = new Date()) {
+    // 組み直しが重なると、先の分が後の全取消のあとに古い予約を足してしまうので、前が終わってから行う
+    const run = scheduling.then(() => schedule(plans, now));
+    scheduling = run.catch(() => {});
+    return run;
   },
   onReviewAnswer(handler) {
     return listen((response) => {
@@ -151,3 +142,30 @@ export const deviceNotifier: Notifier = {
     });
   },
 };
+
+let scheduling: Promise<void> = Promise.resolve();
+
+/** 予約済みの通知をすべて消して、渡したものだけを予約する（replaceAll から1つずつ呼ぶ） */
+async function schedule(plans: NotificationPlan[], now: Date) {
+  await configure();
+  await cancelAllScheduledNotificationsAsync();
+  for (const plan of plans) {
+    const date = fireTime(plan);
+    if (date <= now) continue;
+    // 1件予約できなくても、残りは予約する
+    await scheduleNotificationAsync({
+      identifier: plan.id,
+      content: plan.review
+        ? { title: plan.title, body: plan.body, categoryIdentifier: REVIEW_CATEGORY, data: { review: plan.review } }
+        : plan.decide
+          ? {
+              title: plan.title,
+              body: plan.body,
+              categoryIdentifier: plan.decide.fixed ? DECIDE_FIXED_CATEGORY : DECIDE_CATEGORY,
+              data: { decide: plan.decide.conflicts },
+            }
+          : { title: plan.title, body: plan.body },
+      trigger: { type: SchedulableTriggerInputTypes.DATE, date, channelId: CHANNEL_ID },
+    }).catch(() => {});
+  }
+}

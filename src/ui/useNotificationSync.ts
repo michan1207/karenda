@@ -35,7 +35,8 @@ export function useNotificationSync(k: Karenda, alerts: ConflictAlert[], reviews
   );
 
   useEffect(() => {
-    if (!ready || notifyAccess !== 'granted') return;
+    // 通知を切った時は、端末の許可が外れていても予約を消す（消すのに許可は要らない）
+    if (!ready || (notifyEnabled && notifyAccess !== 'granted')) return;
     notifier.replaceAll(JSON.parse(plans)).catch(() => {});
-  }, [ready, notifyAccess, notifier, plans, offset]);
+  }, [ready, notifyEnabled, notifyAccess, notifier, plans, offset]);
 }
