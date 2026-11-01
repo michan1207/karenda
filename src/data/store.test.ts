@@ -9,6 +9,7 @@ import {
   addManualEvent,
   addPeriodStart,
   answerReview,
+  applyDecision,
   deferAlert,
   deleteAllData,
   getConflictStatuses,
@@ -219,6 +220,53 @@ describe('"今日は決めない" on a notification', () => {
     expect((await loadState(db)).deferrals).toEqual(new Map([['trip', '2026-10-21']]));
     await deleteAllData(db);
     expect((await loadState(db)).deferrals.size).toBe(0);
+  });
+});
+
+describe('answering an alert', () => {
+  const trip = { eventId: 'trip', date: '2026-10-27' };
+  const talk = { eventId: 'talk', date: '2026-10-29' };
+
+  it('acknowledges only alerts not looked at yet, and says whether any moved', async () => {
+    await saveConflictStatus(db, 'talk', '2026-10-29', { state: 'resolved', resolution: 'shifted' });
+    expect(await applyDecision(db, [trip, talk], { kind: 'acknowledge' })).toBe(true);
+    expect(await getConflictStatuses(db)).toEqual(
+      new Map([
+        ['trip', { state: 'acknowledged', resolution: null }],
+        ['talk', { state: 'resolved', resolution: 'shifted' }],
+      ]),
+    );
+    expect(await applyDecision(db, [trip, talk], { kind: 'acknowledge' })).toBe(false);
+  });
+
+  it('resolves through acknowledged, with what was done', async () => {
+    expect(await applyDecision(db, [trip], { kind: 'resolve', resolution: 'prepared' })).toBe(true);
+    await applyDecision(db, [talk], { kind: 'acknowledge' });
+    expect(await applyDecision(db, [talk], { kind: 'resolve', resolution: 'declined' })).toBe(true);
+    expect(await getConflictStatuses(db)).toEqual(
+      new Map([
+        ['trip', { state: 'resolved', resolution: 'prepared' }],
+        ['talk', { state: 'resolved', resolution: 'declined' }],
+      ]),
+    );
+  });
+
+  it('saves nothing when one of the alerts cannot move forward', async () => {
+    await saveConflictStatus(db, 'talk', '2026-10-29', { state: 'resolved', resolution: 'shifted' });
+    await expect(applyDecision(db, [trip, talk], { kind: 'resolve', resolution: 'prepared' })).rejects.toThrow();
+    expect((await getConflictStatuses(db)).has('trip')).toBe(false);
+  });
+
+  it('puts off each alert once, without changing its state', async () => {
+    expect(await applyDecision(db, [trip, talk], { kind: 'defer', remindOn: '2026-10-21' })).toBe(false);
+    await applyDecision(db, [trip], { kind: 'defer', remindOn: '2026-10-22' });
+    expect(await listDeferrals(db)).toEqual(
+      new Map([
+        ['trip', '2026-10-21'],
+        ['talk', '2026-10-21'],
+      ]),
+    );
+    expect((await getConflictStatuses(db)).size).toBe(0);
   });
 });
 

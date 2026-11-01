@@ -20,6 +20,7 @@
 - 表を足したら `src/data/privacy.ts` の `STORED_DATA` にも足す（設定の「プライバシー」に出す。実際の表と一致するかテストで確かめる）
 - 通信の件数（`network.ts`、2026-10-31）: `index.ts` で `watchNetwork()` が XMLHttpRequest.open と WebSocket を数える（開発中は LAN・localhost の開発用サーバーを除く）。通信のAPIに触れてよいのはこのファイルだけ（ESLint と `src/noNetwork.test.ts` の例外）
 - お知らせの状態は engine の `advanceStatus`（未確認→確認済み→対応済みだけ）を通してから `saveConflictStatus` で保存。未確認は行を持たない。確認済み・対応済みは一覧と通知から外す。お知らせの状態・「今日は決めない」・「どうだった？」は予定のID（`元ID@開始日`）だけで引く（版10で表の鍵も event_id だけ。お知らせの日は予測が動くとずれ、日付も鍵にしていた頃は同じ予定が未確認に戻っていた。date 列はその時の日として残すだけ）
+- お知らせへの答え（確認した／対応した／今日は決めない）は通知のボタンも画面のボタンも `applyDecision`（store.ts）1つで残す: 今の状態を読んでから1トランザクションで `advanceStatus`・`saveConflictStatus`・`deferAlert` を通す。途中で失敗したら何も残らない。状態を進めた予定があれば true（画面の「確認した」はこの時だけ数える）（2026-11-02 B6）
 - 表の変更は `migrations.ts` の `MIGRATIONS` 配列に関数を足すだけ。既存の要素は書き換えない。版は `PRAGMA user_version`
 - 読み書きは `store.ts` の関数に集める（export/全削除もここ）
 - トランザクションは `oneTransactionAtATime`（`database.ts`）で1つずつ順番に行う（expo-sqlite の withTransactionAsync は割り込まれ、重なると片方の ROLLBACK がもう片方を消すため）。`open.ts` と `testDatabase.ts` の両方で包む。入れ子にしない（待ち続ける）。テスト用DBも BEGIN を try の中に置き、本物と同じ壊れ方にしてある（2026-10-31）
