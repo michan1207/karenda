@@ -1,3 +1,4 @@
+import type { CalendarEvent } from './conflicts';
 import { classifyRisk, DEFAULT_KEYWORDS } from './risk';
 
 describe('classifyRisk', () => {
@@ -21,12 +22,14 @@ describe('classifyRisk', () => {
     expect(classifyRisk({ title: '買い物', allDay: true })).toBe('high');
   });
 
-  it.each(['有給', '夏季休暇', '代休', 'OFF', 'ＯＦＦ日'])('does not treat an all-day day off (%s) as heavy', (title) => {
+  it.each(['有給', '夏季休暇', '代休', '休み', '夏休み', 'OFF', 'ＯＦＦ日'])('does not treat an all-day day off (%s) as heavy', (title) => {
     expect(classifyRisk({ title, allDay: true })).toBe('low');
   });
 
-  it('does not treat public holidays as heavy, but still reads their words', () => {
-    expect(classifyRisk({ title: '文化の日', allDay: true, holiday: true })).toBe('low');
+  it('treats an all-day public holiday like any all-day event, and still reads the words of a day off', () => {
+    // 2026-10-31 オーナー決定: 祝日も特別扱いしない（それまでは祝日カレンダーの予定を重くしなかった）
+    const holiday: CalendarEvent = { id: 'h', title: '文化の日', start: '2026-11-03', end: '2026-11-03', allDay: true, holiday: true };
+    expect(classifyRisk(holiday)).toBe('high');
     expect(classifyRisk({ title: 'office move', allDay: true })).toBe('high');
     expect(classifyRisk({ title: '有給で旅行', allDay: true })).toBe('high');
   });

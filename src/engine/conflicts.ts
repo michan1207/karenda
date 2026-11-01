@@ -16,7 +16,7 @@ export type CalendarEvent = {
   /** 最終日（その日を含む） */
   end: DateKey;
   allDay: boolean;
-  /** 祝日のカレンダーの予定（終日でも重くしない） */
+  /** 祝日のカレンダーの予定。判定には使わない（2026-10-31 から祝日も終日なら重い） */
   holiday?: boolean;
   /** 時刻のある予定の開始時刻（0時からの分） */
   startMinutes?: number;
