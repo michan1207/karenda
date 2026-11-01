@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
-import { ConflictAlert, DateKey, planActions, planNotifications, planReviewNotifications, quietNotifications, ReviewTarget } from '../engine';
+import { ConflictAlert, DateKey, Guard, planNotifications, planReviewNotifications, quietNotifications, ReviewTarget } from '../engine';
 import { useDayReminders } from './useDayReminders';
 import type { Karenda } from './useKarenda';
 
@@ -9,8 +9,14 @@ import type { Karenda } from './useKarenda';
  * アプリを開くたび・予定や記録が変わるたびに、通知の予約を組み直す。
  * 通知を切っているときは予約をすべて消す。
  */
-export function useNotificationSync(k: Karenda, alerts: ConflictAlert[], reviews: ReviewTarget[], today: DateKey): void {
-  const { status, onboarded, access, notifyEnabled, notifyAccess, notifier, reviewed, deferrals, starts, settings, keywords } = k;
+export function useNotificationSync(
+  k: Karenda,
+  alerts: ConflictAlert[],
+  actionsOf: Guard['actionsOf'],
+  reviews: ReviewTarget[],
+  today: DateKey,
+): void {
+  const { status, onboarded, access, notifyEnabled, notifyAccess, notifier, reviewed, deferrals } = k;
   const ready = status === 'ready' && onboarded && access !== 'checking';
   // 時間帯が変わったら（旅先など）、戻った時にその土地の朝9時で予約し直す
   const [offset, setOffset] = useState(() => new Date().getTimezoneOffset());
@@ -25,12 +31,7 @@ export function useNotificationSync(k: Karenda, alerts: ConflictAlert[], reviews
   // 全部そろうと少し超えるが、iOS は近い順に64件を残すので、あふれるのは先の分だけ（アプリを開けば組み直す）
   const all = notifyEnabled
     ? [
-        ...planNotifications(
-          alerts,
-          today,
-          (alert) => planActions({ alert, event: alert.event, starts, settings, keywords, today }),
-          deferrals,
-        ),
+        ...planNotifications(alerts, today, actionsOf, deferrals),
         ...planReviewNotifications(reviews, reviewed, today),
         ...reminders,
       ]

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 
-import { addDays, ConflictAlert, DateKey, Impact, monthlyReflection, planActions, Resolution, statusOf } from '../engine';
+import { Action, addDays, ConflictAlert, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, shortDate } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
@@ -24,9 +24,9 @@ const TEMPLATES: [string, string][] = [
 ];
 
 /** alerts は対応済みを除いた、今日から30日間のお知らせ */
-type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[] };
+type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[]; actionsOf: Guard['actionsOf'] };
 
-export default function AlertsScreen({ k, today, alerts }: Props) {
+export default function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
   const colors = useColors();
   const [template, setTemplate] = useState(TEMPLATES[0][0]);
   // null の間は見本の文のまま。書き換えたら、その文を送る
@@ -111,7 +111,7 @@ export default function AlertsScreen({ k, today, alerts }: Props) {
       )}
 
       {alerts.map((alert) => (
-        <AlertCard key={`${alert.eventId}|${alert.date}`} alert={alert} k={k} today={today} />
+        <AlertCard key={`${alert.eventId}|${alert.date}`} alert={alert} actions={actionsOf(alert)} k={k} today={today} />
       ))}
 
       <ReflectionCard k={k} today={today} />
@@ -226,16 +226,12 @@ const RESOLUTIONS: [Resolution, string][] = [
 ];
 
 /** 1件のお知らせ。なぜ・動かせるか・どうするかを出し、確認した／何をしたかを残せる */
-function AlertCard({ alert, k, today }: { alert: ConflictAlert; k: Karenda; today: DateKey }) {
+function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions: Action[]; k: Karenda; today: DateKey }) {
   const colors = useColors();
   const strong = alert.grade === 'A';
   const tone = strong ? colors.alertStrong : colors.alertMild;
   const title = alert.title || '（タイトルなし）';
   const state = statusOf(k.statuses, alert.eventId).state;
-  const actions = useMemo(
-    () => planActions({ alert, event: alert.event, starts: k.starts, settings: k.settings, keywords: k.keywords, today }),
-    [alert, k.starts, k.settings, k.keywords, today],
-  );
   const altDates = actions.flatMap((action) => (action.kind === 'suggestAltDate' ? [action.date] : []));
   const deadline = actions.flatMap((action) => (action.kind === 'deadline' ? [action.text] : []))[0];
   const tasks = actions.flatMap((action) => (action.kind === 'prepTask' ? [action.text] : []));

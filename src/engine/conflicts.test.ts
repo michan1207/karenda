@@ -1,4 +1,4 @@
-import { CalendarEvent, detectConflicts, gradeOf } from './conflicts';
+import { alertsByDay, CalendarEvent, detectConflicts, gradeOf } from './conflicts';
 import { predictCycle } from './cycle';
 import { buildZones } from './zones';
 
@@ -155,5 +155,20 @@ describe('gradeOf', () => {
     [0, 'C'],
   ])('gives %i grade %s', (score, grade) => {
     expect(gradeOf(score)).toBe(grade);
+  });
+});
+
+describe('alertsByDay', () => {
+  it('marks every A/B day of a several-day event with that day\u2019s own grade, and leaves out C days', () => {
+    // PMS（10/24）・生理かもしれない日（10/25, 10/29）・生理1〜3日目（10/26〜28）・生理の終わりごろ（10/30）
+    const byDay = alertsByDay(detect([ev('t', '大阪出張', '2026-10-24', { end: '2026-10-30' })]));
+    expect([...byDay.entries()].map(([day, alerts]) => `${day} ${alerts.map((alert) => alert.grade).join('')}`)).toEqual([
+      '2026-10-24 A',
+      '2026-10-25 B',
+      '2026-10-26 A',
+      '2026-10-27 A',
+      '2026-10-28 A',
+      '2026-10-29 B',
+    ]);
   });
 });

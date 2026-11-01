@@ -82,10 +82,11 @@ export function Main({
   }, [today]);
   const stateOf = (alert: ConflictAlert) => statusOf(k.statuses, alert.eventId).state;
   // 対応済みは一覧から外す。確認済みは一覧に残し、通知とタブの数は未確認のものだけにする
-  const upcoming = useUpcomingAlerts(k, day).filter((alert) => stateOf(alert) !== 'resolved');
+  const next = useUpcomingAlerts(k, day);
+  const upcoming = next.alerts.filter((alert) => stateOf(alert) !== 'resolved');
   const unreviewed = upcoming.filter((alert) => stateOf(alert) === 'unreviewed');
   const reviewTargets = useReviewTargets(k, day);
-  useNotificationSync(k, unreviewed, reviewTargets, day);
+  useNotificationSync(k, unreviewed, next.actionsOf, reviewTargets, day);
 
   let body;
   if (k.status === 'loading') {
@@ -112,7 +113,7 @@ export function Main({
               openAlerts={() => setTab('alerts')}
             />
           )}
-          {tab === 'alerts' && <AlertsScreen k={k} today={day} alerts={upcoming} />}
+          {tab === 'alerts' && <AlertsScreen k={k} today={day} alerts={upcoming} actionsOf={next.actionsOf} />}
           {tab === 'settings' && <SettingsScreen k={k} today={day} />}
         </View>
         <View accessibilityRole="tablist" style={[styles.tabs, { backgroundColor: colors.surface, boxShadow: colors.shadow }]}>

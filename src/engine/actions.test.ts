@@ -20,7 +20,7 @@ const ev = (title: string, start: string, more: Partial<CalendarEvent> = {}): Ca
 
 function actionsFor(event: CalendarEvent, today = '2026-10-01') {
   const [alert] = detectConflicts([event], zones, undefined, prediction);
-  return { alert, actions: planActions({ alert, event, starts, settings: DEFAULT_ZONE_SETTINGS, today }) };
+  return { alert, actions: planActions({ alert, zones, today }) };
 }
 
 describe('impactOf', () => {
@@ -109,7 +109,7 @@ describe('planActions', () => {
   it('plans a multi-day event around its hardest day', () => {
     const event = { id: 'a', title: '大阪出張', start: '2026-10-25', end: '2026-10-27', allDay: false };
     const [alert] = detectConflicts([event], zones, undefined, prediction);
-    const actions = planActions({ alert, event: alert.event, starts, settings: DEFAULT_ZONE_SETTINGS, today: '2026-10-01' });
+    const actions = planActions({ alert, zones, today: '2026-10-01' });
     expect(actions.find((a) => a.kind === 'prepTask')).toEqual({
       kind: 'prepTask',
       text: 'いちばんきついのは2日目。予定は1日目に寄せて、2日目は移動や予定を少なめに',

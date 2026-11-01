@@ -97,6 +97,18 @@ export function gradeOf(score: number): Grade {
   return score >= GRADE_A ? 'A' : score >= GRADE_B ? 'B' : 'C';
 }
 
+/** カレンダーの日ごとの印。何日も続く予定は、いちばんきつい日だけでなく、注意したい日（A/B）すべてに、その日の重さで付ける */
+export function alertsByDay(alerts: ConflictAlert[]): Map<DateKey, ConflictAlert[]> {
+  const map = new Map<DateKey, ConflictAlert[]>();
+  for (const alert of alerts) {
+    for (const day of alert.series?.days ?? [{ date: alert.date, score: alert.score }]) {
+      const grade = gradeOf(day.score);
+      if (grade !== 'C') map.set(day.date, [...(map.get(day.date) ?? []), { ...alert, grade }]);
+    }
+  }
+  return map;
+}
+
 const PHASE_CODE: Record<Exclude<Phase['kind'], 'other'>, ReasonCode> = {
   mostSevere: 'phaseMostSevere',
   edge: 'phasePeriodEdge',
