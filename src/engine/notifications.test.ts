@@ -104,7 +104,7 @@ describe('planNotifications', () => {
   });
 
   it('reminds once the day after "今日は決めない", within 3 notifications for the event', () => {
-    const deferred = new Map([['meet|2026-11-20', '2026-11-14']]);
+    const deferred = new Map([['meet', '2026-11-14']]);
     // 期限（前日）・決めない翌日・7日前が残り、3日前は出さない。日がたっても入れ替わらない
     expect(plan([alert('meet', '2026-11-20', 'A')], '2026-11-13', 1, deferred).map((p) => p.date)).toEqual([
       '2026-11-13',
@@ -113,7 +113,7 @@ describe('planNotifications', () => {
     ]);
     expect(plan([alert('meet', '2026-11-20', 'A')], '2026-11-14', 1, deferred).map((p) => p.date)).toEqual(['2026-11-14', '2026-11-19']);
     // 予定の当日以降に知らせ直しても遅いので出さない
-    expect(plan([alert('b', '2026-11-12', 'B')], '2026-11-09', 3, new Map([['b|2026-11-12', '2026-11-12']])).map((p) => p.date)).toEqual([
+    expect(plan([alert('b', '2026-11-12', 'B')], '2026-11-09', 3, new Map([['b', '2026-11-12']])).map((p) => p.date)).toEqual([
       '2026-11-09',
     ]);
   });
@@ -135,7 +135,7 @@ describe('planReviewNotifications', () => {
   it('asks once the next morning, one per morning with the heavy one first, and never about answered ones', () => {
     const plans = planReviewNotifications(
       [target('会議', '2026-10-24'), target('出張', '2026-10-24', 'high'), target('前日', '2026-10-22'), target('済み', '2026-10-26')],
-      new Set(['済み|2026-10-26']),
+      new Set(['済み']),
       '2026-10-24',
     );
     expect(plans).toEqual([

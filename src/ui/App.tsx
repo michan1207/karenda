@@ -80,7 +80,7 @@ export function Main({
     });
     return () => subscription.remove();
   }, [today]);
-  const stateOf = (alert: ConflictAlert) => statusOf(k.statuses, alert.eventId, alert.date).state;
+  const stateOf = (alert: ConflictAlert) => statusOf(k.statuses, alert.eventId).state;
   // 対応済みは一覧から外す。確認済みは一覧に残し、通知とタブの数は未確認のものだけにする
   const upcoming = useUpcomingAlerts(k, day).filter((alert) => stateOf(alert) !== 'resolved');
   const unreviewed = upcoming.filter((alert) => stateOf(alert) === 'unreviewed');

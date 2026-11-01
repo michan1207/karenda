@@ -231,7 +231,7 @@ function AlertCard({ alert, k, today }: { alert: ConflictAlert; k: Karenda; toda
   const strong = alert.grade === 'A';
   const tone = strong ? colors.alertStrong : colors.alertMild;
   const title = alert.title || '（タイトルなし）';
-  const state = statusOf(k.statuses, alert.eventId, alert.date).state;
+  const state = statusOf(k.statuses, alert.eventId).state;
   const actions = useMemo(
     () => planActions({ alert, event: alert.event, starts: k.starts, settings: k.settings, keywords: k.keywords, today }),
     [alert, k.starts, k.settings, k.keywords, today],

@@ -1,5 +1,4 @@
 import type { ConflictAlert } from './conflicts';
-import { statusKey } from './conflictState';
 import { monthlyDigest } from './digest';
 
 const alert = (eventId: string, date: string, score: number): ConflictAlert => ({
@@ -27,8 +26,8 @@ describe('monthlyDigest', () => {
     alert('done', '2026-10-15', 90),
   ];
   const statuses = new Map([
-    [statusKey('done', '2026-10-15'), { state: 'resolved' as const, resolution: 'shifted' as const }],
-    [statusKey('mid', '2026-10-12'), { state: 'acknowledged' as const, resolution: null }],
+    ['done', { state: 'resolved' as const, resolution: 'shifted' as const }],
+    ['mid', { state: 'acknowledged' as const, resolution: null }],
   ]);
 
   it('keeps only this month, leaves out what was dealt with, and puts the hardest first', () => {

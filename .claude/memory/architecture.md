@@ -18,7 +18,7 @@
 - このアプリだけの予定（版8の `manual_events(id, title, date, weight)`、2026-10-31）: `listManualEvents` は CalendarEvent の形（id `manual:N`、`manual: true`、`weight`）。`useEvents` がカレンダーの予定（許可がある時だけ）と合わせて返すので、判定・通知・「どうだった？」は同じに動く。版9で `start_minutes`・`duration_minutes`（NULL＝時刻なし）・`color`（EVENT_COLORS、既定 blue）を足した。iPhone のカレンダーには書かない。全削除で消える。バックアップにはまだ入れていない
 - 表を足したら `src/data/privacy.ts` の `STORED_DATA` にも足す（設定の「プライバシー」に出す。実際の表と一致するかテストで確かめる）
 - 通信の件数（`network.ts`、2026-10-31）: `index.ts` で `watchNetwork()` が XMLHttpRequest.open と WebSocket を数える（開発中は LAN・localhost の開発用サーバーを除く）。通信のAPIに触れてよいのはこのファイルだけ（ESLint と `src/noNetwork.test.ts` の例外）
-- お知らせの状態は engine の `advanceStatus`（未確認→確認済み→対応済みだけ）を通してから `saveConflictStatus` で保存。未確認は行を持たない。確認済み・対応済みは一覧と通知から外す
+- お知らせの状態は engine の `advanceStatus`（未確認→確認済み→対応済みだけ）を通してから `saveConflictStatus` で保存。未確認は行を持たない。確認済み・対応済みは一覧と通知から外す。お知らせの状態・「今日は決めない」・「どうだった？」は予定のID（`元ID@開始日`）だけで引く（版10で表の鍵も event_id だけ。お知らせの日は予測が動くとずれ、日付も鍵にしていた頃は同じ予定が未確認に戻っていた。date 列はその時の日として残すだけ）
 - 表の変更は `migrations.ts` の `MIGRATIONS` 配列に関数を足すだけ。既存の要素は書き換えない。版は `PRAGMA user_version`
 - 読み書きは `store.ts` の関数に集める（export/全削除もここ）
 - トランザクションは `oneTransactionAtATime`（`database.ts`）で1つずつ順番に行う（expo-sqlite の withTransactionAsync は割り込まれ、重なると片方の ROLLBACK がもう片方を消すため）。`open.ts` と `testDatabase.ts` の両方で包む。入れ子にしない（待ち続ける）。テスト用DBも BEGIN を try の中に置き、本物と同じ壊れ方にしてある（2026-10-31）
@@ -52,7 +52,7 @@
 - ローカル通知のみ（`notifier.ts`）。`replaceAll` で全取消→再予約。毎朝 `NOTIFY_HOUR`=9時
 - `replaceAll` は前の組み直しが終わってから行う（重なると古い予約が後から入るため）。1件予約できなくても残りは予約する。はじめの設定（ボタンの種類・Android の通知チャンネル）は失敗したら次の呼び出しでやり直す。通知を切った時は、端末の許可が外れていても `replaceAll([])` で消す（2026-10-31）
 - `Notifier` 型で差し替え可能。`onReviewAnswer` は「どうだった？」のボタン（カテゴリ `review`）、`onDecision` は重なる予定のボタン（`decide`: 確認した/代替日を見る/今日は決めない、動かせない予定だけなら `decideFixed` で代替日なし）。起動のきっかけになった分は `getLastNotificationResponse` で拾い、受け取った側だけが消す（`listen`）
-- 確認した→確認済み、今日は決めない→版7の `deferred_alerts(event_id, date, remind_on)` に翌日を1回だけ（INSERT OR IGNORE）、代替日を見る→`alertsRequested` が増えて App がお知らせタブを開く
+- 確認した→確認済み、今日は決めない→版7の `deferred_alerts(event_id, date, remind_on)` に翌日を予定ごとに1回だけ（INSERT OR IGNORE）、代替日を見る→`alertsRequested` が増えて App がお知らせタブを開く
 - タイムゾーンが変わったら、戻った時（AppState active）に `getTimezoneOffset` の変化で予約し直す
 
 ## レビュー依頼（expo-store-review）

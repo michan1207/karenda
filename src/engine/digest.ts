@@ -13,7 +13,7 @@ export type MonthlyDigest = {
 };
 
 export function monthlyDigest(alerts: ConflictAlert[], month: string, statuses: Map<string, ConflictStatus>): MonthlyDigest {
-  const stateOf = (alert: ConflictAlert) => statusOf(statuses, alert.eventId, alert.date).state;
+  const stateOf = (alert: ConflictAlert) => statusOf(statuses, alert.eventId).state;
   const conflicts = alerts
     .filter((alert) => alert.date.startsWith(`${month}-`) && stateOf(alert) !== 'resolved')
     .sort((a, b) => b.score - a.score || a.date.localeCompare(b.date));

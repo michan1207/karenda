@@ -83,7 +83,7 @@ describe('pendingReviews', () => {
 
   it('keeps at most 3 unanswered ones from the last 7 days, newest first', () => {
     const all = ['10-16', '10-17', '10-20', '10-21', '10-22', '10-23', '10-24'].map((day) => target(day, `2026-${day}`));
-    const answered = new Set(['10-22|2026-10-22']);
+    const answered = new Set(['10-22']);
     expect(pendingReviews(all, answered, '2026-10-24').map((t) => t.eventId)).toEqual(['10-23', '10-21', '10-20']);
     expect(pendingReviews(all, new Set(), '2026-10-25').map((t) => t.eventId)).toEqual(['10-24', '10-23', '10-22']);
     expect(pendingReviews(all.slice(0, 2), new Set(), '2026-10-24').map((t) => t.eventId)).toEqual(['10-17']);

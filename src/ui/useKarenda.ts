@@ -281,7 +281,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       (async () => {
         const statuses = await getConflictStatuses(db);
         for (const { eventId, date } of conflicts) {
-          const current = statusOf(statuses, eventId, date);
+          const current = statusOf(statuses, eventId);
           if (decision === 'defer') await deferAlert(db, eventId, date, tomorrow);
           else if (current.state === 'unreviewed') await saveConflictStatus(db, eventId, date, advanceStatus(current, 'acknowledged'));
         }
@@ -372,14 +372,14 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     },
     dismiss: (eventId, date) =>
       withDb(async (opened) => {
-        const current = statusOf(stored.statuses, eventId, date);
+        const current = statusOf(stored.statuses, eventId);
         if (current.state !== 'unreviewed') return;
         await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'acknowledged'));
         track('conflict_acknowledged');
       }),
     resolve: (eventId, date, resolution) =>
       withDb(async (opened) => {
-        let current = statusOf(stored.statuses, eventId, date);
+        let current = statusOf(stored.statuses, eventId);
         if (current.state === 'unreviewed') current = advanceStatus(current, 'acknowledged');
         await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'resolved', resolution));
         track('conflict_resolved', { resolution });

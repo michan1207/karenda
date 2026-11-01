@@ -127,6 +127,33 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
         CHECK (color IN ('blue', 'green', 'orange', 'purple', 'yellow', 'gray'));
     `);
   },
+  // 2026-11-01: お知らせの状態と「今日は決めない」を予定ごとに1つにする。お知らせの日は予測が動くとずれ、同じ予定が未確認に戻っていた。
+  // 同じ予定に日付ちがいの行があれば、状態は進んだ方（対応済み＞確認済み）の新しい方、知らせ直しは早い方を残す
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE conflict_states_by_event (
+        event_id TEXT PRIMARY KEY NOT NULL,
+        date TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN ('acknowledged', 'resolved')),
+        resolution TEXT CHECK (resolution IN ('shifted', 'prepared', 'declined', 'proceeded')),
+        updated_at TEXT NOT NULL
+      );
+      INSERT OR IGNORE INTO conflict_states_by_event (event_id, date, state, resolution, updated_at)
+        SELECT event_id, date, state, resolution, updated_at FROM conflict_states
+        ORDER BY state = 'resolved' DESC, updated_at DESC;
+      DROP TABLE conflict_states;
+      ALTER TABLE conflict_states_by_event RENAME TO conflict_states;
+      CREATE TABLE deferred_alerts_by_event (
+        event_id TEXT PRIMARY KEY NOT NULL,
+        date TEXT NOT NULL,
+        remind_on TEXT NOT NULL
+      );
+      INSERT OR IGNORE INTO deferred_alerts_by_event (event_id, date, remind_on)
+        SELECT event_id, date, remind_on FROM deferred_alerts ORDER BY remind_on;
+      DROP TABLE deferred_alerts;
+      ALTER TABLE deferred_alerts_by_event RENAME TO deferred_alerts;
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

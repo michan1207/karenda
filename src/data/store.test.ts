@@ -31,6 +31,7 @@ import {
   isReviewAsked,
   listPeriodStarts,
   listPredictionRecords,
+  listDeferrals,
   listReviewed,
   listTitleWeights,
   loadState,
@@ -184,8 +185,8 @@ describe('consult card', () => {
 describe('"今日は決めない" on a notification', () => {
   it('keeps only the first reminder day per event, until all data is deleted', async () => {
     await deferAlert(db, 'trip', '2026-10-27', '2026-10-21');
-    await deferAlert(db, 'trip', '2026-10-27', '2026-10-22');
-    expect((await loadState(db)).deferrals).toEqual(new Map([['trip|2026-10-27', '2026-10-21']]));
+    await deferAlert(db, 'trip', '2026-10-29', '2026-10-22');
+    expect((await loadState(db)).deferrals).toEqual(new Map([['trip', '2026-10-21']]));
     await deleteAllData(db);
     expect((await loadState(db)).deferrals.size).toBe(0);
   });
@@ -240,13 +241,41 @@ describe('app lock', () => {
 });
 
 describe('dismissed alerts', () => {
-  it('remembers the state of each alert per event and date', async () => {
+  it('remembers one state per event, even after the prediction moves its alert day', async () => {
     await saveConflictStatus(db, 'ev1', '2026-10-27', { state: 'acknowledged', resolution: null });
-    await saveConflictStatus(db, 'ev2', '2026-10-28', { state: 'resolved', resolution: 'shifted' });
+    await saveConflictStatus(db, 'ev2', '2026-10-28', { state: 'acknowledged', resolution: null });
+    await saveConflictStatus(db, 'ev2', '2026-10-30', { state: 'resolved', resolution: 'shifted' });
     const statuses = await getConflictStatuses(db);
-    expect(statuses.get('ev2|2026-10-28')).toEqual({ state: 'resolved', resolution: 'shifted' });
-    expect(isDismissed(statuses, 'ev1', '2026-10-27')).toBe(true);
-    expect(isDismissed(statuses, 'ev1', '2026-11-24')).toBe(false);
+    expect(statuses).toEqual(
+      new Map([
+        ['ev1', { state: 'acknowledged', resolution: null }],
+        ['ev2', { state: 'resolved', resolution: 'shifted' }],
+      ]),
+    );
+    expect(isDismissed(statuses, 'ev1')).toBe(true);
+    expect(isDismissed(statuses, 'ev3')).toBe(false);
+  });
+
+  it('keeps one state and one reminder per event after updating, the furthest state and the earliest reminder', async () => {
+    const old = createTestDatabase();
+    await old.execAsync(`
+      CREATE TABLE conflict_states (event_id TEXT NOT NULL, date TEXT NOT NULL, state TEXT NOT NULL, resolution TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (event_id, date));
+      INSERT INTO conflict_states VALUES
+        ('trip', '2026-10-27', 'resolved', 'prepared', '2026-10-20T00:00:00.000Z'),
+        ('trip', '2026-10-29', 'acknowledged', NULL, '2026-10-25T00:00:00.000Z'),
+        ('talk', '2026-11-02', 'acknowledged', NULL, '2026-10-21T00:00:00.000Z');
+      CREATE TABLE deferred_alerts (event_id TEXT NOT NULL, date TEXT NOT NULL, remind_on TEXT NOT NULL, PRIMARY KEY (event_id, date));
+      INSERT INTO deferred_alerts VALUES ('talk', '2026-11-03', '2026-10-23'), ('talk', '2026-11-02', '2026-10-22');
+      PRAGMA user_version = 9;
+    `);
+    await migrate(old);
+    expect(await getConflictStatuses(old)).toEqual(
+      new Map([
+        ['trip', { state: 'resolved', resolution: 'prepared' }],
+        ['talk', { state: 'acknowledged', resolution: null }],
+      ]),
+    );
+    expect(await listDeferrals(old)).toEqual(new Map([['talk', '2026-10-22']]));
   });
 
   it('keeps alerts closed with the old "わかった" as acknowledged after updating', async () => {
@@ -257,7 +286,7 @@ describe('dismissed alerts', () => {
       PRAGMA user_version = 1;
     `);
     await migrate(old);
-    expect((await getConflictStatuses(old)).get('ev1|2026-10-27')).toEqual({ state: 'acknowledged', resolution: null });
+    expect((await getConflictStatuses(old)).get('ev1')).toEqual({ state: 'acknowledged', resolution: null });
     expect(await old.getFirstAsync("SELECT name FROM sqlite_master WHERE name = 'dismissed_alerts'")).toBeNull();
   });
 });
@@ -289,10 +318,11 @@ describe('answers after an event', () => {
     expect(await listTitleWeights(db)).toEqual([]);
     await answerReview(db, target('b', '2026-10-21'), 'hard');
     await answerReview(db, target('b', '2026-10-21'), 'hard');
+    await answerReview(db, target('b', '2026-10-23'), 'hard');
     expect(await listTitleWeights(db)).toMatchObject([{ term: '役員会議', weight: null, observations: 1 }]);
     await answerReview(db, target('c', '2026-10-22'), 'hard');
     expect((await loadState(db)).keywords.learned!.get('役員会議')).toBe('heavy');
-    expect(await listReviewed(db)).toEqual(new Set(['a|2026-10-20', 'b|2026-10-21', 'c|2026-10-22']));
+    expect(await listReviewed(db)).toEqual(new Set(['a', 'b', 'c']));
 
     await deleteAllData(db);
     expect((await listReviewed(db)).size).toBe(0);
@@ -433,7 +463,7 @@ describe('loadState', () => {
       settings: DEFAULT_ZONE_SETTINGS,
       keywords: DEFAULT_KEYWORDS,
     });
-    expect(isDismissed(state.statuses, 'ev1', '2026-10-27')).toBe(true);
+    expect(isDismissed(state.statuses, 'ev1')).toBe(true);
   });
 });
 

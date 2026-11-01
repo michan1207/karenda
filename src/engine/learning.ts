@@ -1,5 +1,4 @@
 import type { CalendarEvent } from './conflicts';
-import { statusKey } from './conflictState';
 import { addDays, DateKey } from './date';
 import { classifyRisk, RiskKeywords, termOf } from './risk';
 import { groupSeries } from './series';
@@ -101,6 +100,6 @@ function phaseOf(event: CalendarEvent, zones: ZoneMap, starts: DateKey[], pmsDay
 export const pendingReviews = (targets: ReviewTarget[], reviewed: Set<string>, today: DateKey) =>
   targets
     .filter((target) => target.date < today && target.date >= addDays(today, -REVIEW_DAYS))
-    .filter((target) => !reviewed.has(statusKey(target.eventId, target.date)))
+    .filter((target) => !reviewed.has(target.eventId))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, MAX_PENDING_REVIEWS);

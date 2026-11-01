@@ -1,5 +1,3 @@
-import type { DateKey } from './date';
-
 /** お知らせの状態。未確認 → 確認済み → 対応済み の順にだけ進む */
 export type ConflictState = 'unreviewed' | 'acknowledged' | 'resolved';
 /** 対応済みにした時に、何をしたか。ずらした / 準備した / 断った / そのまま迎えた */
@@ -21,8 +19,8 @@ export function advanceStatus(current: ConflictStatus, to: ConflictState, resolu
   return { state: to, resolution };
 }
 
-export const statusKey = (eventId: string, date: DateKey) => `${eventId}|${date}`;
-
-/** 保存されていないお知らせは未確認 */
-export const statusOf = (statuses: Map<string, ConflictStatus>, eventId: string, date: DateKey): ConflictStatus =>
-  statuses.get(statusKey(eventId, date)) ?? UNREVIEWED;
+/**
+ * 保存されていないお知らせは未確認。状態は予定（ID）ごとに持つ。
+ * お知らせの日は予測が動くとずれるので、鍵に入れない
+ */
+export const statusOf = (statuses: Map<string, ConflictStatus>, eventId: string): ConflictStatus => statuses.get(eventId) ?? UNREVIEWED;
