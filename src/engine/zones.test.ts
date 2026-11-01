@@ -39,6 +39,20 @@ describe('buildZones', () => {
     expect(zones.get('2026-11-23')).toMatchObject({ zone: 'heavy', periodDay: 1 });
   });
 
+  it('keeps 14 days after the predicted window as "maybe" while the period is late and not recorded', () => {
+    const range = { from: '2026-10-01', until: '2026-11-30' };
+    // 予測の幅（10-25〜10-27）の中なら、まだ遅れではない
+    expect(buildZones(regular, range, undefined, undefined, '2026-10-27').get('2026-10-30')).toBeUndefined();
+    const late = buildZones(regular, range, undefined, undefined, '2026-10-28');
+    // 予測どおりの日はそのまま
+    expect(late.get('2026-10-28')).toMatchObject({ zone: 'heavy', periodDay: 3 });
+    expect(late.get('2026-10-30')).toEqual({ zone: 'heavy', predicted: true });
+    expect(late.get('2026-11-10')).toEqual({ zone: 'heavy', predicted: true });
+    expect(late.get('2026-11-11')).toBeUndefined();
+    // その次の予測は今までどおり
+    expect(late.get('2026-11-23')).toMatchObject({ zone: 'heavy', periodDay: 1 });
+  });
+
   it('widens both zones by the spread of past cycles', () => {
     const irregular = predictCycle(['2026-07-01', '2026-07-26', '2026-08-28', '2026-09-26'])!; // 25, 33, 29
     // average 29, sd 3 → expected 10-25, earliest 10-22, latest 10-28

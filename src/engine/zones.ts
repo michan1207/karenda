@@ -12,6 +12,9 @@ export type ZoneSettings = {
 
 export const DEFAULT_ZONE_SETTINGS: ZoneSettings = { heavyDays: 3, pmsDays: 7 };
 
+/** 予測の幅を過ぎても開始日の記録が無い時、遅れているだけかもしれない日として見続ける日数（2026-10-31 オーナー決定） */
+export const LATE_DAYS = 14;
+
 export type ZoneDay =
   | { zone: 'heavy'; predicted: boolean; periodDay?: number }
   | { zone: 'pms'; predicted: true; windowStart: DateKey };
@@ -36,6 +39,8 @@ export function buildZones(
   settings: ZoneSettings = DEFAULT_ZONE_SETTINGS,
   /** 記録した生理開始日。前の月を見た時もピンクにするため、最後の1件だけでなく全部塗る */
   recorded: DateKey[] = [prediction.lastStart],
+  /** 渡すと、次の予測の幅を過ぎても記録が無い間、その後の LATE_DAYS 日も「生理かもしれない日」にする */
+  today?: DateKey,
 ): ZoneMap {
   validateZoneSettings(settings);
   const { heavyDays, pmsDays, pmsBefore } = settings;
@@ -72,6 +77,12 @@ export function buildZones(
     for (let day = windowStart; day < latest; day = addDays(day, 1)) {
       if (inRange(day) && !zones.has(day)) zones.set(day, { zone: 'pms', predicted: true, windowStart });
     }
+  }
+
+  // 遅れている間。予測どおりの日（periodDay つき）は上で塗ったものを残し、次の PMS より優先する
+  const { latest } = predictedPeriod(prediction, 1);
+  if (today && today > latest) {
+    for (let i = 1; i <= LATE_DAYS; i++) setHeavy(addDays(latest, i), { zone: 'heavy', predicted: true });
   }
 
   return zones;

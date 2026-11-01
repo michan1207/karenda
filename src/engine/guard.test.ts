@@ -21,6 +21,19 @@ it('combines prediction, zones and alerts', () => {
   expect(guard.alerts[0].grade).toBe('A');
 });
 
+it('keeps warning about events while the period is late, until a start is recorded', () => {
+  const starts = ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'];
+  const trip = { ...base, events: [{ id: 'e', title: '出張', start: '2026-11-05', end: '2026-11-05', allDay: false }], range: { from: '2026-10-01', until: '2026-11-30' } };
+  // 次は 10-25〜10-27 の予測。その前は 11-05 の出張は何もない
+  expect(computeGuard({ ...trip, starts, today: '2026-10-20' }).alerts).toEqual([]);
+  // 10-27 を過ぎても記録が無い → 遅れているだけかもしれない
+  const late = computeGuard({ ...trip, starts, today: '2026-10-30' }).alerts;
+  expect(late).toHaveLength(1);
+  expect(late[0].reasons).toContain('phasePeriodEdge');
+  // 開始日を記録すれば、その日から数え直す
+  expect(computeGuard({ ...trip, starts: [...starts, '2026-10-29'], today: '2026-10-30' }).alerts).toEqual([]);
+});
+
 it('colours past recorded periods too, so earlier months show them', () => {
   const guard = computeGuard({ ...base, starts: ['2026-08-03', '2026-08-31', '2026-09-28'], range: { from: '2026-08-01', until: '2026-08-31' } });
   expect(guard.zones.get('2026-08-04')).toMatchObject({ zone: 'heavy', periodDay: 2, predicted: false });
