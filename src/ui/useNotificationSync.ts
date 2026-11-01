@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { ConflictAlert, DateKey, planActions, planNotifications, planReviewNotifications, quietNotifications, ReviewTarget } from '../engine';
+import { useDayReminders } from './useDayReminders';
 import type { Karenda } from './useKarenda';
 
 /**
@@ -19,7 +20,9 @@ export function useNotificationSync(k: Karenda, alerts: ConflictAlert[], reviews
     });
     return () => subscription.remove();
   }, []);
-  // iOS が待たせておける通知は64件まで。重なる予定と「どうだった？」は、どちらも30日で1日1件までなので収まる
+  const reminders = useDayReminders(k, today);
+  // iOS が待たせておける通知は64件まで。重なる予定と「どうだった？」は30日で1日1件まで、その日の予定は7日分。
+  // 全部そろうと少し超えるが、iOS は近い順に64件を残すので、あふれるのは先の分だけ（アプリを開けば組み直す）
   const all = notifyEnabled
     ? [
         ...planNotifications(
@@ -29,6 +32,7 @@ export function useNotificationSync(k: Karenda, alerts: ConflictAlert[], reviews
           deferrals,
         ),
         ...planReviewNotifications(reviews, reviewed, today),
+        ...reminders,
       ]
     : [];
   // Android はロック画面にも中身がそのまま出るので、やわらかい文だけにする

@@ -12,6 +12,8 @@ export type NotificationPlan = {
   id: string;
   /** 通知を出す日 */
   date: DateKey;
+  /** 通知を出す時刻（0時からの分）。無ければ朝9時 */
+  minutes?: number;
   title: string;
   body: string;
   /** 「どうだった？」の通知。ボタンで答えると、この予定の答えとして保存する */
@@ -148,4 +150,38 @@ export const QUIET_TITLE = 'Cocomia からのお知らせ';
  * 見ないまま「確認した」でお知らせを消したり、どの予定か分からずに答えたりしないよう、ボタンも付けない
  */
 export const quietNotifications = (plans: NotificationPlan[]): NotificationPlan[] =>
-  plans.map(({ id, date, review }) => ({ id, date, title: QUIET_TITLE, body: review ? '予定のふり返りがあります' : '予定の確認があります' }));
+  plans.map(({ id, date, review, decide, ...rest }) =>
+    // その日の予定の通知（planDayReminders）は、名前を出す（2026-11-01 オーナー決定）
+    review || decide ? { id, date, title: QUIET_TITLE, body: review ? '予定のふり返りがあります' : '予定の確認があります' } : { id, date, ...rest },
+  );
+
+/** その日の予定の通知を何日先まで予約するか（iOS が待たせておける通知の数に収めるため） */
+export const DAY_REMINDER_DAYS = 7;
+/** その日の予定の通知を出す時刻。これより早く始まる予定がある日は、その1時間前 */
+const DAY_REMINDER_AT = 7 * 60;
+
+const clock = (minutes: number) => `${Math.floor(minutes / 60)}時${minutes % 60 ? `${minutes % 60}分` : ''}`;
+
+/**
+ * 時刻のある予定を、その日の朝7時に1件にまとめて知らせる（2026-11-01 オーナー決定）。
+ * 「今日は10時から会議、14時から歯医者の予定です。」。終日・時刻のない予定は入れない。今日から7日分
+ */
+export function planDayReminders(events: ConflictAlert['event'][], today: DateKey): NotificationPlan[] {
+  const plans: NotificationPlan[] = [];
+  for (let i = 0; i < DAY_REMINDER_DAYS; i++) {
+    const day = addDays(today, i);
+    const timed = events
+      .filter((event) => event.start === day && event.startMinutes !== undefined)
+      .sort((a, b) => a.startMinutes! - b.startMinutes! || a.title.localeCompare(b.title));
+    if (timed.length === 0) continue;
+    const list = timed.map((event) => `${clock(event.startMinutes!)}から${event.title.trim()}`).join('、');
+    plans.push({
+      id: `day-${day}`,
+      date: day,
+      minutes: Math.max(0, Math.min(DAY_REMINDER_AT, timed[0].startMinutes! - 60)),
+      title: '今日の予定',
+      body: `今日は${list}の予定です。`,
+    });
+  }
+  return plans;
+}

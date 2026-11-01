@@ -51,6 +51,7 @@
 - 確認した→確認済み、今日は決めない→版7の `deferred_alerts(event_id, date, remind_on)` に翌日を1回だけ（INSERT OR IGNORE）、代替日を見る→`alertsRequested` が増えて App がお知らせタブを開く
 - タイムゾーンが変わったら、戻った時（AppState active）に `getTimezoneOffset` の変化で予約し直す
 - Android の通知（2026-11-01、Q5 のあとオーナーが「文をやわらかくする」を選んだ）: `useNotificationSync` が `quietNotifications` で題名「Cocomia からのお知らせ」、本文「予定の確認があります」／「予定のふり返りがあります」だけにし、ボタンも付けない（見ないまま「確認した」で消したり、どの予定か分からずに答えたりしないため。押すとアプリが開く）。チャンネルは `guard-public`（`lockscreenVisibility` PUBLIC。文が中身を含まないので、鍵のかかったロック画面でも「内容を非表示」にせずこの文を出す）。チャンネルの見せ方は作ったあと変えられないため、前の `guard` は起動時の設定で消して作り直す。iPhone は今までどおり（本体の設定でロック中は中身を隠す）
+- その日の予定の通知（2026-11-01 オーナー決定）: `planDayReminders` が時刻のある予定すべて（カレンダーとこのアプリの予定。終日・時刻なしは除く）を、その日1件「今日の予定」「今日は10時から会議、14時30分から歯医者の予定です。」にまとめる。朝7時、8時より前に始まる予定がある日はその1時間前（`NotificationPlan.minutes`、`fireTime` が使う。無ければ9時）。今日から7日分（`useDayReminders`）。予定の名前を出す決定なので、Android でも `quietNotifications` は変えない（変えるのは review/decide のある通知だけ）。iOS の64件は、全部そろうと少し超えるが近い順に残る
 
 ## レビュー依頼（expo-store-review）
 - 開始日が3つそろい最新日を記録した直後に1回だけ（`shouldAskReview`）。`ReviewPrompt` 型で差し替え可能

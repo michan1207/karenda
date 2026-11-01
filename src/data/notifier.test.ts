@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 
-import { deviceNotifier } from './notifier';
+import { deviceNotifier, fireTime } from './notifier';
 
 jest.mock('expo-notifications', () => ({
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
@@ -152,5 +152,12 @@ describe('the Android channel', () => {
     expect(notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({ trigger: expect.objectContaining({ channelId: 'guard-public' }) }),
     );
+  });
+});
+
+describe('fireTime', () => {
+  it('uses the plan\u2019s own time when it has one, and 9:00 otherwise', () => {
+    expect(fireTime({ id: 'd', date: '2026-10-26', minutes: 330, title: 't', body: 'b' })).toEqual(new Date(2026, 9, 26, 5, 30));
+    expect(fireTime({ id: 'd', date: '2026-10-26', title: 't', body: 'b' })).toEqual(new Date(2026, 9, 26, 9, 0));
   });
 });
