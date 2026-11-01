@@ -7,10 +7,28 @@ const base = {
   keywords: DEFAULT_KEYWORDS,
   events: [{ id: 'e', title: '出張', start: '2026-10-27', end: '2026-10-27', allDay: false }],
   range: { from: '2026-10-01', until: '2026-10-31' },
+  today: '2026-10-01',
 };
 
 it('has no zones or alerts without records', () => {
-  expect(computeGuard({ ...base, starts: [] })).toEqual({ prediction: null, zones: new Map(), alerts: [] });
+  expect(computeGuard({ ...base, starts: [] })).toMatchObject({ prediction: null, zones: new Map(), alerts: [] });
+});
+
+it('plans what to do for an alert once, with days to move to outside the shown range', () => {
+  // 表示する期間は 10月だけでも、別の日は 11月から探せる
+  const guard = computeGuard({
+    ...base,
+    starts: ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'],
+    events: [{ id: 'm', title: '定例会議', start: '2026-10-26', end: '2026-10-26', allDay: false }],
+  });
+  const [alert] = guard.alerts;
+  const actions = guard.actionsOf(alert);
+  expect(actions.filter((action) => action.kind === 'suggestAltDate').map((action) => action.kind === 'suggestAltDate' && action.date)).toEqual([
+    '2026-11-03',
+    '2026-10-17',
+    '2026-11-04',
+  ]);
+  expect(guard.actionsOf(alert)).toBe(actions);
 });
 
 it('combines prediction, zones and alerts', () => {

@@ -3,6 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } f
 
 import {
   addDays,
+  alertsByDay,
   AFTER_PERIOD_DAYS,
   Answer,
   computeGuard,
@@ -97,7 +98,7 @@ export const MASCOT_LINES: Record<PeriodPhase | 'calm', { lead: string; lines: s
 };
 
 // 隠すモードでは、生理に関わる色・言葉・印を何も出さず、予定だけのカレンダーにする
-const HIDDEN: Guard = { prediction: null, zones: new Map(), alerts: [] };
+const HIDDEN: Guard = { prediction: null, zones: new Map(), alerts: [], actionsOf: () => [] };
 
 function mascotLine(phase: PeriodPhase | undefined, recorded: boolean, day: DateKey): string {
   if (!recorded) return 'はじめまして！生理が始まった日を選んで、記録してみてね';
@@ -135,19 +136,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
   const consult = useMemo(() => consultReasons(k.starts), [k.starts]);
   const thisMonth = today.slice(0, 7);
 
-  const alertsByDay = useMemo(() => {
-    const map = new Map<DateKey, ConflictAlert[]>();
-    const add = (day: DateKey, alert: ConflictAlert) => map.set(day, [...(map.get(day) ?? []), alert]);
-    for (const alert of guard.alerts) {
-      // 何日も続く予定は、いちばんきつい日だけでなく、注意したい日（A/B）すべてに、その日の重さで印を付ける
-      const days = alert.series?.days ?? [{ date: alert.date, score: alert.score }];
-      for (const day of days) {
-        const grade = gradeOf(day.score);
-        if (grade !== 'C') add(day.date, { ...alert, grade });
-      }
-    }
-    return map;
-  }, [guard.alerts]);
+  const dayAlerts = useMemo(() => alertsByDay(guard.alerts), [guard.alerts]);
 
   // このアプリに入れた予定の色を、日のマスに点で出す（3つまで）
   const dotsByDay = useMemo(() => {
@@ -267,7 +256,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
                 day={day}
                 colors={colors}
                 zone={guard.zones.get(day)}
-                alerts={alertsByDay.get(day) ?? []}
+                alerts={dayAlerts.get(day) ?? []}
                 dots={dotsByDay.get(day) ?? []}
                 inMonth={isInMonth(day, year, month)}
                 isToday={day === today}

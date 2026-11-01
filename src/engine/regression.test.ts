@@ -30,6 +30,7 @@ describe('today’s guard results', () => {
     settings: DEFAULT_ZONE_SETTINGS,
     keywords: DEFAULT_KEYWORDS,
     range: { from: '2026-10-01', until: '2026-11-30' },
+    today: '2026-10-01',
     events: [
       event('trip', '大阪出張', '2026-10-20'),
       event('meet', '定例会議', '2026-10-21'),
@@ -80,8 +81,7 @@ describe('today’s guard results', () => {
   });
 
   it('plans the same notifications', () => {
-    const actionsOf = (alert: (typeof guard.alerts)[number]) =>
-      planActions({ alert, event: alert.event, starts, settings: DEFAULT_ZONE_SETTINGS, keywords: DEFAULT_KEYWORDS, today: '2026-10-01' });
+    const { actionsOf } = guard;
     // 2026-10-31 Phase 3: 本文を判断期限と具体策に変え、判断期限の日にも知らせる（1つの予定で3回まで）
     expect(planNotifications(guard.alerts, '2026-10-01', actionsOf).map((n) => `${n.date} | ${n.title} | ${n.body}`)).toEqual([
       '2026-10-08 | 10/15「プレゼン」の前に | 10/12までに準備を始めれば間に合います（前の日は早めに休む）',
@@ -174,6 +174,7 @@ describe('calendar boundaries', () => {
       settings: DEFAULT_ZONE_SETTINGS,
       keywords: DEFAULT_KEYWORDS,
       range: { from: '2027-12-15', until: '2028-01-31' },
+      today: '2027-12-01',
       events: [event('home', '帰省', '2027-12-25', '2028-01-02', true)],
     });
     // 予測の端（12/25）より、生理1日目の予測（12/27）のほうが重い

@@ -1,6 +1,6 @@
 # guardrails: 衝突判定の規則（src/engine）
 
-入口は `computeGuard({starts, settings, keywords, events, range})`（`guard.ts`）→ `{prediction, zones, alerts}`
+入口は `computeGuard({starts, settings, keywords, events, range, today})`（`guard.ts`）→ `{prediction, zones, alerts, actionsOf}`。お知らせへの対処（別の日・決める目安・準備・断りの文）は `actionsOf(alert)` で、使う時に予定の前後（`searchRange`）の時期を作って `planActions` し、同じお知らせは作り直さない（2026-11-01 B3。前は画面と通知が記録・設定・キーワードを渡して `planActions` を別々に呼び、そのたびに予測を作り直していた）。カレンダーの日ごとの印は `alertsByDay(alerts)`（conflicts.ts）
 
 ## 周期予測（cycle.ts）
 - 当たり具合（accuracy.ts、2026-10-31）: 前の開始日との間が15〜45日の時だけ比べる（記録漏れは数えない）。直近6回、3回未満なら平均と±1日以内率は null（0日と見せない）。誤差0日は「予測どおりでした」

@@ -1,8 +1,7 @@
 import { CalendarEvent, ConflictAlert, Impact, scoreOn } from './conflicts';
-import { predictCycle } from './cycle';
 import { addDays, DateKey, diffDays, fromDateKey } from './date';
 import { classifyRisk, DEFAULT_KEYWORDS, RiskKeywords, traitsOf } from './risk';
-import { AFTER_PERIOD_DAYS, buildZones, inPeriod, phaseOn, ZoneMap, ZoneSettings } from './zones';
+import { AFTER_PERIOD_DAYS, DateRange, inPeriod, phaseOn, ZoneMap } from './zones';
 
 /** ぶつかりへの対処。画面のカードと、あとで通知に使う */
 export type Action =
@@ -60,29 +59,30 @@ function prepTasks(alert: ConflictAlert, zones: ZoneMap, today: DateKey): string
   return tasks;
 }
 
+/** 別の日を探すのに要る時期の範囲。予定の前後2週間と、その前の「生理の終わりごろ」を見る分 */
+export const searchRange = (event: CalendarEvent): DateRange => ({
+  from: addDays(event.start, -SEARCH_DAYS - AFTER_PERIOD_DAYS),
+  until: addDays(event.end, SEARCH_DAYS),
+});
+
 /**
  * ぶつかりへの対処を出す。動かせない予定には別の日を勧めず、準備だけにする。
  * 別の日は、予定の全部の日が落ち着いている時期だけから、近い順に選ぶ（今日より前は出さない）。
+ * zones は searchRange(alert.event) を覆っていること（範囲の外を「落ち着いている」と取り違えないため）。
+ * 画面と通知は computeGuard の actionsOf から使う
  */
 export function planActions({
   alert,
-  event,
-  starts,
-  settings,
+  zones,
   keywords = DEFAULT_KEYWORDS,
   today,
 }: {
   alert: ConflictAlert;
-  event: CalendarEvent;
-  starts: DateKey[];
-  settings: ZoneSettings;
+  zones: ZoneMap;
   keywords?: RiskKeywords;
   today: DateKey;
 }): Action[] {
-  const prediction = predictCycle(starts);
-  // 探す範囲の外は「落ち着いている」と取り違えないよう、ここで広めに時期を作り直す
-  const range = { from: addDays(event.start, -SEARCH_DAYS - AFTER_PERIOD_DAYS), until: addDays(event.end, SEARCH_DAYS) };
-  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts, today) : new Map();
+  const { event } = alert;
   const actions: Action[] = [];
 
   if (alert.impact === 'moveable') {
