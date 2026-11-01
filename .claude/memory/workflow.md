@@ -11,6 +11,7 @@
 - ネイティブの `expo-*` は `node_modules/expo/bundledNativeModules.json` の版に**固定**する（`npx expo install` はネットの最新を入れることがある）。新しすぎると iOS が起動直後に「DYLD Symbol missing」で落ちる（2026-10-29 expo-font 58.0.11）。`src/dependencies.test.ts` で検査
 - 通信しないことを確かめ、`src/dependencies.test.ts` に追記（`src/noNetwork.test.ts` とESLintが通信を検出する）
 - Expo API は SDK ごとに変わる。使う前に `AGENTS.md` の手順で v58 のドキュメントを確認
+- React Compiler は app.json の `experiments.reactCompiler` で全部の画面とフックに効かせている（2026-11-02 E1、babel-preset-expo に同梱）。部品の中（中の関数も含む）に `try … finally` や、try の中の `? :`・`&&`・`?.` があると、その部品ごと黙って飛ばされる（壊れないが効かない）。Promise の `.catch` / `.finally` で書く。普段の Jest は変換前のコードで動く
 
 ## 進め方
 1. `claude/<目的>` ブランチを切る
