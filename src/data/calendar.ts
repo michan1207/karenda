@@ -30,12 +30,18 @@ export type RawEvent = {
 // iPhone の「日本の祝日」や Google の祝日カレンダー
 const isHolidayCalendar = (title: string | undefined) => /祝日|holiday/.test(normalizeTitle(title ?? ''));
 
+const isUtcMidnight = (date: Date) => date.getTime() % 86_400_000 === 0;
+const utcDateKey = (date: Date) => toDateKey(new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+
 export function toCalendarEvent(raw: RawEvent, holiday = false): CalendarEvent {
   const start = new Date(raw.startDate);
   const end = new Date(raw.endDate);
-  const startKey = toDateKey(start);
+  // Android は終日予定を UTC の0時で持つ（日本では9時〜翌日9時になり、1日長く見える）ので、UTC の日付で読む。
+  // iPhone の終日予定はその土地の0時なので、そのまま読む
+  const dayOf = raw.allDay && isUtcMidnight(start) && isUtcMidnight(end) ? utcDateKey : toDateKey;
+  const startKey = dayOf(start);
   // 終わりがちょうど0時の予定（終日予定や24時まで）は、その日を含めない
-  const endKey = toDateKey(new Date(Math.max(start.getTime(), end.getTime() - 1)));
+  const endKey = dayOf(new Date(Math.max(start.getTime(), end.getTime() - 1)));
   return {
     // 繰り返し予定は回ごとに同じIDになるので、開始日を足して区別する
     id: `${raw.id}@${startKey}`,
