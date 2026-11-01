@@ -51,13 +51,15 @@ function seriesTask(alert: ConflictAlert): string | null {
   return `いちばんきついのは${index + 1}日目。予定は${before}に寄せて、${index + 1}日目は移動や予定を少なめに`;
 }
 
-function prepTasks(alert: ConflictAlert, zones: ZoneMap): string[] {
+function prepTasks(alert: ConflictAlert, zones: ZoneMap, today: DateKey): string[] {
   const zone = zones.get(alert.date);
+  // PMSの時期に入ってからは、過ぎた日を準備の目安にしない
+  const prepBy = zone?.zone === 'pms' ? addDays(zone.windowStart, -1) : null;
   const tasks: string[] = [];
   const series = seriesTask(alert);
   if (series) tasks.push(series);
   if (alert.reasons.includes('allDayMobility')) tasks.push('移動の時間にゆとりを持たせる');
-  if (zone?.zone === 'pms') tasks.push(`準備を${monthDay(addDays(zone.windowStart, -1))}までに終わらせる`);
+  if (prepBy && prepBy >= today) tasks.push(`準備を${monthDay(prepBy)}までに終わらせる`);
   else if (zone?.zone === 'heavy') tasks.push('鎮痛剤や着替えを用意しておく');
   else tasks.push('前後の予定をゆるめにする');
   tasks.push('前の日は早めに休む');
@@ -105,9 +107,10 @@ export function planActions({
     for (const { start, score } of candidates.slice(0, MAX_ALT_DATES)) actions.push({ kind: 'suggestAltDate', date: start, score });
   }
 
-  const resolveBy = addDays(alert.date, -leadDays(event.title));
+  // 何日も続く予定は、いちばんきつい日ではなく初日までに決めないと間に合わない
+  const resolveBy = addDays(event.start, -leadDays(event.title));
   actions.push({ kind: 'deadline', resolveBy, text: DEADLINE_TEXT[alert.impact](monthDay(resolveBy)) });
-  for (const text of prepTasks(alert, zones)) actions.push({ kind: 'prepTask', text, done: false });
+  for (const text of prepTasks(alert, zones, today)) actions.push({ kind: 'prepTask', text, done: false });
 
   if (alert.impact !== 'fixed') {
     // 相手に送る文なので、体調や生理のことは書かない
