@@ -64,7 +64,7 @@ export const NOTIFY_HOUR = 9;
 
 export function fireTime(plan: NotificationPlan): Date {
   const date = fromDateKey(plan.date);
-  date.setHours(NOTIFY_HOUR, 0, 0, 0);
+  date.setHours(0, plan.minutes ?? NOTIFY_HOUR * 60, 0, 0);
   return date;
 }
 

@@ -625,6 +625,17 @@ describe('notifications', () => {
     expect(lastPlanDates(notifier)).toEqual(['2026-10-24', '2026-11-13', '2026-11-17']);
   });
 
+  it('tells the day\u2019s timed events in the morning, for the next 7 days', async () => {
+    const dentist = { id: 'dentist', title: '歯医者', start: '2026-10-26', end: '2026-10-26', allDay: false, startMinutes: 600, durationMinutes: 60 };
+    const { notifier } = await setup({ calendar: fakeCalendar(true, [...EVENTS, dentist]) });
+    await screen.findByText('お知らせ（2）');
+    await waitFor(() =>
+      expect(notifier.replaceAll.mock.calls.at(-1)![0].filter((plan) => plan.id.startsWith('day-'))).toEqual([
+        { id: 'day-2026-10-26', date: '2026-10-26', minutes: 420, title: '今日の予定', body: '今日は10時から歯医者の予定です。' },
+      ]),
+    );
+  });
+
   it('drops the reminder of a dismissed alert', async () => {
     const { notifier } = await setup();
     await fireEvent.press(await screen.findByText('お知らせ（2）'));

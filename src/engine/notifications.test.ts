@@ -2,7 +2,7 @@ import type { Action } from './actions';
 import type { ConflictAlert, Impact } from './conflicts';
 import { addDays } from './date';
 import type { ReviewTarget } from './learning';
-import { planNotifications, planReviewNotifications, quietNotifications } from './notifications';
+import { planDayReminders, planNotifications, planReviewNotifications, quietNotifications } from './notifications';
 
 const alert = (eventId: string, date: string, grade: 'A' | 'B', title = eventId, impact: Impact = 'mitigable'): ConflictAlert => ({
   eventId,
@@ -168,5 +168,41 @@ describe('quietNotifications', () => {
     expect(quiet[0].body).toBe('予定の確認があります');
     expect(quiet.every((p) => !p.review && !p.decide)).toBe(true);
     expect(JSON.stringify(quiet)).not.toMatch(/出張|会議/);
+  });
+
+  it('leaves the morning list of the day as it is', () => {
+    const [day] = planDayReminders([{ id: 'd', title: '歯医者', start: '2026-10-24', end: '2026-10-24', allDay: false, startMinutes: 600 }], '2026-10-24');
+    expect(quietNotifications([day])).toEqual([day]);
+  });
+});
+
+describe('planDayReminders', () => {
+  const timed = (id: string, title: string, start: string, startMinutes?: number, allDay = false) => ({
+    id,
+    title,
+    start,
+    end: start,
+    allDay,
+    ...(startMinutes === undefined ? {} : { startMinutes }),
+  });
+
+  it('tells the day\u2019s timed events in one notice at 7:00, in time order', () => {
+    const plans = planDayReminders(
+      [timed('b', '歯医者', '2026-10-25', 870), timed('a', '会議', '2026-10-25', 600), timed('c', '旅行', '2026-10-25', undefined, true)],
+      '2026-10-24',
+    );
+    expect(plans).toEqual([
+      { id: 'day-2026-10-25', date: '2026-10-25', minutes: 420, title: '今日の予定', body: '今日は10時から会議、14時30分から歯医者の予定です。' },
+    ]);
+  });
+
+  it('comes an hour early on a day that starts before 8:00, and leaves out events without a time or a name', () => {
+    const plans = planDayReminders([timed('a', '', '2026-10-24', 390), timed('b', 'ジム', '2026-10-26')], '2026-10-24');
+    expect(plans).toEqual([{ id: 'day-2026-10-24', date: '2026-10-24', minutes: 330, title: '今日の予定', body: '今日は6時30分からの予定です。' }]);
+  });
+
+  it('covers today and the next 6 days only', () => {
+    const days = planDayReminders([timed('a', '会議', '2026-10-30', 600), timed('b', '会議', '2026-10-31', 600)], '2026-10-24');
+    expect(days.map((plan) => plan.date)).toEqual(['2026-10-30']);
   });
 });
