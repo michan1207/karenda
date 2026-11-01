@@ -1,7 +1,7 @@
 import type { CyclePrediction } from './cycle';
 import type { Weight } from './learning';
 import { addDays, DateKey, diffDays, fromDateKey } from './date';
-import { classifyRisk, DEFAULT_KEYWORDS, normalizeTitle, Risk, RiskKeywords } from './risk';
+import { classifyRisk, DEFAULT_KEYWORDS, isDayOff, normalizeTitle, Risk, RiskKeywords } from './risk';
 import { groupSeries } from './series';
 import { periodPhase, ZoneMap } from './zones';
 
@@ -254,15 +254,18 @@ export function detectConflicts(
   const alerts: ConflictAlert[] = [];
   for (const event of groupSeries(events)) {
     const risk = classifyRisk(event, keywords);
-    if (risk === 'low') continue;
+    // 終日のお休みは、生理ヘビー期（濃いピンクの日）と重なる日だけ重い予定として見る（2026-11-01 オーナー決定）
+    const dayOff = risk === 'low' && isDayOff(event);
+    if (risk === 'low' && !dayOff) continue;
+    const riskOn = (day: DateKey): Risk => (dayOff && phaseOn(day, zones).kind === 'mostSevere' ? 'high' : risk);
     let peak: { day: DateKey; raw: number } | null = null;
     const days: SeriesDay[] = [];
     for (let day = event.start; day <= event.end; day = addDays(day, 1)) {
-      const { phase, raw, score } = measure(event, day, risk, zones);
+      const { phase, raw, score } = measure(event, day, riskOn(day), zones);
       days.push({ date: day, score, label: dayLabel(phase), note: dayNote(phase) });
       if (phase.kind !== 'other' && (!peak || raw > peak.raw)) peak = { day, raw };
     }
-    const found = peak && judgeDay(event, peak.day, risk, zones, prediction);
+    const found = peak && judgeDay(event, peak.day, riskOn(peak.day), zones, prediction);
     if (found) alerts.push(days.length > 1 ? { ...found, series: { peakDate: found.date, days } } : found);
   }
   return alerts.sort((a, b) => (a.grade === b.grade ? a.date.localeCompare(b.date) : a.grade === 'A' ? -1 : 1));

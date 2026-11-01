@@ -26,6 +26,19 @@ describe('detectConflicts', () => {
     expect(alert.reasonText).toBe('終日の移動を伴う予定で、生理2日目と重なる見込みです。');
   });
 
+  it('treats an all-day day off as heavy only on the dark-pink period days', () => {
+    // 2026-11-01 オーナー決定: お休みの言葉の終日の予定も、生理ヘビー期と重なる日は重い予定
+    expect(detect([ev('1', '休み', '2026-09-29', { allDay: true })])).toMatchObject([{ date: '2026-09-29', grade: 'A', risk: 'high' }]);
+    expect(detect([ev('2', '有給', '2026-10-27', { allDay: true })])).toMatchObject([{ date: '2026-10-27', grade: 'A' }]);
+    // 予測の端（生理かもしれない日）・PMS・生理の終わりごろは、今までどおり重くしない
+    expect(detect([ev('3', '休み', '2026-10-25', { allDay: true }), ev('4', '代休', '2026-10-20', { allDay: true }), ev('5', 'OFF', '2026-10-31', { allDay: true })])).toEqual([]);
+    // 何日も続くお休みは、ヘビー期のいちばんきつい日（同じなら早い日）を1件だけ出す
+    const [vacation] = detect([ev('6', '夏季休暇', '2026-10-22', { allDay: true, end: '2026-10-27' })]);
+    expect(vacation).toMatchObject({ date: '2026-10-26', grade: 'A' });
+    // PMS や予測の端の日は、お休みとして軽いまま
+    expect(vacation.series!.days.filter((day) => day.score >= 40).map((day) => day.date)).toEqual(['2026-10-26', '2026-10-27']);
+  });
+
   it('leaves an ordinary meeting on a calm day out, as grade C', () => {
     expect(detect([ev('1', '会議', '2026-10-10')])).toEqual([]);
   });

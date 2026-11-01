@@ -26,6 +26,9 @@ export const termOf = (title: string) => normalizeTitle(title).replace(/\s/g, ''
 // 祝日は特別扱いしない（2026-10-31 オーナー決定: 祝日も終日ならほかの終日の予定と同じく重い）
 const DAY_OFF = /有給|休暇|代休|休み|\boff\b/;
 
+/** 終日のお休みの予定（有給・休暇・代休・休み・OFF）。ふだんは重くしないが、生理ヘビー期と重なる日だけ重い予定として見る（conflicts.ts） */
+export const isDayOff = (event: RiskInput) => event.allDay && DAY_OFF.test(normalizeTitle(event.title));
+
 export function classifyRisk(event: RiskInput, keywords: RiskKeywords = DEFAULT_KEYWORDS): Risk {
   if (event.weight) return event.weight === 'heavy' ? 'high' : 'medium';
   const learned = keywords.learned?.get(termOf(event.title));
