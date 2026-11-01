@@ -9,7 +9,6 @@ import {
 
 import type { CalendarEvent } from '../engine/conflicts';
 import { addDays, DateKey, fromDateKey, toDateKey } from '../engine/date';
-import { normalizeTitle } from '../engine/risk';
 
 /** 予定の読み取り口。画面のテストでは偽物に差し替える */
 export type CalendarSource = {
@@ -27,13 +26,10 @@ export type RawEvent = {
   allDay: boolean;
 };
 
-// iPhone の「日本の祝日」や Google の祝日カレンダー
-const isHolidayCalendar = (title: string | undefined) => /祝日|holiday/.test(normalizeTitle(title ?? ''));
-
 const isUtcMidnight = (date: Date) => date.getTime() % 86_400_000 === 0;
 const utcDateKey = (date: Date) => toDateKey(new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 
-export function toCalendarEvent(raw: RawEvent, holiday = false): CalendarEvent {
+export function toCalendarEvent(raw: RawEvent): CalendarEvent {
   const start = new Date(raw.startDate);
   const end = new Date(raw.endDate);
   // Android は終日予定を UTC の0時で持つ（日本では9時〜翌日9時になり、1日長く見える）ので、UTC の日付で読む。
@@ -49,7 +45,6 @@ export function toCalendarEvent(raw: RawEvent, holiday = false): CalendarEvent {
     start: startKey,
     end: endKey,
     allDay: raw.allDay,
-    ...(holiday ? { holiday } : {}),
     // 朝早い・長い予定を見分けるため、時刻のある予定だけ開始時刻と長さを持つ
     ...(raw.allDay
       ? {}
@@ -76,7 +71,6 @@ export const deviceCalendar: CalendarSource = {
       fromDateKey(from),
       fromDateKey(addDays(until, 1)),
     );
-    const holidays = new Set(calendars.filter((calendar) => isHolidayCalendar(calendar.title)).map((calendar) => calendar.id));
-    return events.map((event) => toCalendarEvent(event, holidays.has(event.calendarId))).filter((event) => event.end >= from && event.start <= until);
+    return events.map((event) => toCalendarEvent(event)).filter((event) => event.end >= from && event.start <= until);
   },
 };

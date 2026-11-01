@@ -23,8 +23,8 @@
 - 読み書きは `store.ts` の関数に集める（export/全削除もここ）
 - トランザクションは `oneTransactionAtATime`（`database.ts`）で1つずつ順番に行う（expo-sqlite の withTransactionAsync は割り込まれ、重なると片方の ROLLBACK がもう片方を消すため）。`open.ts` と `testDatabase.ts` の両方で包む。入れ子にしない（待ち続ける）。テスト用DBも BEGIN を try の中に置き、本物と同じ壊れ方にしてある（2026-10-31）
 - 画面からの保存は `useKarenda` の `withDb`: 失敗しても読み直し、`saveFailed` で画面の上に「保存できませんでした」を出す（投げ返さない）。バックアップの読み込みだけは失敗を投げ返し、BackupPanel が自分で知らせる。数え上げ（metrics）は `track` で、失敗しても保存の失敗にしない
-- 書き出したファイルの読み込みは `readExport`（外から来た中身なので形と値をすべて検査し、理由 broken/notCocomia/newer を返す）→ `restoreData(db, data, 'replace'|'keepMine'|'preferFile')`（1トランザクション。閉じた警告・案内済み・通知の設定は触らない）
-- 2026-11-01 からバックアップは全部入り（書き出しの形の版 `EXPORT_VERSION`=1。表の版 `SCHEMA_VERSION` とは別で、書き出しの形を変えた時だけ上げる）: 生理の記録・設定・キーワードに加えて、このアプリだけの予定・覚えた重さ・「どうだった？」の答え・予測の当たり具合・ロック/隠すモード/通知（flags）。戻す時は flags も keepMine 以外でファイルのものにする（上の「通知の設定は触らない」より新しい）。お知らせの状態と「今日は決めない」は端末の予定IDに結びつくので入れない。ファイルには schemaVersion も書く（exportVersion を知らない前のアプリが newer と言えるように）。exportVersion の無い前のファイル（版0）も読め、無い項目は空、flags は null で触らない
+- 書き出したファイルの読み込みは `readExport`（外から来た中身なので形と値をすべて検査し、理由 broken/notCocomia/newer を返す）→ `restoreData(db, data, 'replace'|'keepMine'|'preferFile')`（1トランザクション。お知らせの状態・「今日は決めない」・案内済みは触らない。ロック・隠すモード・通知は keepMine 以外でファイルのもの）
+- 2026-11-01 からバックアップは全部入り（書き出しの形の版 `EXPORT_VERSION`=1。表の版 `SCHEMA_VERSION` とは別で、書き出しの形を変えた時だけ上げる）: 生理の記録・設定・キーワードに加えて、このアプリだけの予定・覚えた重さ・「どうだった？」の答え・予測の当たり具合・ロック/隠すモード/通知（flags）。戻す時は flags も keepMine 以外でファイルのものにする。お知らせの状態と「今日は決めない」は端末の予定IDに結びつくので入れない。ファイルには schemaVersion も書く（exportVersion を知らない前のアプリが newer と言えるように）。exportVersion の無い前のファイル（版0）も読め、無い項目は空、flags は null で触らない
 - テストは `createTestDatabase()`（`testDatabase.ts`、Node内蔵SQLite）
 
 ## 暗号化したバックアップ（backup.ts）
@@ -43,7 +43,6 @@
 - Expo Go では新APIが使えないので `expo-calendar/legacy` の読み取り関数だけ使う（`calendar.ts`）
 - 読むだけ。予定の書き込みはしない
 - Android: expo-calendar は読み取りでも READ_CALENDAR と WRITE_CALENDAR の両方を要求・確認する。`blockedPermissions` で WRITE を塞ぐと常に「許可なし」になる（10-28修正）
-- 祝日カレンダー（名前に 祝日/holiday）の予定は `holiday: true` を付ける（終日でも重くしない）
 - `toCalendarEvent`: IDは `元ID@開始日`（繰り返し予定の区別）。0時ちょうど終わりは前日までに丸める
 - Android の終日予定は UTC の0時〜翌日の UTC の0時で届く（expo-calendar が端末の値を UTC の文字にするため。日本では9時〜翌日9時になり1日長く見えていた）。終日で両端が UTC の0時なら UTC の日付で読む。iPhone の終日予定はその土地の0時なのでそのまま（2026-10-31）
 - `CalendarSource` 型で差し替え可能（画面テストは偽物を渡す）

@@ -1,4 +1,3 @@
-import type { CalendarEvent } from './conflicts';
 import { classifyRisk, DEFAULT_KEYWORDS } from './risk';
 
 describe('classifyRisk', () => {
@@ -28,8 +27,7 @@ describe('classifyRisk', () => {
 
   it('treats an all-day public holiday like any all-day event, and still reads the words of a day off', () => {
     // 2026-10-31 オーナー決定: 祝日も特別扱いしない（それまでは祝日カレンダーの予定を重くしなかった）
-    const holiday: CalendarEvent = { id: 'h', title: '文化の日', start: '2026-11-03', end: '2026-11-03', allDay: true, holiday: true };
-    expect(classifyRisk(holiday)).toBe('high');
+    expect(classifyRisk({ title: '文化の日', allDay: true })).toBe('high');
     expect(classifyRisk({ title: 'office move', allDay: true })).toBe('high');
     expect(classifyRisk({ title: '有給で旅行', allDay: true })).toBe('high');
   });

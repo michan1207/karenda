@@ -1,5 +1,5 @@
 import type { Action } from './actions';
-import type { ConflictAlert } from './conflicts';
+import type { CalendarEvent, ConflictAlert } from './conflicts';
 import { addDays, DateKey, fromDateKey } from './date';
 import type { ReviewTarget } from './learning';
 
@@ -165,7 +165,7 @@ const clock = (minutes: number) => `${Math.floor(minutes / 60)}時${minutes % 60
  * 時刻のある予定を、その日の朝7時に1件にまとめて知らせる（2026-11-01 オーナー決定）。
  * 「今日は10時から会議、14時から歯医者の予定です。」。終日・時刻のない予定は入れない。今日から7日分
  */
-export function planDayReminders(events: ConflictAlert['event'][], today: DateKey): NotificationPlan[] {
+export function planDayReminders(events: CalendarEvent[], today: DateKey): NotificationPlan[] {
   const plans: NotificationPlan[] = [];
   for (let i = 0; i < DAY_REMINDER_DAYS; i++) {
     const day = addDays(today, i);

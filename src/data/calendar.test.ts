@@ -13,11 +13,11 @@ jest.mock('expo-calendar/legacy', () => ({
   ],
 }));
 
-it('marks events from a holiday calendar', async () => {
+it('reads every calendar, holidays included, the same way', async () => {
   const events = await deviceCalendar.getEvents('2026-11-01', '2026-11-30');
-  expect(events.map((event) => [event.title, event.holiday ?? false])).toEqual([
-    ['文化の日', true],
-    ['棚卸し', false],
+  expect(events.map((event) => [event.title, event.start, event.allDay])).toEqual([
+    ['文化の日', '2026-11-03', true],
+    ['棚卸し', '2026-11-03', true],
   ]);
 });
 
