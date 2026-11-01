@@ -21,6 +21,8 @@
 - お知らせの状態は engine の `advanceStatus`（未確認→確認済み→対応済みだけ）を通してから `saveConflictStatus` で保存。未確認は行を持たない。確認済み・対応済みは一覧と通知から外す
 - 表の変更は `migrations.ts` の `MIGRATIONS` 配列に関数を足すだけ。既存の要素は書き換えない。版は `PRAGMA user_version`
 - 読み書きは `store.ts` の関数に集める（export/全削除もここ）
+- トランザクションは `oneTransactionAtATime`（`database.ts`）で1つずつ順番に行う（expo-sqlite の withTransactionAsync は割り込まれ、重なると片方の ROLLBACK がもう片方を消すため）。`open.ts` と `testDatabase.ts` の両方で包む。入れ子にしない（待ち続ける）。テスト用DBも BEGIN を try の中に置き、本物と同じ壊れ方にしてある（2026-10-31）
+- 画面からの保存は `useKarenda` の `withDb`: 失敗しても読み直し、`saveFailed` で画面の上に「保存できませんでした」を出す（投げ返さない）。バックアップの読み込みだけは失敗を投げ返し、BackupPanel が自分で知らせる。数え上げ（metrics）は `track` で、失敗しても保存の失敗にしない
 - 書き出したファイルの読み込みは `readExport`（外から来た中身なので形と値をすべて検査し、理由 broken/notCocomia/newer を返す）→ `restoreData(db, data, 'replace'|'keepMine'|'preferFile')`（1トランザクション。閉じた警告・案内済み・通知の設定は触らない）
 - テストは `createTestDatabase()`（`testDatabase.ts`、Node内蔵SQLite）
 

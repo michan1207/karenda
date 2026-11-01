@@ -130,6 +130,15 @@ export function Main({
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: colors.background, backgroundImage: colors.backdrop }]}>
+      {k.saveFailed && (
+        <View style={styles.padded}>
+          <Notice
+            colors={colors}
+            text="保存できませんでした。もう一度お試しください。"
+            action={{ label: '閉じる', onPress: k.dismissSaveFailed }}
+          />
+        </View>
+      )}
       {body}
       <StatusBar style="auto" />
     </SafeAreaView>
