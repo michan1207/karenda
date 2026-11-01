@@ -47,8 +47,9 @@ describe('planNotifications', () => {
     const plans = plan([trip]);
     expect(plans.map((p) => p.date)).toEqual(['2026-11-03', '2026-11-07']);
     expect(plans[0].title).toBe('11/10「旅行」の前に');
-    // 旅行が始まってから知らせ直しても遅い
-    expect(plan([trip], '2026-11-08', 3, new Map([['trip|2026-11-12', '2026-11-11']])).map((p) => p.date)).toEqual([]);
+    // 旅行が始まる前なら知らせ直すが、始まってからでは遅い
+    expect(plan([trip], '2026-11-08', 3, new Map([['trip', '2026-11-09']])).map((p) => p.date)).toEqual(['2026-11-09']);
+    expect(plan([trip], '2026-11-08', 3, new Map([['trip', '2026-11-11']])).map((p) => p.date)).toEqual([]);
   });
 
   it('writes the deadline and concrete steps, leaving out words about how the user feels', () => {
