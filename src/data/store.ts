@@ -10,6 +10,7 @@ import type { RiskKeywords } from '../engine/risk';
 import { validateZoneSettings, ZoneSettings } from '../engine/zones';
 import type { Database } from './database';
 import { SCHEMA_VERSION, seedDefaults } from './migrations';
+import { STORED_DATA } from './privacy';
 import {
   clearPmsEstimate,
   getConsultDismissed,
@@ -624,18 +625,8 @@ async function restoreManualEvent(db: Database, event: ExportedManualEvent): Pro
 /** 記録・設定をすべて消して、はじめて開いたときの状態に戻す */
 export async function deleteAllData(db: Database): Promise<void> {
   await db.withTransactionAsync(async () => {
-    await db.execAsync(`
-      DELETE FROM period_starts;
-      DELETE FROM settings;
-      DELETE FROM keywords;
-      DELETE FROM conflict_states;
-      DELETE FROM metric_events;
-      DELETE FROM title_weights;
-      DELETE FROM event_reviews;
-      DELETE FROM prediction_records;
-      DELETE FROM deferred_alerts;
-      DELETE FROM manual_events;
-    `);
+    // 残しているものの名簿（privacy.ts）の表を全部空にする。表を足しても消し忘れない（名簿と実際の表はテストで突き合わせる）
+    for (const { table } of STORED_DATA) await db.execAsync(`DELETE FROM ${table}`);
     await seedDefaults(db);
   });
 }

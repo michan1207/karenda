@@ -55,6 +55,7 @@ import {
   setReviewAsked,
   setZoneSettings,
 } from './settings';
+import { STORED_DATA } from './privacy';
 import { createTestDatabase } from './testDatabase';
 
 let db: Database;
@@ -518,16 +519,52 @@ describe('export and delete', () => {
     expect(JSON.parse(JSON.stringify(data))).toEqual(data);
   });
 
-  it('deletes everything and restores defaults', async () => {
-    await addPeriodStart(db, '2026-10-01');
+  /** 名簿（STORED_DATA）のすべての表に1行以上入れる */
+  async function fillEveryTable() {
+    for (const start of ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28']) await addPeriodStart(db, start);
     await setZoneSettings(db, { heavyDays: 5, pmsDays: 3 });
+    await setLockEnabled(db, true);
     await setKeywords(db, { high: ['ヨガ'], medium: [] });
     await saveConflictStatus(db, 'ev1', '2026-10-27', { state: 'acknowledged', resolution: null });
+    await recordMetric(db, 'period_recorded', {});
+    await saveTitleWeight(db, overrideWeight(learnWeight(undefined, '役員会議', 'hard', 'pms'), '役員会議', 'heavy'));
+    await answerReview(db, { eventId: 'r', title: '会議', date: '2026-10-20', phase: 'pms', risk: 'medium' }, 'normal');
+    await loadState(db, new Date(2026, 9, 1, 12));
+    await addManualEvent(db, { title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange' });
+    await deferAlert(db, 'ev2', '2026-10-28', '2026-10-21');
+    for (const { table } of STORED_DATA) {
+      expect([table, (await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`))!.n > 0]).toEqual([table, true]);
+    }
+  }
+  const count = async (table: string) => (await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`))!.n;
+
+  it('deletes every table in the list, leaving only the defaults', async () => {
+    await fillEveryTable();
     await deleteAllData(db);
-    expect(await listPeriodStarts(db)).toEqual([]);
+    for (const { table } of STORED_DATA.filter(({ table }) => table !== 'settings' && table !== 'keywords')) {
+      expect([table, await count(table)]).toEqual([table, 0]);
+    }
     expect(await getZoneSettings(db)).toEqual(DEFAULT_ZONE_SETTINGS);
     expect(await getKeywords(db)).toEqual(DEFAULT_KEYWORDS);
-    expect((await getConflictStatuses(db)).size).toBe(0);
+    expect(await isLockEnabled(db)).toBe(false);
+  });
+
+  it('carries exactly the tables the list marks for the backup', async () => {
+    await fillEveryTable();
+    const file = JSON.stringify(await exportData(db));
+    await deleteAllData(db);
+    const read = readExport(file);
+    if (!read.ok) throw new Error(read.reason);
+    await restoreData(db, read.data, 'replace');
+    for (const { table, backup } of STORED_DATA.filter(({ table }) => table !== 'settings' && table !== 'keywords')) {
+      expect([table, (await count(table)) > 0]).toEqual([table, backup]);
+    }
+    // settings と keywords は既定の行がいつもあるので、戻した中身で確かめる
+    expect([await getZoneSettings(db), await isLockEnabled(db), (await getKeywords(db)).high]).toEqual([
+      { heavyDays: 5, pmsDays: 3 },
+      true,
+      ['ヨガ'],
+    ]);
   });
 
   it('rolls back a failed transaction', async () => {
