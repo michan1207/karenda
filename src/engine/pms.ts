@@ -29,6 +29,8 @@ export const DEFAULT_PMS: PmsEstimate = {
 
 /** 推定に使う周期の数。これだけそろうまでは既定の7日前のまま */
 export const PMS_CYCLES = 6;
+/** 見る開始日の数（約1年）。これより古い周期の答えは、体の変化に合わないので使わない */
+const RECENT_STARTS = 12;
 /** 周期ごとの始まりのばらつき（標準偏差）がこれより大きいと推定しない */
 const MAX_SPREAD = 2;
 const MIN_DAYS = 3;
@@ -36,10 +38,11 @@ const MAX_DAYS = 14;
 
 /**
  * 生理開始日ごとに、直前14日の答えを開始日に近い順に見て、「きつかった」が途切れずに続いた一番遠い日をその周期の始まりとみなす。
- * 最近の6周期がそろい、ばらつきが2日以内のときだけ日数を返す
+ * 最近12回の開始日（並べ替えて重複を除く）のうち、始まりが読めた新しい6周期がそろい、ばらつきが2日以内のときだけ日数を返す
  */
 export function estimatePmsDays(answers: ReviewAnswer[], starts: DateKey[]): { daysBefore: number | null; observations: number } {
-  const onsets = starts.flatMap((start) => {
+  const recentStarts = [...new Set(starts)].sort().slice(-RECENT_STARTS);
+  const onsets = recentStarts.flatMap((start) => {
     const near = answers
       .filter((a) => a.phase !== 'period')
       .map((a) => ({ answer: a.answer, before: diffDays(a.date, start) }))
