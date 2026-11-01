@@ -9,9 +9,63 @@ export type RiskKeywords = {
   learned?: ReadonlyMap<string, Weight>;
 };
 
-export const DEFAULT_KEYWORDS: RiskKeywords = {
-  high: ['出張', 'プレゼン', '発表', '面接', '旅行', 'ライブ', '遠征', '夜勤', '締め切り', '締切', '試験'],
-  medium: ['会議', '打ち合わせ', '打合せ', 'ミーティング', '飲み会', '美容院', '残業', 'ワンオペ'],
+/** 予定の名前に入る言葉ごとの性質 */
+export type EventTrait = {
+  /** 既定のキーワードとしての重さ（設定で直せる。直した後は keywords の表が使われる） */
+  weight?: 'high' | 'medium';
+  /** 終日なら移動や泊まりを伴う予定 */
+  mobility?: true;
+  /** 日をずらせない（fixed）／ずらしやすい（moveable）。無ければ「準備で軽くできる」として、別の日は勧めない */
+  impact?: 'fixed' | 'moveable';
+  /** 何日前までに決めれば間に合うか。無ければ3日前 */
+  leadDays?: number;
+};
+
+/**
+ * 予定の言葉の名簿。言葉を足す・直す時は、ここの1行だけを変える。
+ * 並びは設定に出る既定のキーワードの並び（重い→ふつう）
+ */
+const EVENT_TRAITS: Record<string, EventTrait> = {
+  出張: { weight: 'high', mobility: true, leadDays: 3 },
+  プレゼン: { weight: 'high' },
+  発表: { weight: 'high' },
+  面接: { weight: 'high', impact: 'fixed', leadDays: 2 },
+  旅行: { weight: 'high', mobility: true, impact: 'moveable', leadDays: 7 },
+  ライブ: { weight: 'high' },
+  遠征: { weight: 'high', mobility: true, leadDays: 3 },
+  夜勤: { weight: 'high', impact: 'fixed' },
+  締め切り: { weight: 'high', impact: 'fixed' },
+  締切: { weight: 'high', impact: 'fixed' },
+  試験: { weight: 'high', impact: 'fixed', leadDays: 2 },
+  会議: { weight: 'medium', impact: 'moveable', leadDays: 1 },
+  打ち合わせ: { weight: 'medium', impact: 'moveable', leadDays: 1 },
+  打合せ: { weight: 'medium', impact: 'moveable', leadDays: 1 },
+  ミーティング: { weight: 'medium', impact: 'moveable', leadDays: 1 },
+  飲み会: { weight: 'medium', impact: 'moveable' },
+  美容院: { weight: 'medium', impact: 'moveable' },
+  残業: { weight: 'medium' },
+  ワンオペ: { weight: 'medium' },
+  帰省: { mobility: true, impact: 'moveable', leadDays: 7 },
+  合宿: { mobility: true },
+  結婚式: { impact: 'fixed' },
+  葬儀: { impact: 'fixed' },
+  本番: { impact: 'fixed' },
+  ランチ: { impact: 'moveable' },
+  買い物: { impact: 'moveable' },
+  女子会: { impact: 'moveable' },
+  デート: { impact: 'moveable' },
+};
+
+const wordsOf = (weight: EventTrait['weight']) => Object.keys(EVENT_TRAITS).filter((word) => EVENT_TRAITS[word].weight === weight);
+
+export const DEFAULT_KEYWORDS: RiskKeywords = { high: wordsOf('high'), medium: wordsOf('medium') };
+
+/** 予定の名前に入っている言葉の性質（名簿の並び順） */
+export const traitsOf = (title: string): EventTrait[] => {
+  const normalized = normalizeTitle(title);
+  return Object.keys(EVENT_TRAITS)
+    .filter((word) => normalized.includes(word))
+    .map((word) => EVENT_TRAITS[word]);
 };
 
 export type RiskInput = { title: string; allDay: boolean; weight?: Weight };

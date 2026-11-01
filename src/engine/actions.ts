@@ -1,7 +1,7 @@
 import { CalendarEvent, ConflictAlert, Impact, scoreOn } from './conflicts';
 import { predictCycle } from './cycle';
 import { addDays, DateKey, diffDays, fromDateKey } from './date';
-import { classifyRisk, DEFAULT_KEYWORDS, normalizeTitle, RiskKeywords } from './risk';
+import { classifyRisk, DEFAULT_KEYWORDS, RiskKeywords, traitsOf } from './risk';
 import { AFTER_PERIOD_DAYS, buildZones, periodPhase, ZoneMap, ZoneSettings } from './zones';
 
 /** ぶつかりへの対処。画面のカードと、あとで通知に使う */
@@ -14,13 +14,6 @@ export type Action =
 /** 別の日を探す範囲（前後の日数）と、出す数 */
 const SEARCH_DAYS = 14;
 const MAX_ALT_DATES = 3;
-/** 予定の種類ごとに、何日前までに決めれば間に合うか */
-const LEAD_TIMES: [string[], number][] = [
-  [['旅行', '帰省'], 7],
-  [['出張', '遠征'], 3],
-  [['面接', '試験'], 2],
-  [['会議', '打ち合わせ', '打合せ', 'ミーティング'], 1],
-];
 const DEFAULT_LEAD = 3;
 
 function monthDay(day: DateKey): string {
@@ -28,9 +21,10 @@ function monthDay(day: DateKey): string {
   return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
+/** 何日前までに決めれば間に合うか。言葉が2つ入っていれば長い方（「旅行の打ち合わせ」は旅行の7日） */
 function leadDays(title: string): number {
-  const normalized = normalizeTitle(title);
-  return LEAD_TIMES.find(([words]) => words.some((word) => normalized.includes(word)))?.[1] ?? DEFAULT_LEAD;
+  const days = traitsOf(title).flatMap((trait) => (trait.leadDays ? [trait.leadDays] : []));
+  return days.length ? Math.max(...days) : DEFAULT_LEAD;
 }
 
 const DEADLINE_TEXT: Record<Impact, (day: string) => string> = {

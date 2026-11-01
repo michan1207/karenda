@@ -1,4 +1,4 @@
-import { classifyRisk, DEFAULT_KEYWORDS } from './risk';
+import { classifyRisk, DEFAULT_KEYWORDS, EventTrait, traitsOf } from './risk';
 
 describe('classifyRisk', () => {
   it.each([
@@ -50,5 +50,33 @@ describe('classifyRisk', () => {
 
   it('uses custom keywords', () => {
     expect(classifyRisk({ title: 'ヨガ', allDay: false }, { high: [], medium: ['ヨガ'] })).toBe('medium');
+  });
+});
+
+// B1（2026-11-01）: 4つに分かれていた言葉の表（既定のキーワード・移動・動かしやすさ・決める目安）を1つの名簿にした。
+// 前の表と同じ言葉・同じ並び・同じ性質のままであることを、前の表をそのまま書いて確かめる
+describe('the word list', () => {
+  const HIGH = ['出張', 'プレゼン', '発表', '面接', '旅行', 'ライブ', '遠征', '夜勤', '締め切り', '締切', '試験'];
+  const MEDIUM = ['会議', '打ち合わせ', '打合せ', 'ミーティング', '飲み会', '美容院', '残業', 'ワンオペ'];
+  const ALL = [...HIGH, ...MEDIUM, '帰省', '合宿', '結婚式', '葬儀', '本番', 'ランチ', '買い物', '女子会', 'デート'];
+  const withTrait = (has: (trait: EventTrait) => boolean) => ALL.filter((word) => traitsOf(word).some(has)).sort();
+  const sorted = (words: string[]) => [...words].sort();
+
+  it('keeps the default keywords in the same order', () => {
+    expect(DEFAULT_KEYWORDS).toEqual({ high: HIGH, medium: MEDIUM });
+  });
+
+  it('keeps which words mean travel, a day that cannot move, and a day that can move', () => {
+    expect(withTrait((trait) => !!trait.mobility)).toEqual(sorted(['出張', '旅行', '遠征', '帰省', '合宿']));
+    expect(withTrait((trait) => trait.impact === 'fixed')).toEqual(sorted(['面接', '試験', '締め切り', '締切', '夜勤', '結婚式', '葬儀', '本番']));
+    expect(withTrait((trait) => trait.impact === 'moveable')).toEqual(
+      sorted(['会議', '打ち合わせ', '打合せ', 'ミーティング', '飲み会', '美容院', 'ランチ', '旅行', '帰省', '買い物', '女子会', 'デート']),
+    );
+  });
+
+  it('keeps how many days ahead each kind of event should be decided', () => {
+    const lead = (word: string) => traitsOf(word).find((trait) => trait.leadDays)?.leadDays;
+    expect(['旅行', '帰省', '出張', '遠征', '面接', '試験', '会議', '打ち合わせ', '打合せ', 'ミーティング'].map(lead)).toEqual([7, 7, 3, 3, 2, 2, 1, 1, 1, 1]);
+    expect(ALL.filter((word) => lead(word) !== undefined)).toHaveLength(10);
   });
 });
