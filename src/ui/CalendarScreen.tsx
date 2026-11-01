@@ -115,7 +115,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
   const [selected, setSelected] = useState<DateKey>(today);
 
   const grid = useMemo(() => monthGrid(year, month), [year, month]);
-  const events = useEvents(k.calendar, k.access, grid.from, grid.until, k.manualEvents);
+  const events = useEvents(k.calendar, k.access, grid.from, grid.until, k.manualEvents, k.resumed);
 
   const computed = useMemo(
     () =>

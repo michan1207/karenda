@@ -10,7 +10,7 @@ export const UPCOMING_DAYS = 30;
 export function useUpcomingAlerts(k: Karenda, today: DateKey): ConflictAlert[] {
   const last = addDays(today, UPCOMING_DAYS);
   const range = useMemo(() => expandToWeeks(today, last), [today, last]);
-  const events = useEvents(k.calendar, k.access, range.from, range.until, k.manualEvents);
+  const events = useEvents(k.calendar, k.access, range.from, range.until, k.manualEvents, k.resumed);
 
   return useMemo(
     () =>

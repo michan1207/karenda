@@ -234,6 +234,15 @@ describe('first run', () => {
     expect(calendar.requestAccess).not.toHaveBeenCalled();
     expect(calendar.hasAccess).toHaveBeenCalled();
   });
+
+  it('offers the calendar on the alerts tab too after "今はしない", not the Settings app', async () => {
+    const calendar = fakeCalendar(false);
+    await setup({ calendar, prepare: (db) => setCalendarSkipped(db, true) });
+    await fireEvent.press(await screen.findByText('お知らせ'));
+    expect(screen.queryByText('設定アプリで許可する')).toBeNull();
+    await fireEvent.press(screen.getByText('カレンダーを使う'));
+    await waitFor(() => expect(calendar.requestAccess).toHaveBeenCalled());
+  });
 });
 
 describe('calendar', () => {
@@ -1017,6 +1026,18 @@ describe('coming back to the app', () => {
     await returnToApp();
     await fireEvent.press(screen.getByLabelText('10月26日（月）、生理1日目（予測）'));
     expect(screen.getByText('この日を生理開始日として記録')).toBeTruthy();
+  });
+
+  it('reads the calendar again, so an event added while away is checked', async () => {
+    const calendar = fakeCalendar(true);
+    await setup({ calendar });
+    expect(await screen.findByLabelText('10月26日（月）、生理1日目（予測）')).toBeTruthy();
+    const added: CalendarEvent = { id: 'interview', title: '面接', start: '2026-10-26', end: '2026-10-26', allDay: false };
+    calendar.getEvents.mockImplementation(async (from, until) =>
+      [...EVENTS, added].filter((event) => event.end >= from && event.start <= until),
+    );
+    await returnToApp();
+    expect(await screen.findByLabelText('10月26日（月）、生理1日目（予測）、予定と重なっています')).toBeTruthy();
   });
 
   it('notices calendar access granted in the Settings app without asking again', async () => {
