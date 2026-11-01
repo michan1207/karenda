@@ -138,3 +138,13 @@ export function planReviewNotifications(targets: ReviewTarget[], reviewed: Set<s
       review: target,
     }));
 }
+
+/** Android のロック画面に出す題名（2026-11-01 オーナー決定） */
+export const QUIET_TITLE = 'Cocomia からのお知らせ';
+
+/**
+ * Android はロック画面にも通知がそのまま出るので、何の予定か分からない文だけにする（くわしくはアプリで見る）。
+ * 見ないまま「確認した」でお知らせを消したり、どの予定か分からずに答えたりしないよう、ボタンも付けない
+ */
+export const quietNotifications = (plans: NotificationPlan[]): NotificationPlan[] =>
+  plans.map(({ id, date, review }) => ({ id, date, title: QUIET_TITLE, body: review ? '予定のふり返りがあります' : '予定の確認があります' }));

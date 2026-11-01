@@ -1,8 +1,10 @@
 import {
   addNotificationResponseReceivedListener,
   AndroidImportance,
+  AndroidNotificationVisibility,
   cancelAllScheduledNotificationsAsync,
   clearLastNotificationResponse,
+  deleteNotificationChannelAsync,
   getLastNotificationResponse,
   getPermissionsAsync,
   NotificationResponse,
@@ -34,7 +36,13 @@ export type Notifier = {
   onDecision(handler: (conflicts: { eventId: string; date: DateKey }[], decision: Decision) => void): () => void;
 };
 
-const CHANNEL_ID = 'guard';
+/**
+ * Android の通知チャンネル。通知の文は何の予定か分からないもの（quietNotifications）だけなので、
+ * 鍵のかかったロック画面でも「内容を非表示」にせず、その文を出す（2026-11-01 オーナー決定）。
+ * 見せ方は作ったあとに変えられないので、前の 'guard' とは別の id で作り直す
+ */
+const CHANNEL_ID = 'guard-public';
+const OLD_CHANNEL_ID = 'guard';
 const REVIEW_CATEGORY = 'review';
 const DECIDE_CATEGORY = 'decide';
 /** 動かせない予定だけの通知。別の日は勧めないので「代替日を見る」を付けない */
@@ -93,7 +101,13 @@ async function setUp() {
   await setNotificationCategoryAsync(DECIDE_CATEGORY, [acknowledge, { identifier: 'alternatives', buttonTitle: '代替日を見る' }, defer]).catch(() => {});
   await setNotificationCategoryAsync(DECIDE_FIXED_CATEGORY, [acknowledge, defer]).catch(() => {});
   if (Platform.OS === 'android') {
-    await setNotificationChannelAsync(CHANNEL_ID, { name: '予定と体調のお知らせ', importance: AndroidImportance.DEFAULT });
+    // 前のチャンネルは設定の一覧に残らないよう消す（無ければ何もしない）
+    await deleteNotificationChannelAsync(OLD_CHANNEL_ID).catch(() => {});
+    await setNotificationChannelAsync(CHANNEL_ID, {
+      name: '予定と体調のお知らせ',
+      importance: AndroidImportance.DEFAULT,
+      lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
+    });
   }
 }
 

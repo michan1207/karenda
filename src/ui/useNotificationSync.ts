@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
-import { ConflictAlert, DateKey, planActions, planNotifications, planReviewNotifications, ReviewTarget } from '../engine';
+import { ConflictAlert, DateKey, planActions, planNotifications, planReviewNotifications, quietNotifications, ReviewTarget } from '../engine';
 import type { Karenda } from './useKarenda';
 
 /**
@@ -20,19 +20,19 @@ export function useNotificationSync(k: Karenda, alerts: ConflictAlert[], reviews
     return () => subscription.remove();
   }, []);
   // iOS が待たせておける通知は64件まで。重なる予定と「どうだった？」は、どちらも30日で1日1件までなので収まる
-  const plans = JSON.stringify(
-    notifyEnabled
-      ? [
-          ...planNotifications(
-            alerts,
-            today,
-            (alert) => planActions({ alert, event: alert.event, starts, settings, keywords, today }),
-            deferrals,
-          ),
-          ...planReviewNotifications(reviews, reviewed, today),
-        ]
-      : [],
-  );
+  const all = notifyEnabled
+    ? [
+        ...planNotifications(
+          alerts,
+          today,
+          (alert) => planActions({ alert, event: alert.event, starts, settings, keywords, today }),
+          deferrals,
+        ),
+        ...planReviewNotifications(reviews, reviewed, today),
+      ]
+    : [];
+  // Android はロック画面にも中身がそのまま出るので、やわらかい文だけにする
+  const plans = JSON.stringify(Platform.OS === 'android' ? quietNotifications(all) : all);
 
   useEffect(() => {
     // 通知を切った時は、端末の許可が外れていても予約を消す（消すのに許可は要らない）
