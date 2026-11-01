@@ -1,7 +1,7 @@
 import type { CyclePrediction } from './cycle';
 import type { Weight } from './learning';
 import { addDays, DateKey, diffDays, fromDateKey } from './date';
-import { classifyRisk, DEFAULT_KEYWORDS, isDayOff, normalizeTitle, Risk, RiskKeywords } from './risk';
+import { classifyRisk, DEFAULT_KEYWORDS, isDayOff, Risk, RiskKeywords, traitsOf } from './risk';
 import { groupSeries } from './series';
 import { periodPhase, ZoneMap } from './zones';
 
@@ -82,19 +82,14 @@ const ALL_DAY_BONUS = 0.2;
 const MODIFIERS = { allDayMobility: 0.15, seriesPeak: 0.15, earlyMorning: 0.05 } as const;
 export const GRADE_A = 70;
 export const GRADE_B = 40;
-/** 移動や泊まりを伴う予定の言葉 */
-const MOBILITY = ['出張', '旅行', '遠征', '帰省', '合宿'];
 const EARLY_MORNING_BEFORE = 8 * 60;
 const LONG_DURATION = 4 * 60;
 
-// 日をずらせない予定と、ずらしやすい予定の言葉。どちらでもない予定は「準備で軽くできる」として、別の日は勧めない
-const FIXED_WORDS = ['面接', '試験', '締め切り', '締切', '夜勤', '結婚式', '葬儀', '本番'];
-const MOVEABLE_WORDS = ['会議', '打ち合わせ', '打合せ', 'ミーティング', '飲み会', '美容院', 'ランチ', '旅行', '帰省', '買い物', '女子会', 'デート'];
-
+/** 動かせない言葉が1つでもあれば動かせない。どちらでもなければ「準備で軽くできる」（言葉は risk.ts の名簿） */
 export function impactOf(title: string): Impact {
-  const normalized = normalizeTitle(title);
-  if (FIXED_WORDS.some((word) => normalized.includes(word))) return 'fixed';
-  if (MOVEABLE_WORDS.some((word) => normalized.includes(word))) return 'moveable';
+  const traits = traitsOf(title);
+  if (traits.some((trait) => trait.impact === 'fixed')) return 'fixed';
+  if (traits.some((trait) => trait.impact === 'moveable')) return 'moveable';
   return 'mitigable';
 }
 
@@ -180,7 +175,7 @@ function suggestion(title: string, phase: Exclude<Phase, { kind: 'other' }>, ris
 function measure(event: CalendarEvent, day: DateKey, risk: Risk, zones: ZoneMap) {
   const phase = phaseOn(day, zones);
   const modifiers: ReasonCode[] = [];
-  if (event.allDay && MOBILITY.some((word) => normalizeTitle(event.title).includes(word))) modifiers.push('allDayMobility');
+  if (event.allDay && traitsOf(event.title).some((trait) => trait.mobility)) modifiers.push('allDayMobility');
   // 何日も続く予定は、いちばんきつい日がさらにきつくなる
   if (event.end > event.start) modifiers.push('seriesPeak');
   if (day === event.start && event.startMinutes !== undefined && event.startMinutes < EARLY_MORNING_BEFORE) {

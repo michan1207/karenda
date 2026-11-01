@@ -49,6 +49,12 @@ describe('planActions', () => {
     ]);
   });
 
+  it('decides by the longer lead when a title has two kinds of event in it', () => {
+    // 旅行は7日前、打ち合わせは1日前 → 7日前
+    const { actions } = actionsFor(ev('旅行の打ち合わせ', '2026-10-26'));
+    expect(actions).toContainEqual({ kind: 'deadline', resolveBy: '2026-10-19', text: '10月19日までに日程を決めると、動かしやすいです' });
+  });
+
   it('offers the nearest calm days for an event that can move, and a polite message', () => {
     const { actions } = actionsFor(ev('定例会議', '2026-10-26'));
     expect(actions.filter((a) => a.kind === 'suggestAltDate')).toEqual([
