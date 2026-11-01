@@ -11,25 +11,15 @@ import {
   answerReview,
   deferAlert,
   deleteAllData,
-  dismissConsult,
   getConflictStatuses,
-  getConsultDismissed,
-  isMetricsEnabled,
   listMetricEvents,
   listResolutions,
   recordMetric,
-  setMetricsEnabled,
   EXPORT_VERSION,
   exportData,
   getKeywords,
-  getZoneSettings,
   isDismissed,
   saveConflictStatus,
-  isHideMode,
-  isLockEnabled,
-  isNotifyEnabled,
-  isOnboarded,
-  isReviewAsked,
   listManualEvents,
   listPeriodStarts,
   listPredictionRecords,
@@ -44,15 +34,27 @@ import {
   removeTitleWeight,
   restoreData,
   saveTitleWeight,
-  setHideMode,
   setKeywords,
+} from './store';
+import {
+  dismissConsult,
+  getConsultDismissed,
+  getZoneSettings,
+  isHideMode,
+  isLockEnabled,
+  isMetricsEnabled,
+  isNotifyEnabled,
+  isOnboarded,
+  isReviewAsked,
+  setHideMode,
   setLockEnabled,
+  setMetricsEnabled,
   setNotifyEnabled,
   setOnboarded,
   setPmsManual,
   setReviewAsked,
   setZoneSettings,
-} from './store';
+} from './settings';
 import { createTestDatabase } from './testDatabase';
 
 let db: Database;
@@ -112,6 +114,32 @@ describe('settings', () => {
   it('replaces keywords, trimming blanks and preferring high on duplicates', async () => {
     await setKeywords(db, { high: [' 出張 ', '発表会'], medium: ['ヨガ', '', '発表会'] });
     expect(await getKeywords(db)).toEqual({ high: ['出張', '発表会'], medium: ['ヨガ'] });
+  });
+
+  // B4（2026-11-01）: 壊れた値があっても、アプリが開けなくならないよう既定の値で読む
+  it.each([
+    ['broken JSON', "UPDATE settings SET value = '{heavy' WHERE key = 'zone'"],
+    ['days out of range', `UPDATE settings SET value = '{"heavyDays":0,"pmsDays":30}' WHERE key = 'zone'`],
+    ['a missing row', "DELETE FROM settings WHERE key = 'zone'"],
+  ])('still opens with %s in the zone setting, using the defaults', async (_, sql) => {
+    await addPeriodStart(db, '2026-10-01');
+    await db.execAsync(sql);
+    expect(await getZoneSettings(db)).toEqual(DEFAULT_ZONE_SETTINGS);
+    expect((await loadState(db, new Date(2026, 9, 10))).settings).toMatchObject(DEFAULT_ZONE_SETTINGS);
+  });
+
+  it('still opens with a broken PMS setting, reading it as if it were not there', async () => {
+    await db.execAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('pms', 'not json'), ('notify', 'x'), ('lock', 'x')");
+    const state = await loadState(db, new Date(2026, 9, 10));
+    expect(state.pms).toMatchObject({ daysBefore: 7, source: 'default' });
+    // はい／いいえの項目は、壊れていれば既定の値（通知は使う・ロックは使わない）
+    expect([state.notifyEnabled, state.lockEnabled]).toEqual([true, false]);
+  });
+
+  it('does not use a PMS length the calendar cannot draw', async () => {
+    const pms = { daysBefore: 30, source: 'auto', observations: 6, appliedFrom: null, before: null };
+    await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('pms', ?)", JSON.stringify(pms));
+    expect((await loadState(db, new Date(2026, 9, 10))).settings.pmsDays).toBe(7);
   });
 });
 

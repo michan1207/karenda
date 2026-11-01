@@ -8,6 +8,7 @@ export type { Notifier } from './notifier';
 export { deviceReview } from './review';
 export type { ReviewPrompt } from './review';
 export * from './store';
+export * from './settings';
 export { encryptBackup, isEncryptedBackup, openBackup } from './backup';
 export type { OpenBackup } from './backup';
 export { deviceBackupFiles } from './backupFiles';

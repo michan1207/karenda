@@ -10,6 +10,23 @@ import type { RiskKeywords } from '../engine/risk';
 import { validateZoneSettings, ZoneSettings } from '../engine/zones';
 import type { Database } from './database';
 import { SCHEMA_VERSION, seedDefaults } from './migrations';
+import {
+  clearPmsEstimate,
+  getConsultDismissed,
+  getPmsEstimate,
+  getZoneSettings,
+  isCalendarSkipped,
+  isHideMode,
+  isLockEnabled,
+  isMetricsEnabled,
+  isNotifyEnabled,
+  isOnboarded,
+  savePmsEstimate,
+  setHideMode,
+  setLockEnabled,
+  setNotifyEnabled,
+  setZoneSettings,
+} from './settings';
 
 export async function listPeriodStarts(db: Database): Promise<DateKey[]> {
   const rows = await db.getAllAsync<{ start: string }>('SELECT start FROM period_starts ORDER BY start');
@@ -70,45 +87,6 @@ async function savePrediction(db: Database, record: PredictionRecord): Promise<v
     record.actualStart,
     record.absErrorDays,
   );
-}
-
-export async function getZoneSettings(db: Database): Promise<ZoneSettings> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'zone'");
-  return JSON.parse(row!.value) as ZoneSettings;
-}
-
-export async function setZoneSettings(db: Database, settings: ZoneSettings): Promise<void> {
-  validateZoneSettings(settings);
-  const value = JSON.stringify({ heavyDays: settings.heavyDays, pmsDays: settings.pmsDays });
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('zone', ?)", value);
-}
-
-/** PMS の日数の決め方。手動の時の日数は zone の pmsDays（書き出しにも入る） */
-export async function getPmsEstimate(db: Database): Promise<PmsEstimate> {
-  const [row, zone] = await Promise.all([
-    db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'pms'"),
-    getZoneSettings(db),
-  ]);
-  // 推定ができる前に日数を変えていた人（と、そういうバックアップを戻した時）は手動のまま
-  const pms: PmsEstimate = row
-    ? JSON.parse(row.value)
-    : zone.pmsDays === DEFAULT_PMS.daysBefore
-      ? DEFAULT_PMS
-      : { ...DEFAULT_PMS, source: 'manual' };
-  return pms.source === 'manual' ? { ...pms, daysBefore: zone.pmsDays, appliedFrom: null, before: null } : pms;
-}
-
-async function savePmsEstimate(db: Database, pms: PmsEstimate): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('pms', ?)", JSON.stringify(pms));
-}
-
-/** 手動にする時は今の日数から始める。自動に戻すと、次に読み直した時に推定（なければ7日前）へ移る */
-export async function setPmsManual(db: Database, manual: boolean): Promise<void> {
-  const pms = await getPmsEstimate(db);
-  await db.withTransactionAsync(async () => {
-    if (manual) await setZoneSettings(db, { ...(await getZoneSettings(db)), pmsDays: pms.daysBefore });
-    await savePmsEstimate(db, { ...pms, source: manual ? 'manual' : 'default', appliedFrom: null, before: null });
-  });
 }
 
 /** 「どうだった？」の答え（答えないは除く）。PMS の日数の推定に使う */
@@ -612,7 +590,7 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
     if (mode === 'keepMine') return;
     await setZoneSettings(db, data.zoneSettings);
     // ファイルの PMS の日数が7日前でなければ、手動で決めたものとして戻す
-    await db.runAsync("DELETE FROM settings WHERE key = 'pms'");
+    await clearPmsEstimate(db);
     await writeKeywords(db, data.keywords);
     if (!data.flags) return;
     await setLockEnabled(db, data.flags.lock);
@@ -662,91 +640,12 @@ export async function deleteAllData(db: Database): Promise<void> {
   });
 }
 
-export async function isOnboarded(db: Database): Promise<boolean> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'onboarded'");
-  return row?.value === '1';
-}
-
-export async function setOnboarded(db: Database): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarded', '1')");
-}
-
-/** レビューのお願いは一度だけ */
-export async function isReviewAsked(db: Database): Promise<boolean> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'review_asked'");
-  return row?.value === '1';
-}
-
-export async function setReviewAsked(db: Database): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('review_asked', '1')");
-}
-
-/** お知らせ通知を使うか（はじめは使う） */
-export async function isNotifyEnabled(db: Database): Promise<boolean> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'notify'");
-  return row?.value !== '0';
-}
-
-export async function setNotifyEnabled(db: Database, enabled: boolean): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('notify', ?)", enabled ? '1' : '0');
-}
-
-/** はじめの案内でカレンダーを「今はしない」にしたか。そのあいだは、開くたびに許可を求めない */
-export async function isCalendarSkipped(db: Database): Promise<boolean> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'calendar_skipped'");
-  return row?.value === '1';
-}
-
-export async function setCalendarSkipped(db: Database, on: boolean): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('calendar_skipped', ?)", on ? '1' : '0');
-}
-
-/** 隠すモード（はじめは使わない）。電車などで開いても、生理の記録だと分からないようにする */
-export async function isHideMode(db: Database): Promise<boolean> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'hide'");
-  return row?.value === '1';
-}
-
-export async function setHideMode(db: Database, on: boolean): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('hide', ?)", on ? '1' : '0');
-}
-
-/** アプリのロック（はじめは使わない） */
-export async function isLockEnabled(db: Database): Promise<boolean> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'lock'");
-  return row?.value === '1';
-}
-
-export async function setLockEnabled(db: Database, on: boolean): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('lock', ?)", on ? '1' : '0');
-}
-
 /** お知らせで何をしたかと、その日時。日時の無い（前の版から引き継いだ）ものも含む */
 export async function listResolutions(db: Database): Promise<{ resolution: Resolution; at: string }[]> {
   const rows = await db.getAllAsync<{ resolution: Resolution; updated_at: string }>(
     "SELECT resolution, updated_at FROM conflict_states WHERE state = 'resolved' ORDER BY updated_at",
   );
   return rows.map((row) => ({ resolution: row.resolution, at: row.updated_at }));
-}
-
-/** 利用状況の記録（はじめは記録する）。この端末の中だけに残す */
-export async function isMetricsEnabled(db: Database): Promise<boolean> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'metrics'");
-  return row?.value !== '0';
-}
-
-export async function setMetricsEnabled(db: Database, on: boolean): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('metrics', ?)", on ? '1' : '0');
-}
-
-/** 受診の目安カードを閉じた月（YYYY-MM）。同じ月にはもう出さない */
-export async function getConsultDismissed(db: Database): Promise<string | null> {
-  const row = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'consult_dismissed'");
-  return row?.value ?? null;
-}
-
-export async function dismissConsult(db: Database, month: string): Promise<void> {
-  await db.runAsync("INSERT OR REPLACE INTO settings (key, value) VALUES ('consult_dismissed', ?)", month);
 }
 
 export type MetricProps = Record<string, string | number | boolean>;

@@ -8,6 +8,7 @@
 - 開く: `openKarendaDatabase()`（`open.ts`、1回だけ開いて `migrate` する）
 - 表: `period_starts(start)` / `settings(key,value)` / `keywords(word,level: high|medium)` / `conflict_states(event_id,date,state,resolution,updated_at)`（版2。2026-10-30 に dismissed_alerts を「確認済み」として移した）
 - `settings` のキー: `zone`（JSON: heavyDays, pmsDays）, `onboarded`（'1'）, `notify`（'1'/'0'）, `review_asked`（'1'）, `hide`（隠すモード）, `lock`（アプリのロック）
+- settings 表の読み書きは `settings.ts` だけ（2026-11-01 B4。前は store.ts に同じ形のSQLが21本）。はい／いいえの項目は `FLAGS`（鍵と行が無い時の値）1つの表と getFlag/setFlag で、外へは今までの名前（isOnboarded・setHideMode など）で出す。壊れた値でもアプリが開けるよう、zone は無い・壊れている・範囲の外なら既定（3日・7日前）、pms は壊れている・日数が0〜14の外なら無い時と同じに読む。はい／いいえは既定が「はい」なら '0' の時だけ「いいえ」
 - 利用状況の記録（版3の `metric_events(name, props, occurred_at)`、settings の `metrics`。はじめはオン）: `recordMetric` はオフなら何もしない。props に予定の名前・日付・本文は入れない。全削除で消える。外には送らない
 - 覚えた予定の重さ（版4の `title_weights(term, label, weight, source, observations, lean, updated_at)`）: `listTitleWeights` / `saveTitleWeight` / `removeTitleWeight`。`loadState` が決まったものだけ `keywords.learned` に入れる。全削除で消える。バックアップに入る（2026-11-01）
 - 「どうだった？」の答え（版5の `event_reviews(event_id, date, phase, answer, answered_at)`、answer NULL＝答えない）: `answerReview` が1トランザクションで残して学ぶ（同じ予定は最初の1回だけ）。`loadState` の `reviewed`。全削除で消える
