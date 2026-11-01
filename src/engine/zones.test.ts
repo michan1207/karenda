@@ -1,5 +1,5 @@
 import { predictCycle } from './cycle';
-import { buildZones, periodPhase } from './zones';
+import { buildZones, periodPhase, phaseOn } from './zones';
 
 const regular = predictCycle(['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'])!; // 28 days every time
 
@@ -86,6 +86,18 @@ describe('buildZones', () => {
   it('rejects settings outside a sensible range', () => {
     expect(() => buildZones(regular, { from: '2026-10-01', until: '2026-10-31' }, { heavyDays: 0, pmsDays: 7 })).toThrow();
     expect(() => buildZones(regular, { from: '2026-10-01', until: '2026-10-31' }, { heavyDays: 3, pmsDays: 20 })).toThrow();
+  });
+});
+
+describe('phaseOn', () => {
+  it('names each day once, for every part of the app to read', () => {
+    const zones = buildZones(regular, { from: '2026-10-01', until: '2026-11-30' });
+    const kinds = ['2026-10-17', '2026-10-18', '2026-10-25', '2026-10-26', '2026-10-29', '2026-10-30', '2026-11-02', '2026-11-03'].map(
+      (day) => phaseOn(day, zones).kind,
+    );
+    expect(kinds).toEqual(['other', 'pms', 'edge', 'mostSevere', 'edge', 'after', 'after', 'other']);
+    expect(phaseOn('2026-10-27', zones)).toEqual({ kind: 'mostSevere', periodDay: 2, predicted: true });
+    expect(phaseOn('2026-10-20', zones)).toEqual({ kind: 'pms', windowStart: '2026-10-18', predicted: true });
   });
 });
 

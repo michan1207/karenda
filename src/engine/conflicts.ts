@@ -3,7 +3,7 @@ import type { Weight } from './learning';
 import { addDays, DateKey, diffDays, fromDateKey } from './date';
 import { classifyRisk, DEFAULT_KEYWORDS, isDayOff, Risk, RiskKeywords, traitsOf } from './risk';
 import { groupSeries } from './series';
-import { periodPhase, ZoneMap } from './zones';
+import { Phase, phaseOn, ZoneMap } from './zones';
 
 /** このアプリに入れた予定の色。色の値は画面（theme.ts）で決める */
 export const EVENT_COLORS = ['blue', 'green', 'orange', 'purple', 'yellow', 'gray'] as const;
@@ -95,24 +95,6 @@ export function impactOf(title: string): Impact {
 
 export function gradeOf(score: number): Grade {
   return score >= GRADE_A ? 'A' : score >= GRADE_B ? 'B' : 'C';
-}
-
-type Phase =
-  | { kind: 'mostSevere'; periodDay: number; predicted: boolean }
-  | { kind: 'edge'; predicted: true }
-  | { kind: 'pms'; windowStart: DateKey; predicted: true }
-  | { kind: 'after'; predicted: false }
-  | { kind: 'other'; predicted: false };
-
-function phaseOn(day: DateKey, zones: ZoneMap): Phase {
-  const zone = zones.get(day);
-  if (zone?.zone === 'heavy') {
-    return zone.periodDay
-      ? { kind: 'mostSevere', periodDay: zone.periodDay, predicted: zone.predicted }
-      : { kind: 'edge', predicted: true };
-  }
-  if (zone?.zone === 'pms') return { kind: 'pms', windowStart: zone.windowStart, predicted: true };
-  return { kind: periodPhase(day, zones) === 'after' ? 'after' : 'other', predicted: false };
 }
 
 const PHASE_CODE: Record<Exclude<Phase['kind'], 'other'>, ReasonCode> = {
