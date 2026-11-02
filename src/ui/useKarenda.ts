@@ -37,6 +37,7 @@ import {
   setMetricsEnabled,
   setLockEnabled as saveLockEnabled,
   setNotifyEnabled,
+  setSoonEnabled,
   setCalendarSkipped,
   setOnboarded,
   setPmsManual as savePmsManual,
@@ -114,6 +115,8 @@ export type Karenda = StoredState & {
   /** 予定のあとの「どうだった？」に答える。null は「答えない」 */
   answerReview(target: ReviewTarget, answer: Answer | null): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
+  /** 予定の30分前にも知らせるか */
+  setSoon(enabled: boolean): Promise<void>;
   /** 「アラームとリマインダー」の設定を開く（オン・オフは使う人が決める） */
   openExactAlarm(): Promise<void>;
   setHideMode(on: boolean): Promise<void>;
@@ -143,6 +146,7 @@ export type Karenda = StoredState & {
 const INITIAL_STATE: StoredState = {
   onboarded: false,
   notifyEnabled: true,
+  soonEnabled: true,
   hideMode: false,
   lockEnabled: false,
   metricsEnabled: true,
@@ -375,6 +379,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       await withDb((opened) => setNotifyEnabled(opened, enabled));
       if (enabled) await requestNotifyAccess();
     },
+    setSoon: (enabled) => withDb((opened) => setSoonEnabled(opened, enabled)),
     openExactAlarm: async () => {
       // オンにした時は戻るまで待つ。アプリの情報を開いた時はすぐ戻るので、アプリに戻った時にもう一度読む
       await notifier.openExactAlarm().catch(() => {});

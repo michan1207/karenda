@@ -2,7 +2,7 @@ import type { Action } from './actions';
 import type { ConflictAlert, Impact } from './conflicts';
 import { addDays } from './date';
 import type { ReviewTarget } from './learning';
-import { planDayReminders, planNotifications, planReviewNotifications, quietNotifications } from './notifications';
+import { planDayReminders, planNotifications, planReviewNotifications, planSoonReminders, quietNotifications } from './notifications';
 
 const alert = (eventId: string, date: string, grade: 'A' | 'B', title = eventId, impact: Impact = 'mitigable'): ConflictAlert => ({
   eventId,
@@ -205,5 +205,43 @@ describe('planDayReminders', () => {
   it('covers today and the next 6 days only', () => {
     const days = planDayReminders([timed('a', '会議', '2026-10-30', 600), timed('b', '会議', '2026-10-31', 600)], '2026-10-24');
     expect(days.map((plan) => plan.date)).toEqual(['2026-10-30']);
+  });
+});
+
+describe('planSoonReminders', () => {
+  const timed = (id: string, title: string, start: string, startMinutes?: number, allDay = false) => ({
+    id,
+    title,
+    start,
+    end: start,
+    allDay,
+    ...(startMinutes === undefined ? {} : { startMinutes }),
+  });
+
+  it('tells each timed event 30 minutes before it starts, and puts events at the same time in one notice', () => {
+    const plans = planSoonReminders(
+      [timed('a', '会議', '2026-10-25', 600), timed('b', '電話', '2026-10-25', 600), timed('c', '歯医者', '2026-10-25', 870), timed('d', '旅行', '2026-10-25', undefined, true)],
+      '2026-10-24',
+    );
+    expect(plans).toEqual([
+      { id: 'soon-2026-10-25-600', date: '2026-10-25', minutes: 570, title: '30分後の予定', body: '10時から会議、電話の予定です。' },
+      { id: 'soon-2026-10-25-870', date: '2026-10-25', minutes: 840, title: '30分後の予定', body: '14時30分から歯医者の予定です。' },
+    ]);
+  });
+
+  it('comes the night before for an event just after midnight, and leaves out an empty name', () => {
+    expect(planSoonReminders([timed('a', '', '2026-10-25', 10)], '2026-10-24')).toEqual([
+      { id: 'soon-2026-10-25-10', date: '2026-10-24', minutes: 1420, title: '30分後の予定', body: '0時10分からの予定です。' },
+    ]);
+  });
+
+  it('covers today and the next 6 days only, like the morning notice', () => {
+    const plans = planSoonReminders([timed('a', '会議', '2026-10-30', 600), timed('b', '会議', '2026-10-31', 600)], '2026-10-24');
+    expect(plans.map((plan) => plan.id)).toEqual(['soon-2026-10-30-600']);
+  });
+
+  it('keeps the event names on Android too, like the morning notice', () => {
+    const plans = planSoonReminders([timed('a', '会議', '2026-10-25', 600)], '2026-10-24');
+    expect(quietNotifications(plans)).toEqual(plans);
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { ConflictAlert, DateKey, Guard, planNotifications, planReviewNotifications, quietNotifications, ReviewTarget } from '../engine';
-import { useDayReminders } from './useDayReminders';
+import { useEventReminders } from './useEventReminders';
 import type { Karenda } from './useKarenda';
 
 /**
@@ -26,9 +26,8 @@ export function useNotificationSync(
     });
     return () => subscription.remove();
   }, []);
-  const reminders = useDayReminders(k, today);
-  // iOS が待たせておける通知は64件まで。重なる予定と「どうだった？」は30日で1日1件まで、その日の予定は7日分。
-  // 全部そろうと少し超えるが、iOS は近い順に64件を残すので、あふれるのは先の分だけ（アプリを開けば組み直す）
+  const reminders = useEventReminders(k, today);
+  // iOS が待たせておける通知は64件までなので、予約する側（notifier）が近い順に64件まで予約する
   const all = notifyEnabled
     ? [
         ...planNotifications(alerts, today, actionsOf, deferrals),

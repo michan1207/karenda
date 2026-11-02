@@ -21,10 +21,12 @@ import {
   isMetricsEnabled,
   isNotifyEnabled,
   isOnboarded,
+  isSoonEnabled,
   savePmsEstimate,
   setHideMode,
   setLockEnabled,
   setNotifyEnabled,
+  setSoonEnabled,
   setZoneSettings,
 } from './settings';
 
@@ -290,6 +292,8 @@ export type StoredState = {
   onboarded: boolean;
   /** 設定でお知らせ通知を使うか */
   notifyEnabled: boolean;
+  /** 予定の30分前にも知らせるか */
+  soonEnabled: boolean;
   /** 隠すモード。カレンダーに生理の色や言葉を出さない */
   hideMode: boolean;
   /** 開く時と戻った時に Face ID（またはパスコード）を求めるか */
@@ -324,9 +328,10 @@ export type StoredState = {
 };
 
 export async function loadState(db: Database, now: Date = new Date()): Promise<StoredState> {
-  const [onboarded, notifyEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, words, statuses, resolutions, titleWeights, reviewed] = await Promise.all([
+  const [onboarded, notifyEnabled, soonEnabled, hideMode, lockEnabled, metricsEnabled, starts, settings, words, statuses, resolutions, titleWeights, reviewed] = await Promise.all([
     isOnboarded(db),
     isNotifyEnabled(db),
+    isSoonEnabled(db),
     isHideMode(db),
     isLockEnabled(db),
     isMetricsEnabled(db),
@@ -349,6 +354,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
   return {
     onboarded,
     notifyEnabled,
+    soonEnabled,
     hideMode,
     lockEnabled,
     metricsEnabled,
@@ -382,8 +388,8 @@ export type ExportedManualEvent = {
   durationMinutes: number | null;
 };
 export type ExportedReview = { eventId: string; date: DateKey; phase: ReviewPhase; answer: Answer | null; answeredAt: string };
-/** ロック・隠すモード・お知らせ通知の設定 */
-export type ExportedFlags = { lock: boolean; hide: boolean; notify: boolean };
+/** ロック・隠すモード・お知らせ通知の設定。soon（30分前の通知）は 1.0.3 までのファイルには無い（戻しても今のまま） */
+export type ExportedFlags = { lock: boolean; hide: boolean; notify: boolean; soon?: boolean };
 
 export type ExportedData = {
   app: 'karenda';
@@ -421,7 +427,7 @@ export async function exportData(db: Database, now: Date = new Date()): Promise<
       'SELECT event_id AS eventId, date, phase, answer, answered_at AS answeredAt FROM event_reviews ORDER BY date, event_id',
     ),
     predictionRecords: await listPredictionRecords(db),
-    flags: { lock: await isLockEnabled(db), hide: await isHideMode(db), notify: await isNotifyEnabled(db) },
+    flags: { lock: await isLockEnabled(db), hide: await isHideMode(db), notify: await isNotifyEnabled(db), soon: await isSoonEnabled(db) },
   };
 }
 
@@ -480,7 +486,11 @@ const isPrediction = (record: Record<string, unknown>) =>
   (record.absErrorDays === null || isWhole(record.absErrorDays));
 
 const isFlags = (flags: unknown): flags is ExportedFlags =>
-  isRecord(flags) && typeof flags.lock === 'boolean' && typeof flags.hide === 'boolean' && typeof flags.notify === 'boolean';
+  isRecord(flags) &&
+  typeof flags.lock === 'boolean' &&
+  typeof flags.hide === 'boolean' &&
+  typeof flags.notify === 'boolean' &&
+  (flags.soon === undefined || typeof flags.soon === 'boolean');
 
 /** 書き出したファイルを読む。外から来た中身なので、形と値をすべて確かめる */
 export function readExport(text: string): ReadExport {
@@ -596,6 +606,7 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
     await setLockEnabled(db, data.flags.lock);
     await setHideMode(db, data.flags.hide);
     await setNotifyEnabled(db, data.flags.notify);
+    if (data.flags.soon !== undefined) await setSoonEnabled(db, data.flags.soon);
   });
 }
 
