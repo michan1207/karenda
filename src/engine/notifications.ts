@@ -17,6 +17,8 @@ export type NotificationPlan = {
   body: string;
   /** 「どうだった？」の通知。ボタンで答えると、この予定の答えとして保存する */
   review?: ReviewTarget;
+  /** 予約の数があふれる時（iPhone は64件まで）は、ほかの通知より後回しにしてよい（30分前の通知） */
+  optional?: true;
   /** 重なる予定の通知。ボタン（確認した／代替日を見る／今日は決めない）はここの予定すべてに効く。fixed は全部動かせない予定（代替日のボタンを付けない） */
   decide?: { conflicts: { eventId: string; date: DateKey }[]; fixed: boolean };
 };
@@ -161,26 +163,59 @@ const DAY_REMINDER_AT = 7 * 60;
 
 const clock = (minutes: number) => `${Math.floor(minutes / 60)}時${minutes % 60 ? `${minutes % 60}分` : ''}`;
 
+/** 今日から7日分の日付 */
+const reminderDays = (today: DateKey) => Array.from({ length: DAY_REMINDER_DAYS }, (_, i) => addDays(today, i));
+
+/** その日に始まる時刻のある予定を、時刻の順に（同じ時刻は名前の順）。終日・時刻のない予定は入れない */
+const timedOn = (events: CalendarEvent[], day: DateKey) =>
+  events
+    .filter((event): event is CalendarEvent & { startMinutes: number } => event.start === day && event.startMinutes !== undefined)
+    .sort((a, b) => a.startMinutes - b.startMinutes || a.title.localeCompare(b.title));
+
 /**
  * 時刻のある予定を、その日の朝7時に1件にまとめて知らせる（2026-11-01 オーナー決定）。
  * 「今日は10時から会議、14時から歯医者の予定です。」。終日・時刻のない予定は入れない。今日から7日分
  */
 export function planDayReminders(events: CalendarEvent[], today: DateKey): NotificationPlan[] {
-  const plans: NotificationPlan[] = [];
-  for (let i = 0; i < DAY_REMINDER_DAYS; i++) {
-    const day = addDays(today, i);
-    const timed = events
-      .filter((event) => event.start === day && event.startMinutes !== undefined)
-      .sort((a, b) => a.startMinutes! - b.startMinutes! || a.title.localeCompare(b.title));
-    if (timed.length === 0) continue;
-    const list = timed.map((event) => `${clock(event.startMinutes!)}から${event.title.trim()}`).join('、');
-    plans.push({
-      id: `day-${day}`,
-      date: day,
-      minutes: Math.max(0, Math.min(DAY_REMINDER_AT, timed[0].startMinutes! - 60)),
-      title: '今日の予定',
-      body: `今日は${list}の予定です。`,
+  return reminderDays(today).flatMap((day) => {
+    const timed = timedOn(events, day);
+    if (timed.length === 0) return [];
+    const list = timed.map((event) => `${clock(event.startMinutes)}から${event.title.trim()}`).join('、');
+    return [
+      {
+        id: `day-${day}`,
+        date: day,
+        minutes: Math.max(0, Math.min(DAY_REMINDER_AT, timed[0].startMinutes - 60)),
+        title: '今日の予定',
+        body: `今日は${list}の予定です。`,
+      },
+    ];
+  });
+}
+
+/** 予定が始まる何分前に、もう一度知らせるか */
+const SOON_MINUTES = 30;
+
+/**
+ * 時刻のある予定を、始まる30分前にもう一度知らせる（2026-11-02 オーナー決定。設定でオン・オフ）。
+ * 同じ時刻に始まる予定は1件にまとめ、0時台の予定は前の日の夜に出す。今日から7日分（朝の通知と同じ）
+ */
+export function planSoonReminders(events: CalendarEvent[], today: DateKey): NotificationPlan[] {
+  return reminderDays(today).flatMap((day) => {
+    const byStart = new Map<number, string[]>();
+    for (const event of timedOn(events, day)) byStart.set(event.startMinutes, [...(byStart.get(event.startMinutes) ?? []), event.title.trim()]);
+    return [...byStart].map(([start, titles]) => {
+      const at = start - SOON_MINUTES;
+      const names = [...new Set(titles.filter(Boolean))].join('、');
+      return {
+        id: `soon-${day}-${start}`,
+        date: at < 0 ? addDays(day, -1) : day,
+        minutes: (at + 24 * 60) % (24 * 60),
+        // 遅れて届くこともある（Android の「アラームとリマインダー」がオフの時）ので、「30分後」とは書かず始まる時刻を書く
+        title: `${clock(start)}からの予定`,
+        body: names ? `${names}の予定です。` : '名前の入っていない予定です。',
+        optional: true as const,
+      };
     });
-  }
-  return plans;
+  });
 }

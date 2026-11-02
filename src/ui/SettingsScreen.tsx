@@ -63,16 +63,16 @@ export default function SettingsScreen({ k, today }: Props) {
 
       <Section colors={colors} title="お知らせ通知">
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>重なる予定の前に通知する</Text>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>通知を使う</Text>
           <Switch
-            accessibilityLabel="重なる予定の前に通知する"
+            accessibilityLabel="通知を使う"
             value={k.notifyEnabled}
             onValueChange={k.setNotify}
             trackColor={{ true: colors.pink, false: colors.line }}
           />
         </View>
         <Text style={[styles.help, { color: colors.muted }]}>
-          要注意（A）の予定は7日前と3日前、注意（B）の予定は3日前、どちらも決める目安の日にも、朝9時にこの端末から通知します。1つの予定の通知は3回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝9時に「どうだった？」と1件だけ聞きます。
+          重なる予定は、要注意（A）なら7日前と3日前、注意（B）なら3日前、どちらも決める目安の日にも、朝9時にこの端末から通知します。1つの予定の通知は3回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝9時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝7時（8時より前に始まる日はその1時間前）に「今日の予定」を知らせます。
         </Text>
         {k.notifyEnabled && k.notifyAccess === 'denied' && (
           <Notice
@@ -80,6 +80,23 @@ export default function SettingsScreen({ k, today }: Props) {
             text="端末の設定で通知がオフになっています。"
             action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
           />
+        )}
+        {k.notifyEnabled && (
+          <>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>予定の30分前にも知らせる</Text>
+              <Switch
+                accessibilityLabel="予定の30分前にも知らせる"
+                value={k.soonEnabled}
+                onValueChange={k.setSoon}
+                trackColor={{ true: colors.pink, false: colors.line }}
+              />
+            </View>
+            <Text style={[styles.help, { color: colors.muted }]}>
+              時刻のある予定が始まる30分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
+              {k.soonEnabled && k.exactAlarm === false && '下の「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。'}
+            </Text>
+          </>
         )}
         {k.notifyEnabled && k.exactAlarm !== null && (
           <>

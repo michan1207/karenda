@@ -48,7 +48,8 @@ export type Notifier = {
 };
 
 /**
- * Android の通知チャンネル。通知の文は何の予定か分からないもの（quietNotifications）だけなので、
+ * Android の通知チャンネル。通知の文は何の予定か分からないもの（quietNotifications）にする。ただし今日の予定と
+ * 30分前の通知は予定の名前を出す（オーナー決定）。そのうえで、
  * 鍵のかかったロック画面でも「内容を非表示」にせず、その文を出す（2026-11-01 オーナー決定）。
  * 見せ方は作ったあとに変えられないので、前の 'guard' とは別の id で作り直す
  */
@@ -194,6 +195,7 @@ function toRequest(plan: NotificationPlan) {
   const key = JSON.stringify([date.getTime(), content]);
   return {
     date,
+    optional: plan.optional === true,
     request: {
       identifier: plan.id,
       content: { ...content, data: { ...('data' in content ? content.data : {}), key } },
@@ -203,23 +205,34 @@ function toRequest(plan: NotificationPlan) {
 }
 
 /**
+ * 待たせておける通知の数。iOS は64件まで（あふれた先の分は、次に組み直す時に予約する）。
+ * Android は数百件まで待たせておけるので、上限を設けない（開かない日が続いても先の分まで届く）
+ */
+const MAX_PENDING = Platform.OS === 'ios' ? 64 : Infinity;
+
+/**
  * 渡したものだけが予約されているようにする（replaceAll から1つずつ呼ぶ）。要らなくなった予約は取り消し、先の予約は
- * 毎回予約し直す（Android は強制停止などで目覚ましを消しても一覧には残すので、残っていても鳴るとは限らない）。
+ * 近い順に（iOS は64件まで）毎回予約し直す（Android は強制停止などで目覚ましを消しても一覧には残すので、残っていても鳴るとは限らない）。
  * 時刻を過ぎてまだ出ていない予約は、中身が同じならそのまま残す。Android は通知を時刻から最大1時間遅らせて出すので、
  * 取り消すと戻らないまま消える（2026-11-02、7時の「今日の予定」が7時3分にアプリを開いて消えた）
  */
 async function schedule(plans: NotificationPlan[], now: Date) {
   await configure();
-  const wanted = new Map(plans.map((plan) => [plan.id, toRequest(plan)]));
-  for (const booked of await getAllScheduledNotificationsAsync()) {
-    const want = wanted.get(booked.identifier);
-    if (want && want.date <= now && want.request.content.data.key === booked.content.data?.key) continue;
-    // 先の予約は下で予約し直す（同じ id で置き換わる）
-    if (!want || want.date <= now) await cancelScheduledNotificationAsync(booked.identifier);
-  }
-  for (const { date, request } of wanted.values()) {
-    if (date <= now) continue;
-    // 1件予約できなくても、残りは予約する
-    await scheduleNotificationAsync(request).catch(() => {});
-  }
+  const booked = await getAllScheduledNotificationsAsync();
+  const bookedKeys = new Map(booked.map(({ identifier, content }) => [identifier, content.data?.key]));
+  const requests = plans.map(toRequest);
+  const kept = new Set(
+    requests
+      .filter(({ date, request }) => date <= now && bookedKeys.get(request.identifier) === request.content.data.key)
+      .map(({ request }) => request.identifier),
+  );
+  const next = requests
+    .filter(({ date }) => date > now)
+    // あふれる時は30分前の通知（optional）を後回しにして、重なる予定・「どうだった？」・今日の予定を先に予約する
+    .sort((a, b) => Number(a.optional) - Number(b.optional) || a.date.getTime() - b.date.getTime())
+    .slice(0, Math.max(0, MAX_PENDING - kept.size));
+  const ids = new Set(next.map(({ request }) => request.identifier));
+  for (const { identifier } of booked) if (!kept.has(identifier) && !ids.has(identifier)) await cancelScheduledNotificationAsync(identifier);
+  // 先の予約は同じ id で置き換わる。1件予約できなくても、残りは予約する
+  for (const { request } of next) await scheduleNotificationAsync(request).catch(() => {});
 }

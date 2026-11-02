@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 
+import { addDays } from '../engine/date';
 import { deviceNotifier, fireTime } from './notifier';
 
 /** 端末に予約されている通知の偽物。予約・取り消し・一覧を、この Map で真似る */
@@ -113,6 +114,32 @@ describe('deviceNotifier.replaceAll', () => {
       deviceNotifier.replaceAll([{ id: 'new', date: '2026-10-27', title: 'new', body: '' }], now),
     ]);
     expect([...mockBooked.keys()]).toEqual(['new']);
+  });
+
+  it('books only the 64 soonest, because iPhone keeps no more than that waiting', async () => {
+    const plans = Array.from({ length: 70 }, (_, i) => ({ id: `p${i}`, date: addDays('2026-11-03', i), title: 't', body: 'b' }));
+    await deviceNotifier.replaceAll([...plans].reverse(), new Date(2026, 10, 2));
+    expect(mockBooked.size).toBe(64);
+    expect([mockBooked.has('p0'), mockBooked.has('p63'), mockBooked.has('p64')]).toEqual([true, true, false]);
+    // 近い予定が増えたら、いちばん先の予約を取り消して入れ替える
+    await deviceNotifier.replaceAll([{ id: 'near', date: '2026-11-02', minutes: 600, title: 't', body: 'b' }, ...plans], new Date(2026, 10, 2));
+    expect([mockBooked.size, mockBooked.has('near'), mockBooked.has('p63')]).toEqual([64, true, false]);
+  });
+
+  it('lets the 30-minute notices give way first, and counts a notice still waiting to be shown', async () => {
+    const day = { id: 'day-2026-11-02', date: '2026-11-02', minutes: 420, title: '今日の予定', body: 'b' };
+    await deviceNotifier.replaceAll([day], new Date(2026, 10, 2, 5, 0));
+    const soon = Array.from({ length: 64 }, (_, i) => ({ id: `soon-${i}`, date: '2026-11-03', minutes: i, title: 't', body: 'b', optional: true as const }));
+    const guard = { id: 'guard-2026-11-20', date: '2026-11-20', title: 't', body: 'b' };
+    await deviceNotifier.replaceAll([day, ...soon, guard], new Date(2026, 10, 2, 7, 3));
+    // 7時の分（まだ出ていない）＋重なる予定＋30分前の62件で64件
+    expect([mockBooked.size, mockBooked.has('day-2026-11-02'), mockBooked.has('guard-2026-11-20'), mockBooked.has('soon-61'), mockBooked.has('soon-62')]).toEqual([
+      64,
+      true,
+      true,
+      true,
+      false,
+    ]);
   });
 
   it('schedules the rest when one reminder cannot be scheduled', async () => {
@@ -245,6 +272,19 @@ describe('the Android channel', () => {
     expect(notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({ trigger: expect.objectContaining({ channelId: 'guard-public' }) }),
     );
+  });
+});
+
+describe('the number waiting on Android', () => {
+  it('has no limit of 64, because Android keeps hundreds waiting', async () => {
+    let notifier!: typeof deviceNotifier;
+    jest.isolateModules(() => {
+      jest.doMock('react-native', () => ({ Platform: { OS: 'android' } }));
+      notifier = jest.requireActual<typeof import('./notifier')>('./notifier').deviceNotifier;
+    });
+    const plans = Array.from({ length: 70 }, (_, i) => ({ id: `p${i}`, date: addDays('2026-11-03', i), title: 't', body: 'b' }));
+    await notifier.replaceAll(plans, new Date(2026, 10, 2));
+    expect(mockBooked.size).toBe(70);
   });
 });
 

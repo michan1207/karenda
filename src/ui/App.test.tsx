@@ -639,6 +639,32 @@ describe('notifications', () => {
     );
   });
 
+  it('also tells 30 minutes before a timed event, and stops when that is turned off in settings', async () => {
+    const dentist = { id: 'dentist', title: '歯医者', start: '2026-10-26', end: '2026-10-26', allDay: false, startMinutes: 600, durationMinutes: 60 };
+    const { notifier } = await setup({ calendar: fakeCalendar(true, [...EVENTS, dentist]) });
+    await screen.findByText('お知らせ（2）');
+    const last = () => notifier.replaceAll.mock.calls.at(-1)![0];
+    const soon = () => last().filter((plan) => plan.id.startsWith('soon-'));
+    await waitFor(() =>
+      expect(soon()).toEqual([
+        { id: 'soon-2026-10-26-600', date: '2026-10-26', minutes: 570, title: '10時からの予定', body: '歯医者の予定です。', optional: true },
+      ]),
+    );
+    await fireEvent.press(screen.getByText('設定'));
+    await fireEvent(screen.getByLabelText('予定の30分前にも知らせる'), 'valueChange', false);
+    await waitFor(() => expect(soon()).toEqual([]));
+    // 朝の「今日の予定」はそのまま
+    expect(last().map((plan) => plan.id)).toContain('day-2026-10-26');
+  });
+
+  it('says on Android that the 30-minute notice can be late without exact times, and hides it when notifications are off', async () => {
+    await setup({ notifier: fakeNotifier(true, false) });
+    await fireEvent.press(await screen.findByText('設定'));
+    expect(screen.getByText(/「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。/)).toBeTruthy();
+    await fireEvent(screen.getByLabelText('通知を使う'), 'valueChange', false);
+    await waitFor(() => expect(screen.queryByLabelText('予定の30分前にも知らせる')).toBeNull());
+  });
+
   it('drops the reminder of a dismissed alert', async () => {
     const { notifier } = await setup();
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
@@ -684,7 +710,7 @@ describe('notifications', () => {
   it('clears all reminders when turned off in settings', async () => {
     const { notifier } = await setup();
     await fireEvent.press(await screen.findByText('設定'));
-    await fireEvent(screen.getByLabelText('重なる予定の前に通知する'), 'valueChange', false);
+    await fireEvent(screen.getByLabelText('通知を使う'), 'valueChange', false);
     expect(await screen.findByText('お知らせ（2）')).toBeTruthy();
     expect(lastPlanDates(notifier)).toEqual([]);
   });
@@ -715,7 +741,7 @@ describe('notifications', () => {
   it('does not show the exact-time switch where notices always come on time', async () => {
     await setup();
     await fireEvent.press(await screen.findByText('設定'));
-    expect(screen.getByLabelText('重なる予定の前に通知する')).toBeTruthy();
+    expect(screen.getByLabelText('通知を使う')).toBeTruthy();
     expect(screen.queryByLabelText('時刻ちょうどに知らせる')).toBeNull();
   });
 

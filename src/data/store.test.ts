@@ -47,6 +47,7 @@ import {
   isNotifyEnabled,
   isOnboarded,
   isReviewAsked,
+  isSoonEnabled,
   setHideMode,
   setLockEnabled,
   setMetricsEnabled,
@@ -54,6 +55,7 @@ import {
   setOnboarded,
   setPmsManual,
   setReviewAsked,
+  setSoonEnabled,
   setZoneSettings,
 } from './settings';
 import { STORED_DATA } from './privacy';
@@ -190,6 +192,12 @@ describe('notification setting', () => {
     expect(await isNotifyEnabled(db)).toBe(false);
     await setNotifyEnabled(db, true);
     expect(await isNotifyEnabled(db)).toBe(true);
+  });
+
+  it('also tells 30 minutes before an event by default, and that can be turned off', async () => {
+    expect((await loadState(db)).soonEnabled).toBe(true);
+    await setSoonEnabled(db, false);
+    expect((await loadState(db)).soonEnabled).toBe(false);
   });
 });
 
@@ -562,7 +570,7 @@ describe('export and delete', () => {
       titleWeights: [],
       reviews: [],
       predictionRecords: [],
-      flags: { lock: false, hide: false, notify: true },
+      flags: { lock: false, hide: false, notify: true, soon: true },
     });
     expect(JSON.parse(JSON.stringify(data))).toEqual(data);
   });
@@ -651,6 +659,7 @@ describe('reading an exported file back', () => {
     await setLockEnabled(db, true);
     await setHideMode(db, true);
     await setNotifyEnabled(db, false);
+    await setSoonEnabled(db, false);
     const before = await loadState(db, today);
     const predictions = await listPredictionRecords(db);
     const file = await exported();
@@ -674,7 +683,7 @@ describe('reading an exported file back', () => {
     expect(withoutId(after.manualEvents)).toEqual(withoutId(before.manualEvents));
     expect(after.manualEvents[1].id).not.toBe('manual:2');
     expect(await db.getAllAsync('SELECT event_id FROM event_reviews')).toEqual([{ event_id: after.manualEvents[1].id }]);
-    expect([await isLockEnabled(db), await isHideMode(db), await isNotifyEnabled(db)]).toEqual([true, true, false]);
+    expect([await isLockEnabled(db), await isHideMode(db), await isNotifyEnabled(db), await isSoonEnabled(db)]).toEqual([true, true, false, false]);
   });
 
   it('can add the file’s records to the ones already here, keeping these settings', async () => {
@@ -744,11 +753,19 @@ describe('reading an exported file back', () => {
     titleWeights: [],
     reviews: [{ eventId: 'manual:1', date: '2026-10-20', phase: 'pms', answer: 'hard', answeredAt: '2026-10-21T00:00:00.000Z' }],
     predictionRecords: [],
-    flags: { lock: false, hide: false, notify: true },
+    flags: { lock: false, hide: false, notify: true, soon: true },
   };
 
   it('accepts a whole file written now', () => {
     expect(readExport(JSON.stringify(full)).ok).toBe(true);
+  });
+
+  it('takes a file from before the 30-minute notice, and leaves that setting as it is', async () => {
+    await setSoonEnabled(db, false);
+    const read = readExport(JSON.stringify({ ...full, flags: { lock: false, hide: false, notify: true } }));
+    if (!read.ok) throw new Error(read.reason);
+    await restoreData(db, read.data, 'preferFile');
+    expect(await isSoonEnabled(db)).toBe(false);
   });
 
   it.each([

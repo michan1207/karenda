@@ -14,6 +14,8 @@ const FLAGS = {
   review_asked: false,
   /** お知らせ通知（はじめは使う） */
   notify: true,
+  /** 予定の30分前にも知らせる（はじめは使う。2026-11-02） */
+  soon: true,
   /** はじめの案内でカレンダーを「今はしない」にした。そのあいだは、開くたびに許可を求めない */
   calendar_skipped: false,
   /** 隠すモード。電車などで開いても、生理の記録だと分からないようにする */
@@ -47,6 +49,8 @@ export const isReviewAsked = (db: Database) => getFlag(db, 'review_asked');
 export const setReviewAsked = (db: Database) => setFlag(db, 'review_asked', true);
 export const isNotifyEnabled = (db: Database) => getFlag(db, 'notify');
 export const setNotifyEnabled = (db: Database, on: boolean) => setFlag(db, 'notify', on);
+export const isSoonEnabled = (db: Database) => getFlag(db, 'soon');
+export const setSoonEnabled = (db: Database, on: boolean) => setFlag(db, 'soon', on);
 export const isCalendarSkipped = (db: Database) => getFlag(db, 'calendar_skipped');
 export const setCalendarSkipped = (db: Database, on: boolean) => setFlag(db, 'calendar_skipped', on);
 export const isHideMode = (db: Database) => getFlag(db, 'hide');
