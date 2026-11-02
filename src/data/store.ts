@@ -1,5 +1,5 @@
 import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snapshotPrediction } from '../engine/accuracy';
-import { ConflictState, ConflictStatus, Resolution, statusOf } from '../engine/conflictState';
+import { advanceStatus, ConflictState, ConflictStatus, Resolution, statusOf } from '../engine/conflictState';
 import { predictCycle } from '../engine/cycle';
 import { DateKey, fromDateKey, toDateKey } from '../engine/date';
 import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
@@ -281,6 +281,33 @@ export async function saveConflictStatus(
     status.resolution,
     now.toISOString(),
   );
+}
+
+/** お知らせへの答え。確認した / 対応した（何をしたか）/ 今日は決めない（もう一度知らせる日） */
+export type AlertDecision = { kind: 'acknowledge' } | { kind: 'resolve'; resolution: Resolution } | { kind: 'defer'; remindOn: DateKey };
+
+/**
+ * 通知と画面のボタンの答えを、今の状態を読んでから1トランザクションで残す（途中で失敗しても半分だけ残らない）。
+ * 状態は advanceStatus で前にだけ進め、対応済みへは確認済みを通って進む。状態を進めた予定があれば true
+ */
+export async function applyDecision(db: Database, conflicts: { eventId: string; date: DateKey }[], decision: AlertDecision): Promise<boolean> {
+  let advanced = false;
+  await db.withTransactionAsync(async () => {
+    const statuses = await getConflictStatuses(db);
+    for (const { eventId, date } of conflicts) {
+      if (decision.kind === 'defer') {
+        await deferAlert(db, eventId, date, decision.remindOn);
+        continue;
+      }
+      let current = statusOf(statuses, eventId);
+      if (decision.kind === 'acknowledge' && current.state !== 'unreviewed') continue;
+      if (current.state === 'unreviewed') current = advanceStatus(current, 'acknowledged');
+      if (decision.kind === 'resolve') current = advanceStatus(current, 'resolved', decision.resolution);
+      await saveConflictStatus(db, eventId, date, current);
+      advanced = true;
+    }
+  });
+  return advanced;
 }
 
 /** 確認済み・対応済みのお知らせは、一覧と通知から外す */

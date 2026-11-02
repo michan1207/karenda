@@ -4,16 +4,15 @@ import { AppState } from 'react-native';
 import {
   addManualEvent as saveManualEvent,
   answerReview as saveReviewAnswer,
+  applyDecision,
   Authenticator,
   BackupFiles,
   CalendarSource,
   Database,
-  deferAlert,
   deleteAllData,
   dismissConsult as saveConsultDismissed,
   encryptBackup,
   ExportedData,
-  getConflictStatuses,
   getZoneSettings,
   exportData,
   isReviewAsked,
@@ -27,7 +26,6 @@ import {
   removeManualEvent as deleteManualEvent,
   removePeriodStart,
   removeTitleWeight,
-  saveConflictStatus,
   saveTitleWeight,
   restoreData,
   RestoreMode,
@@ -46,7 +44,6 @@ import {
 } from '../data';
 import {
   addDays,
-  advanceStatus,
   buildReport,
   Answer,
   DateKey,
@@ -58,7 +55,6 @@ import {
   ReviewTarget,
   RiskKeywords,
   shouldAskReview,
-  statusOf,
   TitleWeight,
   toDateKey,
   Weight,
@@ -297,16 +293,9 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     if (!db) return;
     return notifier.onDecision((conflicts, decision) => {
       if (decision === 'alternatives') return setAlertsRequested((count) => count + 1);
-      const tomorrow = addDays(toDateKey(new Date()), 1);
-      (async () => {
-        const statuses = await getConflictStatuses(db);
-        for (const { eventId, date } of conflicts) {
-          const current = statusOf(statuses, eventId);
-          if (decision === 'defer') await deferAlert(db, eventId, date, tomorrow);
-          else if (current.state === 'unreviewed') await saveConflictStatus(db, eventId, date, advanceStatus(current, 'acknowledged'));
-        }
-        await reload(db);
-      })().catch(() => {});
+      applyDecision(db, conflicts, decision === 'defer' ? { kind: 'defer', remindOn: addDays(toDateKey(new Date()), 1) } : { kind: 'acknowledge' })
+        .then(() => reload(db))
+        .catch(() => {});
     });
   }, [db, notifier, reload]);
 
@@ -398,16 +387,11 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     },
     dismiss: (eventId, date) =>
       withDb(async (opened) => {
-        const current = statusOf(stored.statuses, eventId);
-        if (current.state !== 'unreviewed') return;
-        await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'acknowledged'));
-        track('conflict_acknowledged');
+        if (await applyDecision(opened, [{ eventId, date }], { kind: 'acknowledge' })) track('conflict_acknowledged');
       }),
     resolve: (eventId, date, resolution) =>
       withDb(async (opened) => {
-        let current = statusOf(stored.statuses, eventId);
-        if (current.state === 'unreviewed') current = advanceStatus(current, 'acknowledged');
-        await saveConflictStatus(opened, eventId, date, advanceStatus(current, 'resolved', resolution));
+        await applyDecision(opened, [{ eventId, date }], { kind: 'resolve', resolution });
         track('conflict_resolved', { resolution });
       }),
     exportBackup: async (passphrase, today) => {
