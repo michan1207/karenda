@@ -22,7 +22,7 @@ export function ReviewCard({
   const colors = useColors();
   return (
     <Card>
-      <Text style={[styles.digestTitle, { color: colors.text }]}>予定、どうだった？</Text>
+      <Text style={[styles.cardTitle, { color: colors.text }]}>予定、どうだった？</Text>
       <Text style={[styles.reviewHelp, { color: colors.muted }]}>答えると予定の重さを覚えて、次のお知らせに生かします。</Text>
       {reviews.map((target) => {
         const name = `${dayTitle(target.date)}「${titleOf(target.title)}」`;
@@ -59,7 +59,7 @@ export function ReviewCard({
 }
 
 const styles = StyleSheet.create({
-  digestTitle: { fontSize: 16, fontWeight: '700' },
+  cardTitle: { fontSize: 16, fontWeight: '700' },
   detailText: { fontSize: 14, lineHeight: 21 },
   reviewHelp: { fontSize: 13 },
   review: { gap: 6 },

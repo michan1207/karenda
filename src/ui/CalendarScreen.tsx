@@ -138,7 +138,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
 
       {!hidden && consult.length > 0 && k.consultDismissed !== thisMonth && (
         <Card>
-          <Text style={[styles.digestTitle, { color: colors.text }]}>周期の記録について</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>周期の記録について</Text>
           <Text style={[styles.detailText, { color: colors.text }]}>{consultText(consult)}</Text>
           <Button kind="secondary" label="今月はもう出さない" onPress={() => k.dismissConsult(thisMonth)} />
         </Card>
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   navText: { fontSize: 26, lineHeight: 30, fontWeight: '700' },
   hideRow: { flexDirection: 'row', justifyContent: 'flex-end' },
   gradeLabel: { fontSize: 12, fontWeight: '700' },
-  digestTitle: { fontSize: 16, fontWeight: '700' },
+  cardTitle: { fontSize: 16, fontWeight: '700' },
   hideButton: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 6, minHeight: 32, justifyContent: 'center' },
   hideText: { fontSize: 13 },
   grid: { padding: 12, gap: 4 },
