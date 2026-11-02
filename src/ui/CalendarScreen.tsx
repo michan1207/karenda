@@ -25,7 +25,7 @@ import {
 import { DayCell, Legend } from './DayCell';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { DigestCard } from './DigestCard';
-import { dayTitle, predictionLines, timeRange, WEEKDAYS, zoneLabel } from './format';
+import { dayTitle, gradeLabel, predictionLines, timeRange, titleOf, WEEKDAYS, zoneLabel } from './format';
 import { ManualEventForm } from './ManualEventForm';
 import { mascotLine } from './mascotLines';
 import { MoodNotesCard } from './MoodNotesCard';
@@ -225,11 +225,11 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                 <View style={styles.eventHead}>
                   {alert && <AlertMark strong={alert.grade === 'A'} />}
                   {event.color && <View style={[styles.eventDot, { backgroundColor: colors.event[event.color] }]} />}
-                  <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title || '（タイトルなし）'}</Text>
+                  <Text style={[styles.eventTitle, { color: colors.text }]}>{titleOf(event.title)}</Text>
                   {event.manual && <Text style={[styles.manualLabel, { color: colors.muted }]}>このアプリだけ</Text>}
                   {alert && (
                     <Text style={[styles.gradeLabel, { color: alert.grade === 'A' ? colors.alertStrong : colors.alertMild }]}>
-                      {alert.grade === 'A' ? 'A 要注意' : 'B 注意'}
+                      {gradeLabel(alert.grade)}
                     </Text>
                   )}
                 </View>

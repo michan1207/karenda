@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { DateKey, MonthlyDigest } from '../engine';
 import { AlertMark, Button, Card, Text } from './components';
-import { dayTitle } from './format';
+import { dayTitle, gradeLabel, titleOf } from './format';
 import { radius, useColors } from './theme';
 
 /** その月の要注意のまとめ。上位3件を押すとその日を開き、ボタンでお知らせに移る */
@@ -45,7 +45,7 @@ export function DigestCard({
       </View>
       {digest.topThree.map((alert) => {
         const strong = alert.grade === 'A';
-        const label = strong ? 'A 要注意' : 'B 注意';
+        const label = gradeLabel(alert.grade);
         return (
           <Pressable
             key={`${alert.eventId}|${alert.date}`}
@@ -58,7 +58,7 @@ export function DigestCard({
             <AlertMark strong={strong} />
             <Text style={[styles.digestGrade, { color: strong ? colors.alertStrong : colors.alertMild }]}>{alert.grade}</Text>
             <Text style={[styles.detailText, styles.digestText, { color: colors.text }]}>
-              {dayTitle(alert.date)} {alert.title || '（タイトルなし）'}
+              {dayTitle(alert.date)} {titleOf(alert.title)}
             </Text>
           </Pressable>
         );
