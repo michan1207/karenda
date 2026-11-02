@@ -181,11 +181,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
   }, [calendar]);
 
   const requestNotifyAccess = useCallback(async () => {
-    try {
-      setNotifyAccess((await notifier.requestAccess()) ? 'granted' : 'denied');
-    } catch {
-      setNotifyAccess('denied');
-    }
+    setNotifyAccess((await notifier.requestAccess().catch(() => false)) ? 'granted' : 'denied');
   }, [notifier]);
 
   useEffect(() => {
@@ -407,11 +403,8 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     // 失敗はバックアップの画面が自分で知らせるので、withDb を使わずに投げ返す
     restoreBackup: async (data, mode) => {
       if (!db) return;
-      try {
-        await restoreData(db, data, mode);
-      } finally {
-        await reload(db);
-      }
+      // try/finally だと React Compiler がこのフックごと飛ばすので、Promise の finally で読み直す
+      await restoreData(db, data, mode).finally(() => reload(db));
       track('import_completed', { mode });
     },
     deleteAll: async () => {

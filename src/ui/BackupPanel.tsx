@@ -53,9 +53,9 @@ export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }
       reset({ text: 'バックアップを作りました。保存した場所とパスワードは、なくさないようにしてください。' });
     } catch {
       setMessage({ text: '書き出せませんでした。もう一度お試しください。', error: true });
-    } finally {
-      setBusy(false);
     }
+    // finally を使うと React Compiler がこの画面ごと飛ばすので、catch のあとで戻す
+    setBusy(false);
   };
 
   const showPreview = (read: ReturnType<typeof readExport>) => {
@@ -101,9 +101,8 @@ export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }
       reset({ text: `戻しました（記録 ${data.periodStarts.length}件）。` });
     } catch {
       setMessage({ text: '戻せませんでした。今の記録は変わっていません。', error: true });
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   const starts = data ? [...data.periodStarts].sort() : [];

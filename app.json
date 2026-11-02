@@ -60,6 +60,9 @@
       "@react-native-community/datetimepicker"
     ],
     "backgroundColor": "#f7f6f9",
+    "experiments": {
+      "reactCompiler": true
+    },
     "locales": {
       "ja": "./locales/ja.json"
     },
