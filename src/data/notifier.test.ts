@@ -2,6 +2,9 @@ import * as Notifications from 'expo-notifications';
 
 import { deviceNotifier, fireTime } from './notifier';
 
+/** 端末に予約されている通知の偽物。予約・取り消し・一覧を、この Map で真似る */
+const mockBooked = new Map<string, Notifications.NotificationRequestInput>();
+
 jest.mock('expo-notifications', () => ({
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   clearLastNotificationResponse: jest.fn(),
@@ -11,20 +14,33 @@ jest.mock('expo-notifications', () => ({
   AndroidImportance: { DEFAULT: 3 },
   AndroidNotificationVisibility: { PUBLIC: 1 },
   SchedulableTriggerInputTypes: { DATE: 'date' },
-  cancelAllScheduledNotificationsAsync: jest.fn(async () => {}),
+  cancelAllScheduledNotificationsAsync: jest.fn(async () => mockBooked.clear()),
+  cancelScheduledNotificationAsync: jest.fn(async (identifier: string) => {
+    mockBooked.delete(identifier);
+  }),
+  getAllScheduledNotificationsAsync: jest.fn(async () => [...mockBooked.values()]),
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
-  scheduleNotificationAsync: jest.fn(async () => 'id'),
+  scheduleNotificationAsync: jest.fn(async (request: Notifications.NotificationRequestInput) => {
+    mockBooked.set(request.identifier!, request);
+    return request.identifier;
+  }),
   setNotificationChannelAsync: jest.fn(async () => null),
   setNotificationHandler: jest.fn(),
 }));
 
 const mocked = jest.mocked(Notifications);
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockBooked.clear();
+});
 
 describe('deviceNotifier.replaceAll', () => {
-  it('cancels old reminders and schedules future ones at 9:00', async () => {
+  it('replaces old reminders and schedules future ones at 9:00', async () => {
+    // 前の版の予約（印が無い）も、新しい中身に置き換える
+    mockBooked.set('guard-2026-10-26', { identifier: 'guard-2026-10-26', content: { title: '前の文' }, trigger: null });
+    mockBooked.set('guard-2026-10-20', { identifier: 'guard-2026-10-20', content: { title: 'もう要らない' }, trigger: null });
     await deviceNotifier.replaceAll(
       [
         { id: 'guard-2026-10-24', date: '2026-10-24', title: 'past', body: '' },
@@ -32,13 +48,38 @@ describe('deviceNotifier.replaceAll', () => {
       ],
       new Date(2026, 9, 24, 10, 0),
     );
-    expect(mocked.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
+    expect([...mockBooked.keys()]).toEqual(['guard-2026-10-26']);
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith({
       identifier: 'guard-2026-10-26',
-      content: { title: '出張の前に', body: '本文' },
+      content: { title: '出張の前に', body: '本文', data: { key: expect.any(String) } },
       trigger: { type: 'date', date: new Date(2026, 9, 26, 9, 0), channelId: 'guard-public' },
     });
+  });
+
+  it('keeps a notice that is due but not shown yet when the app opens again', async () => {
+    // Android は7時の通知を8時ごろまで遅らせて出すことがある。7時3分に開いた時に、まだ出ていない7時の通知を消さない（2026-11-02）
+    const plans = [
+      { id: 'day-2026-11-02', date: '2026-11-02', minutes: 420, title: '今日の予定', body: '今日は10時から会議の予定です。' },
+      { id: 'guard-2026-11-03', date: '2026-11-03', title: 't', body: 'b' },
+    ];
+    await deviceNotifier.replaceAll(plans, new Date(2026, 10, 2, 5, 34));
+    await deviceNotifier.replaceAll(plans, new Date(2026, 10, 2, 7, 3));
+    expect([...mockBooked.keys()]).toEqual(['day-2026-11-02', 'guard-2026-11-03']);
+    expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancels a notice that is no longer planned, and replaces one whose text changed', async () => {
+    const now = new Date(2026, 10, 2, 5, 0);
+    await deviceNotifier.replaceAll(
+      [
+        { id: 'a', date: '2026-11-03', title: 'a', body: '前' },
+        { id: 'b', date: '2026-11-04', title: 'b', body: '' },
+      ],
+      now,
+    );
+    await deviceNotifier.replaceAll([{ id: 'a', date: '2026-11-03', title: 'a', body: '後' }], now);
+    expect([...mockBooked.values()].map((request) => request.content.body)).toEqual(['後']);
   });
 
   it('keeps a reminder due later today', async () => {
@@ -55,10 +96,7 @@ describe('deviceNotifier.replaceAll', () => {
       deviceNotifier.replaceAll([{ id: 'old', date: '2026-10-26', title: 'old', body: '' }], now),
       deviceNotifier.replaceAll([{ id: 'new', date: '2026-10-27', title: 'new', body: '' }], now),
     ]);
-    const lastCancel = Math.max(...mocked.cancelAllScheduledNotificationsAsync.mock.invocationCallOrder);
-    const { calls, invocationCallOrder } = mocked.scheduleNotificationAsync.mock;
-    const kept = calls.filter((_, i) => invocationCallOrder[i] > lastCancel).map(([request]) => request.identifier);
-    expect(kept).toEqual(['new']);
+    expect([...mockBooked.keys()]).toEqual(['new']);
   });
 
   it('schedules the rest when one reminder cannot be scheduled', async () => {
@@ -97,7 +135,7 @@ describe('asking how an event went', () => {
   it('schedules it with the answer buttons', async () => {
     await deviceNotifier.replaceAll([{ id: 'review-2026-10-25', date: '2026-10-25', title: 't', body: 'b', review }], new Date(2026, 9, 24));
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ content: { title: 't', body: 'b', categoryIdentifier: 'review', data: { review } } }),
+      expect.objectContaining({ content: { title: 't', body: 'b', categoryIdentifier: 'review', data: { review, key: expect.any(String) } } }),
     );
   });
 
@@ -131,8 +169,8 @@ describe('deciding about an overlapping event', () => {
     );
     const contents = mocked.scheduleNotificationAsync.mock.calls.map(([request]) => request.content);
     expect(contents).toEqual([
-      { title: 't', body: 'b', categoryIdentifier: 'decide', data: { decide: conflicts } },
-      { title: 't', body: 'b', categoryIdentifier: 'decideFixed', data: { decide: conflicts } },
+      { title: 't', body: 'b', categoryIdentifier: 'decide', data: { decide: conflicts, key: expect.any(String) } },
+      { title: 't', body: 'b', categoryIdentifier: 'decideFixed', data: { decide: conflicts, key: expect.any(String) } },
     ]);
   });
 

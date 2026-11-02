@@ -2,11 +2,13 @@ import {
   addNotificationResponseReceivedListener,
   AndroidImportance,
   AndroidNotificationVisibility,
-  cancelAllScheduledNotificationsAsync,
+  cancelScheduledNotificationAsync,
   clearLastNotificationResponse,
   deleteNotificationChannelAsync,
+  getAllScheduledNotificationsAsync,
   getLastNotificationResponse,
   getPermissionsAsync,
+  NotificationRequestInput,
   NotificationResponse,
   requestPermissionsAsync,
   scheduleNotificationAsync,
@@ -28,7 +30,7 @@ export type Notifier = {
   requestAccess(): Promise<boolean>;
   /** 確認画面を出さずに、いまの許可だけを返す */
   hasAccess(): Promise<boolean>;
-  /** 予約済みの通知をすべて消して、渡したものだけを予約し直す */
+  /** 予約を渡したものだけにする。中身の変わらない予約は残し、要らなくなった・変わったものを取り消して予約し直す */
   replaceAll(plans: NotificationPlan[], now?: Date): Promise<void>;
   /** 「どうだった？」の通知のボタンで答えた時に呼ぶ（ボタンでアプリが開いた時の分も）。止める関数を返す */
   onReviewAnswer(handler: (target: ReviewTarget, answer: Answer | null) => void): () => void;
@@ -159,27 +161,46 @@ export const deviceNotifier: Notifier = {
 
 let scheduling: Promise<void> = Promise.resolve();
 
-/** 予約済みの通知をすべて消して、渡したものだけを予約する（replaceAll から1つずつ呼ぶ） */
+/** 1件の予約。出す時刻と中身から作った印（key）を data に入れ、組み直す時に同じ予約かを見分ける */
+function toRequest(plan: NotificationPlan) {
+  const date = fireTime(plan);
+  const content = plan.review
+    ? { title: plan.title, body: plan.body, categoryIdentifier: REVIEW_CATEGORY, data: { review: plan.review } }
+    : plan.decide
+      ? {
+          title: plan.title,
+          body: plan.body,
+          categoryIdentifier: plan.decide.fixed ? DECIDE_FIXED_CATEGORY : DECIDE_CATEGORY,
+          data: { decide: plan.decide.conflicts },
+        }
+      : { title: plan.title, body: plan.body };
+  const key = JSON.stringify([date.getTime(), content]);
+  return {
+    date,
+    request: {
+      identifier: plan.id,
+      content: { ...content, data: { ...('data' in content ? content.data : {}), key } },
+      trigger: { type: SchedulableTriggerInputTypes.DATE, date, channelId: CHANNEL_ID },
+    } satisfies NotificationRequestInput,
+  };
+}
+
+/**
+ * 渡したものだけが予約されているようにする（replaceAll から1つずつ呼ぶ）。中身の同じ予約は消さずに残す。
+ * Android は通知を時刻から最大1時間遅らせて出すので、全部消して組み直すと、時刻を過ぎてまだ出ていない通知が
+ * 戻らないまま消える（2026-11-02、7時の「今日の予定」が7時3分にアプリを開いて消えた）
+ */
 async function schedule(plans: NotificationPlan[], now: Date) {
   await configure();
-  await cancelAllScheduledNotificationsAsync();
-  for (const plan of plans) {
-    const date = fireTime(plan);
+  const wanted = new Map(plans.map((plan) => [plan.id, toRequest(plan)]));
+  for (const booked of await getAllScheduledNotificationsAsync()) {
+    const same = wanted.get(booked.identifier)?.request.content.data.key;
+    if (same !== undefined && same === booked.content.data?.key) wanted.delete(booked.identifier);
+    else await cancelScheduledNotificationAsync(booked.identifier);
+  }
+  for (const { date, request } of wanted.values()) {
     if (date <= now) continue;
     // 1件予約できなくても、残りは予約する
-    await scheduleNotificationAsync({
-      identifier: plan.id,
-      content: plan.review
-        ? { title: plan.title, body: plan.body, categoryIdentifier: REVIEW_CATEGORY, data: { review: plan.review } }
-        : plan.decide
-          ? {
-              title: plan.title,
-              body: plan.body,
-              categoryIdentifier: plan.decide.fixed ? DECIDE_FIXED_CATEGORY : DECIDE_CATEGORY,
-              data: { decide: plan.decide.conflicts },
-            }
-          : { title: plan.title, body: plan.body },
-      trigger: { type: SchedulableTriggerInputTypes.DATE, date, channelId: CHANNEL_ID },
-    }).catch(() => {});
+    await scheduleNotificationAsync(request).catch(() => {});
   }
 }

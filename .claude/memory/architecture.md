@@ -50,7 +50,8 @@
 - アプリに戻るたびに（AppState が active、`useKarenda` の `resumed` が増える）`useEvents` が予定を読み直す。離れている間にカレンダーアプリで足した・動かした予定も、判定と通知に入る（2026-10-31）
 
 ## 通知（expo-notifications）
-- ローカル通知のみ（`notifier.ts`）。`replaceAll` で全取消→再予約。毎朝 `NOTIFY_HOUR`=9時
+- ローカル通知のみ（`notifier.ts`）。毎朝 `NOTIFY_HOUR`=9時
+- `replaceAll` は全取消しない。予約ごとに出す時刻と中身の印（`data.key`）を入れ、印の同じ予約は残し、要らない・変わったものだけ取り消して予約し直す。Android は通知を時刻から最大1時間遅らせる（正確な時刻の許可が無い）ので、全取消だと「時刻を過ぎてまだ出ていない通知」が消える（2026-11-02、7時の「今日の予定」が7時3分にアプリを開いて消えた。実機の `dumpsys alarm` で確認）
 - `replaceAll` は前の組み直しが終わってから行う（重なると古い予約が後から入るため）。1件予約できなくても残りは予約する。はじめの設定（ボタンの種類・Android の通知チャンネル）は失敗したら次の呼び出しでやり直す。通知を切った時は、端末の許可が外れていても `replaceAll([])` で消す（2026-10-31）
 - `Notifier` 型で差し替え可能。`onReviewAnswer` は「どうだった？」のボタン（カテゴリ `review`）、`onDecision` は重なる予定のボタン（`decide`: 確認した/代替日を見る/今日は決めない、動かせない予定だけなら `decideFixed` で代替日なし）。起動のきっかけになった分は `getLastNotificationResponse` で拾い、受け取った側だけが消す（`listen`）
 - 確認した→確認済み、今日は決めない→版7の `deferred_alerts(event_id, date, remind_on)` に翌日を予定ごとに1回だけ（INSERT OR IGNORE）、代替日を見る→`alertsRequested` が増えて App がお知らせタブを開く
