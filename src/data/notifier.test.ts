@@ -10,6 +10,8 @@ jest.mock('expo-notifications', () => ({
   clearLastNotificationResponse: jest.fn(),
   deleteNotificationChannelAsync: jest.fn(async () => {}),
   getLastNotificationResponse: jest.fn(() => null),
+  getExactAlarmPermissionsAsync: jest.fn(async () => ({ granted: false })),
+  requestExactAlarmPermissionsAsync: jest.fn(async () => ({ granted: true })),
   setNotificationCategoryAsync: jest.fn(async () => ({})),
   AndroidImportance: { DEFAULT: 3 },
   AndroidNotificationVisibility: { PUBLIC: 1 },
@@ -243,6 +245,30 @@ describe('the Android channel', () => {
     expect(notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({ trigger: expect.objectContaining({ channelId: 'guard-public' }) }),
     );
+  });
+});
+
+describe('exact times (Android 「アラームとリマインダー」)', () => {
+  it('is not asked on iPhone, where notices always come on time', async () => {
+    expect(await deviceNotifier.exactAlarm()).toBeNull();
+  });
+
+  it('reads it on Android, and opens the screen to turn it on, or the app info to turn it off', async () => {
+    let notifications!: typeof mocked;
+    let notifier!: typeof deviceNotifier;
+    const openSettings = jest.fn(async () => {});
+    jest.isolateModules(() => {
+      jest.doMock('react-native', () => ({ Platform: { OS: 'android' }, Linking: { openSettings } }));
+      notifications = jest.requireMock('expo-notifications');
+      notifier = jest.requireActual<typeof import('./notifier')>('./notifier').deviceNotifier;
+    });
+    expect(await notifier.exactAlarm()).toBe(false);
+    await notifier.openExactAlarm();
+    expect(notifications.requestExactAlarmPermissionsAsync).toHaveBeenCalled();
+    expect(openSettings).not.toHaveBeenCalled();
+    notifications.getExactAlarmPermissionsAsync.mockResolvedValue({ granted: true } as never);
+    await notifier.openExactAlarm();
+    expect(openSettings).toHaveBeenCalled();
   });
 });
 
