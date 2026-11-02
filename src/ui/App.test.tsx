@@ -823,6 +823,7 @@ describe('records that look irregular', () => {
     await fireEvent.press(await screen.findByText('設定'));
     expect(screen.getByText('予測に使っていない間隔')).toBeTruthy();
     expect(screen.getByText(/2件を予測の計算から外しました（間隔が長すぎる／間隔が短すぎる）/)).toBeTruthy();
+    expect(screen.getByText(/。15日より短い・45日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。/)).toBeTruthy();
     expect(screen.getByText('2026年5月29日〜2026年7月28日　60日（間隔が長すぎる）')).toBeTruthy();
     expect(screen.getByText('2026年8月25日〜2026年9月4日　10日（間隔が短すぎる）')).toBeTruthy();
     expect(screen.getByText('9月4日（金）〜')).toBeTruthy();
@@ -841,6 +842,17 @@ describe('settings', () => {
     await fireEvent.press(await screen.findByText('設定'));
     return result;
   }
+
+  // 数字は判定のしくみの値から作る。値を変えたら、この文も合わせて書き換える
+  it('explains when notices come and how titles are learned, with the numbers the app uses', async () => {
+    await openSettings();
+    expect(
+      screen.getByText(
+        '重なる予定は、要注意（A）なら7日前と3日前、注意（B）なら3日前、どちらも決める目安の日にも、朝9時にこの端末から通知します。1つの予定の通知は3回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝9時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝7時（8時より前に始まる日はその1時間前）に「今日の予定」を知らせます。',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/^予定のあとの「どうだった？」で同じ答えが2回続くと、その予定の重さを覚えて/)).toBeTruthy();
+  });
 
   it('estimates the PMS length by default, and lets the user set it by hand', async () => {
     await openSettings();
