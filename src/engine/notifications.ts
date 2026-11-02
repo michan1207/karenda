@@ -194,7 +194,7 @@ export function planDayReminders(events: CalendarEvent[], today: DateKey): Notif
 }
 
 /** 予定が始まる何分前に、もう一度知らせるか */
-const SOON_MINUTES = 30;
+export const SOON_MINUTES = 30;
 
 /**
  * 時刻のある予定を、始まる30分前にもう一度知らせる（2026-11-02 オーナー決定。設定でオン・オフ）。

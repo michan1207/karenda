@@ -15,6 +15,7 @@ import {
   PmsEstimate,
   predictCycle,
   RiskKeywords,
+  SOON_MINUTES,
 } from '../engine';
 import { CALENDAR_NOTE, NOTIFY_HOUR, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import { BackupPanel } from './BackupPanel';
@@ -96,16 +97,16 @@ export function SettingsScreen({ k, today }: Props) {
         {k.notifyEnabled && (
           <>
             <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>予定の30分前にも知らせる</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{`予定の${SOON_MINUTES}分前にも知らせる`}</Text>
               <Switch
-                accessibilityLabel="予定の30分前にも知らせる"
+                accessibilityLabel={`予定の${SOON_MINUTES}分前にも知らせる`}
                 value={k.soonEnabled}
                 onValueChange={k.setSoon}
                 trackColor={{ true: colors.pink, false: colors.line }}
               />
             </View>
             <Text style={[styles.help, { color: colors.muted }]}>
-              時刻のある予定が始まる30分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
+              時刻のある予定が始まる{SOON_MINUTES}分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
               {k.soonEnabled && k.exactAlarm === false && '下の「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。'}
             </Text>
           </>

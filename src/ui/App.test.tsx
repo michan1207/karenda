@@ -852,6 +852,8 @@ describe('settings', () => {
       ),
     ).toBeTruthy();
     expect(screen.getByText(/^予定のあとの「どうだった？」で同じ答えが2回続くと、その予定の重さを覚えて/)).toBeTruthy();
+    expect(screen.getByText('予定の30分前にも知らせる')).toBeTruthy();
+    expect(screen.getByText(/^時刻のある予定が始まる30分前に、もう一度知らせます。/)).toBeTruthy();
   });
 
   it('estimates the PMS length by default, and lets the user set it by hand', async () => {
