@@ -10,7 +10,7 @@
 ## 色（theme.ts の `useColors()`、ライト/ダーク両対応）
 - 生理ヘビー期のセル背景 `heavy`（淡いピンク）、PMS警戒期 `pms`（淡いパープル）。予測の幅のはし（periodDay の無い予測のヘビー期）は `heavyEdge`（もっと淡いピンク、凡例「生理かもしれない日」）
 - 警告は `alertStrong`（くすみブルー）/ `alertMild`、カードの地は `alertStrongSoft` / `alertMildSoft`。削除は `danger`。強調 `accent`
-- 色を直書きせず、必ず `useColors()` のトークンを使う。新しい色はライトとダーク両方に足す
+- 色を直書きせず、必ず `useColors()` のトークンを使う。部品ごとに `useColors()` で受け取り、`colors` を props で下へ回さない（`noHardcodedColors.test.ts` が見る、2026-11-02 C1）。新しい色はライトとダーク両方に足す
 - 文字は `components.tsx` の `Text` を使う（react-native の `Text` は直接使わない）。丸ゴシック Zen Maru Gothic を同梱し、太さ600/700はBold書体に切り替わる。入力欄は `fontFamily: fonts.regular`
 - 2026-10-29 v1.3.0 パステル: 画面の地はグラデーション（`backdrop`）、見出しは `Ribbon`、上部に `Decorations`、案内役のクマ「ミア」`MascotSays`（`assets/mascot.png`＝アイコンの絵を丸く切り出したもの。名前は `MASCOT_NAME`）。値は AMIEL_DESIGN_SYSTEM.md §3.5
 - 見た目はAmicuna流（2026-10-29）: カード状のものは `Card`（白・角丸16・プラム色の影）、見出しは `PillHeading`（ハート付きカプセル）、予定と重なる印は `AlertMark`（⚠絵文字は使わない）

@@ -3,12 +3,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ConflictAlert, DateKey, EventColor, fromDateKey, ZoneDay } from '../engine';
 import { AlertMark, Text } from './components';
 import { dayTitle, zoneLabel } from './format';
-import { Colors, radius } from './theme';
+import { radius, useColors } from './theme';
 
 /** カレンダーの日のマス。生理・PMSの色、重なりの印、このアプリの予定の色の点を出す */
 export function DayCell({
   day,
-  colors,
   zone,
   alerts,
   dots,
@@ -18,7 +17,6 @@ export function DayCell({
   onPress,
 }: {
   day: DateKey;
-  colors: Colors;
   zone: ZoneDay | undefined;
   alerts: ConflictAlert[];
   /** このアプリに入れた予定の色 */
@@ -28,6 +26,7 @@ export function DayCell({
   isSelected: boolean;
   onPress: () => void;
 }) {
+  const colors = useColors();
   const red = alerts.some((alert) => alert.grade === 'A');
   // 予測の幅のはし（中心の日からずれた日）は薄くする
   const heavyColor = zone?.zone === 'heavy' && zone.predicted && !zone.periodDay ? colors.heavyEdge : colors.heavy;
@@ -57,7 +56,7 @@ export function DayCell({
       </Text>
       <View style={styles.cellMark}>
         {alerts.length > 0 ? (
-          <AlertMark colors={colors} strong={red} size={12} />
+          <AlertMark strong={red} size={12} />
         ) : (
           <View style={styles.cellDots}>
             {dots.map((dot, i) => (
@@ -80,14 +79,15 @@ function LegendItem({ color, label, textColor }: { color: string; label: string;
 }
 
 /** カレンダーの下の色の説明 */
-export function Legend({ colors }: { colors: Colors }) {
+export function Legend() {
+  const colors = useColors();
   return (
     <View style={styles.legend}>
       <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
       <LegendItem color={colors.heavyEdge} label="生理かもしれない日" textColor={colors.muted} />
       <LegendItem color={colors.pms} label="PMSの時期" textColor={colors.muted} />
       <View style={styles.legendItem}>
-        <AlertMark colors={colors} strong size={12} />
+        <AlertMark strong size={12} />
         <Text style={[styles.legendText, { color: colors.muted }]}>予定と重なる日</Text>
       </View>
     </View>

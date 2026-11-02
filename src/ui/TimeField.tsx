@@ -3,21 +3,20 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from './components';
 import { clock } from './format';
-import { Colors, radius } from './theme';
+import { radius, useColors } from './theme';
 
 /** 時刻を選ぶ。iPhone は時刻の小さなボタン（押すと回して選ぶ）、Android は押すと時刻のダイアログ */
 export function TimeField({
-  colors,
   label,
   minutes,
   onChange,
 }: {
-  colors: Colors;
   label: string;
   /** 0時からの分 */
   minutes: number;
   onChange: (minutes: number) => void;
 }) {
+  const colors = useColors();
   const value = new Date(2000, 0, 1, Math.floor(minutes / 60), minutes % 60);
   const pick = (date?: Date) => date && onChange(date.getHours() * 60 + date.getMinutes());
   return (

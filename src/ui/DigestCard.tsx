@@ -3,11 +3,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { DateKey, MonthlyDigest } from '../engine';
 import { AlertMark, Button, Card, Text } from './components';
 import { dayTitle } from './format';
-import { Colors, radius } from './theme';
+import { radius, useColors } from './theme';
 
 /** その月の要注意のまとめ。上位3件を押すとその日を開き、ボタンでお知らせに移る */
 export function DigestCard({
-  colors,
   digest,
   isThisMonth,
   month,
@@ -15,7 +14,6 @@ export function DigestCard({
   openAlerts,
   nextMonth,
 }: {
-  colors: Colors;
   digest: MonthlyDigest;
   isThisMonth: boolean;
   month: number;
@@ -23,17 +21,18 @@ export function DigestCard({
   openAlerts: () => void;
   nextMonth: () => void;
 }) {
+  const colors = useColors();
   const name = isThisMonth ? '今月' : `${month}月`;
   if (digest.isEmpty) {
     return (
-      <Card colors={colors}>
+      <Card>
         <Text style={[styles.digestTitle, { color: colors.text }]}>{name}、重なる予定はありません</Text>
-        {isThisMonth && <Button colors={colors} kind="secondary" label="来月を見る" onPress={nextMonth} />}
+        {isThisMonth && <Button kind="secondary" label="来月を見る" onPress={nextMonth} />}
       </Card>
     );
   }
   return (
-    <Card colors={colors}>
+    <Card>
       <View style={styles.digestHead}>
         <Text style={[styles.digestTitle, { color: colors.text }]}>
           {name}の要注意 {digest.conflicts.length}件
@@ -56,7 +55,7 @@ export function DigestCard({
             onPress={() => onPick(alert.date)}
             style={styles.digestRow}
           >
-            <AlertMark colors={colors} strong={strong} />
+            <AlertMark strong={strong} />
             <Text style={[styles.digestGrade, { color: strong ? colors.alertStrong : colors.alertMild }]}>{alert.grade}</Text>
             <Text style={[styles.detailText, styles.digestText, { color: colors.text }]}>
               {dayTitle(alert.date)} {alert.title || '（タイトルなし）'}
@@ -64,7 +63,7 @@ export function DigestCard({
           </Pressable>
         );
       })}
-      <Button colors={colors} kind="secondary" label="お知らせで対処する" onPress={openAlerts} />
+      <Button kind="secondary" label="お知らせで対処する" onPress={openAlerts} />
     </Card>
   );
 }
