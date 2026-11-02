@@ -24,9 +24,9 @@ export type NotificationPlan = {
 };
 
 /** 直前に言われても動かせないので、前もって知らせる。A（要注意）は7日前と3日前、B（注意）は3日前。何日も続く予定は初日から数える */
-const LEAD_DAYS = { A: [7, 3], B: [3] } as const;
+export const LEAD_DAYS = { A: [7, 3], B: [3] } as const;
 /** 1つの予定の通知は、判断期限・「今日は決めない」の翌日・7日前・3日前の順に、違う日を3つまで */
-const MAX_PER_ALERT = 3;
+export const MAX_PER_ALERT = 3;
 /** 具体策は2つまで */
 const MAX_STEPS = 2;
 
@@ -159,7 +159,7 @@ export const quietNotifications = (plans: NotificationPlan[]): NotificationPlan[
 /** その日の予定の通知を何日先まで予約するか（iOS が待たせておける通知の数に収めるため） */
 export const DAY_REMINDER_DAYS = 7;
 /** その日の予定の通知を出す時刻。これより早く始まる予定がある日は、その1時間前 */
-const DAY_REMINDER_AT = 7 * 60;
+export const DAY_REMINDER_AT = 7 * 60;
 
 const clock = (minutes: number) => `${Math.floor(minutes / 60)}時${minutes % 60 ? `${minutes % 60}分` : ''}`;
 
@@ -194,7 +194,7 @@ export function planDayReminders(events: CalendarEvent[], today: DateKey): Notif
 }
 
 /** 予定が始まる何分前に、もう一度知らせるか */
-const SOON_MINUTES = 30;
+export const SOON_MINUTES = 30;
 
 /**
  * 時刻のある予定を、始まる30分前にもう一度知らせる（2026-11-02 オーナー決定。設定でオン・オフ）。

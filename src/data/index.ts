@@ -3,7 +3,7 @@ export { migrate } from './migrations';
 export { openKarendaDatabase } from './open';
 export { deviceCalendar } from './calendar';
 export type { CalendarSource } from './calendar';
-export { deviceNotifier } from './notifier';
+export { deviceNotifier, NOTIFY_HOUR } from './notifier';
 export type { Notifier } from './notifier';
 export { deviceReview } from './review';
 export type { ReviewPrompt } from './review';

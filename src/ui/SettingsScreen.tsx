@@ -1,8 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
-import { AccuracyReport, DateKey, PMS_CYCLES, PmsEstimate, predictCycle, RiskKeywords } from '../engine';
-import { CALENDAR_NOTE, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
+import {
+  AccuracyReport,
+  DateKey,
+  DAY_REMINDER_AT,
+  DEFAULT_PMS,
+  LEAD_DAYS,
+  LEARN_AFTER,
+  MAX_PER_ALERT,
+  MAX_PLAUSIBLE,
+  MIN_PLAUSIBLE,
+  PMS_CYCLES,
+  PmsEstimate,
+  predictCycle,
+  RiskKeywords,
+  SOON_MINUTES,
+} from '../engine';
+import { CALENDAR_NOTE, NOTIFY_HOUR, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import { BackupPanel } from './BackupPanel';
 import { BIOMETRIC, Button, Decorations, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
@@ -71,7 +86,7 @@ export function SettingsScreen({ k, today }: Props) {
           />
         </View>
         <Text style={[styles.help, { color: colors.muted }]}>
-          重なる予定は、要注意（A）なら7日前と3日前、注意（B）なら3日前、どちらも決める目安の日にも、朝9時にこの端末から通知します。1つの予定の通知は3回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝9時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝7時（8時より前に始まる日はその1時間前）に「今日の予定」を知らせます。
+          {`重なる予定は、要注意（A）なら${leadDays('A')}、注意（B）なら${leadDays('B')}、どちらも決める目安の日にも、朝${NOTIFY_HOUR}時にこの端末から通知します。1つの予定の通知は${MAX_PER_ALERT}回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝${NOTIFY_HOUR}時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝${DAY_REMINDER_AT / 60}時（${DAY_REMINDER_AT / 60 + 1}時より前に始まる日はその1時間前）に「今日の予定」を知らせます。`}
         </Text>
         {k.notifyEnabled && k.notifyAccess === 'denied' && (
           <Notice
@@ -82,16 +97,16 @@ export function SettingsScreen({ k, today }: Props) {
         {k.notifyEnabled && (
           <>
             <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>予定の30分前にも知らせる</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{`予定の${SOON_MINUTES}分前にも知らせる`}</Text>
               <Switch
-                accessibilityLabel="予定の30分前にも知らせる"
+                accessibilityLabel={`予定の${SOON_MINUTES}分前にも知らせる`}
                 value={k.soonEnabled}
                 onValueChange={k.setSoon}
                 trackColor={{ true: colors.pink, false: colors.line }}
               />
             </View>
             <Text style={[styles.help, { color: colors.muted }]}>
-              時刻のある予定が始まる30分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
+              時刻のある予定が始まる{SOON_MINUTES}分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
               {k.soonEnabled && k.exactAlarm === false && '下の「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。'}
             </Text>
           </>
@@ -180,7 +195,7 @@ export function SettingsScreen({ k, today }: Props) {
 
       <Section title="覚えた予定">
         <Text style={[styles.help, { color: colors.muted }]}>
-          予定のあとの「どうだった？」で同じ答えが2回続くと、その予定の重さを覚えて、上の言葉より優先します。重さを押すと直せます。
+          {`予定のあとの「どうだった？」で同じ答えが${LEARN_AFTER}回続くと、その予定の重さを覚えて、上の言葉より優先します。重さを押すと直せます。`}
         </Text>
         {learned.length === 0 ? (
           <Text style={[styles.help, { color: colors.muted }]}>まだありません。</Text>
@@ -242,7 +257,7 @@ export function SettingsScreen({ k, today }: Props) {
         <Section title="予測に使っていない間隔">
           <Text style={[styles.help, { color: colors.muted }]}>
             {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
-            ）。15日より短い・45日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。記録は消えていません。
+            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。記録は消えていません。
           </Text>
           {excluded.map((gap) => (
             <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>
@@ -373,10 +388,13 @@ function latestLine({ predictedStart, actualStart, errorDays }: NonNullable<Accu
   return `前回の予測は${Math.abs(errorDays)}日ズレました（予測 ${shortDate(predictedStart)} → 実際 ${shortDate(actualStart)}）。`;
 }
 
+/** 「7日前と3日前」のように、重なる予定の通知が何日前に来るか */
+const leadDays = (grade: keyof typeof LEAD_DAYS) => LEAD_DAYS[grade].map((days) => `${days}日前`).join('と');
+
 /** 推定の根拠。推定できない間は、あと何がそろえば変わるか */
 function pmsBasis({ source, observations }: PmsEstimate): string {
   if (source === 'auto') return `過去${PMS_CYCLES}周期の体調評価から推定しています。変わるのはこれからの予測だけです。`;
-  if (observations >= PMS_CYCLES) return '周期ごとの差が大きいので、7日前のままにしています。';
+  if (observations >= PMS_CYCLES) return `周期ごとの差が大きいので、${DEFAULT_PMS.daysBefore}日前のままにしています。`;
   return `最近の約1年で、予定のあとの「どうだった？」から始まりが読めた周期：${observations}／${PMS_CYCLES}。そろうと、あなたに合わせた日数に変わります。`;
 }
 

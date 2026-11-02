@@ -25,7 +25,7 @@ export type TitleWeight = {
 };
 
 /** 1回の答えでは決めない・ひっくり返さない */
-const LEARN_AFTER = 2;
+export const LEARN_AFTER = 2;
 
 export function learnWeight(entry: TitleWeight | undefined, title: string, answer: Answer, phase: ReviewPhase): TitleWeight {
   const base: TitleWeight = entry ?? { term: termOf(title), label: title, weight: null, source: 'learned', observations: 0, lean: 0 };
