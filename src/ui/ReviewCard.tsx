@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Answer, ReviewTarget } from '../engine';
 import { Card, Text } from './components';
-import { dayTitle } from './format';
+import { dayTitle, titleOf } from './format';
 import { radius, useColors } from './theme';
 
 const ANSWERS: [Answer, string][] = [
@@ -25,7 +25,7 @@ export function ReviewCard({
       <Text style={[styles.digestTitle, { color: colors.text }]}>予定、どうだった？</Text>
       <Text style={[styles.reviewHelp, { color: colors.muted }]}>答えると予定の重さを覚えて、次のお知らせに生かします。</Text>
       {reviews.map((target) => {
-        const name = `${dayTitle(target.date)}「${target.title || '（タイトルなし）'}」`;
+        const name = `${dayTitle(target.date)}「${titleOf(target.title)}」`;
         return (
           <View key={`${target.eventId}|${target.date}`} style={styles.review}>
             <Text style={[styles.detailText, { color: colors.text }]}>{name}</Text>

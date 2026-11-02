@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } fr
 
 import { Action, addDays, ConflictAlert, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
-import { dayTitle, shortDate } from './format';
+import { dayTitle, gradeLabel, shortDate, titleOf } from './format';
 import { fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
@@ -226,7 +226,7 @@ function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions
   const colors = useColors();
   const strong = alert.grade === 'A';
   const tone = strong ? colors.alertStrong : colors.alertMild;
-  const title = alert.title || '（タイトルなし）';
+  const title = titleOf(alert.title);
   const state = statusOf(k.statuses, alert.eventId).state;
   const altDates = actions.flatMap((action) => (action.kind === 'suggestAltDate' ? [action.date] : []));
   const deadline = actions.flatMap((action) => (action.kind === 'deadline' ? [action.text] : []))[0];
@@ -245,7 +245,7 @@ function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions
               strong ? { color: colors.onAccent, backgroundColor: tone } : { color: tone },
             ]}
           >
-            {strong ? 'A 要注意' : 'B 注意'}
+            {gradeLabel(alert.grade)}
           </Text>
         </View>
         <Text style={[styles.date, { color: colors.muted }]}>

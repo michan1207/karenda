@@ -1,4 +1,4 @@
-import { CalendarEvent, CyclePrediction, DateKey, fromDateKey, PredictedPeriod, ZoneDay } from '../engine';
+import { CalendarEvent, CyclePrediction, DateKey, fromDateKey, Grade, PredictedPeriod, ZoneDay } from '../engine';
 
 export const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日'];
 
@@ -18,6 +18,10 @@ export function zoneLabel(zone: ZoneDay | undefined): string {
   const name = zone.periodDay ? `生理${zone.periodDay}日目` : '生理の時期';
   return zone.predicted ? `${name}（予測）` : name;
 }
+
+export const gradeLabel = (grade: Exclude<Grade, 'C'>) => (grade === 'A' ? 'A 要注意' : 'B 注意');
+
+export const titleOf = (title: string) => title || '（タイトルなし）';
 
 const CONFIDENCE = { high: '高', medium: '中', low: '低' } as const;
 
