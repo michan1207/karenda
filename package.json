@@ -35,6 +35,7 @@
     "eslint-config-expo": "~58.0.4",
     "jest": "^30.5.2",
     "jest-expo": "~58.0.12",
+    "knip": "^6.42.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -43,9 +44,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint . --max-warnings 0",
+    "knip": "knip",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "check": "npm run typecheck && npm run lint && npm test"
+    "check": "npm run typecheck && npm run lint && npm run knip && npm test"
   },
   "private": true,
   "jest": {

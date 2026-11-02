@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // 同じファイルの中で使っている定数や型は、export していても使われていないとみなさない
+  "ignoreExportsUsedInFile": true,
+  // Knip は app.json に updates.enabled: false が無いと expo-updates が要ると考える。
+  // このアプリは更新の配信（Expo のサーバーとの通信）を使わないので入れない
+  "ignoreDependencies": ["expo-updates"]
+}
