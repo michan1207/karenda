@@ -51,7 +51,7 @@ export function DigestCard({
             key={`${alert.eventId}|${alert.date}`}
             accessibilityRole="button"
             // 日付の枠の読み上げと見分けがつくよう、予定の名前から読む
-            accessibilityLabel={`「${alert.title}」${dayTitle(alert.date)} ${label}`}
+            accessibilityLabel={`「${titleOf(alert.title)}」${dayTitle(alert.date)} ${label}`}
             onPress={() => onPick(alert.date)}
             style={styles.digestRow}
           >
