@@ -17,7 +17,7 @@
 - 受診の目安カードを閉じた月: settings の `consult_dismissed`（YYYY-MM）。`loadState` の `consultDismissed`。全削除で消える
 - カレンダーの「今はしない」: settings の `calendar_skipped`。そのあいだは起動時に許可を求めず `hasAccess` だけ見る。カレンダー画面の案内と設定の「カレンダーを使う」（`enableCalendar`）で外して許可を求める
 - このアプリだけの予定（版8の `manual_events(id, title, date, weight)`、2026-10-31）: `listManualEvents` は CalendarEvent の形（id `manual:N`、`manual: true`、`weight`）。`useEvents` がカレンダーの予定（許可がある時だけ）と合わせて返すので、判定・通知・「どうだった？」は同じに動く。版9で `start_minutes`・`duration_minutes`（NULL＝時刻なし）・`color`（EVENT_COLORS、既定 blue）を足した。iPhone のカレンダーには書かない。全削除で消える。バックアップに入る（戻すと ID が変わるので、「どうだった？」の答えを新しい ID に付け直す。同じ日・名前・時刻の予定があれば足さない）
-- 表を足したら `src/data/privacy.ts` の `STORED_DATA` にも足す（設定の「プライバシー」に出す。実際の表と一致するかテストで確かめる）
+- 表を足したら `src/data/privacy.ts` の `STORED_DATA`（残しているものの名簿）にも足す。設定の「プライバシー」に出し、実際の表と一致するかテストで確かめる。「すべて削除」（`deleteAllData`）はこの名簿の表を全部空にするので、足せば消し忘れない。`backup` にバックアップに入るかを書く（書き出し→全削除→戻すテストが名簿どおりか確かめる。2026-11-01 B5）。テストの `fillEveryTable` にも1行足す
 - 通信の件数（`network.ts`、2026-10-31）: `index.ts` で `watchNetwork()` が XMLHttpRequest.open と WebSocket を数える（開発中は LAN・localhost の開発用サーバーを除く）。通信のAPIに触れてよいのはこのファイルだけ（ESLint と `src/noNetwork.test.ts` の例外）
 - お知らせの状態は engine の `advanceStatus`（未確認→確認済み→対応済みだけ）を通してから `saveConflictStatus` で保存。未確認は行を持たない。確認済み・対応済みは一覧と通知から外す。お知らせの状態・「今日は決めない」・「どうだった？」は予定のID（`元ID@開始日`）だけで引く（版10で表の鍵も event_id だけ。お知らせの日は予測が動くとずれ、日付も鍵にしていた頃は同じ予定が未確認に戻っていた。date 列はその時の日として残すだけ）
 - 表の変更は `migrations.ts` の `MIGRATIONS` 配列に関数を足すだけ。既存の要素は書き換えない。版は `PRAGMA user_version`
