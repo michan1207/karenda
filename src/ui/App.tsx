@@ -94,7 +94,7 @@ export function Main({
   } else if (k.status === 'error') {
     body = (
       <View style={styles.padded}>
-        <Notice colors={colors} text="データを読み込めませんでした。アプリを開き直してください。" />
+        <Notice text="データを読み込めませんでした。アプリを開き直してください。" />
       </View>
     );
   } else if (k.locked) {
@@ -134,7 +134,6 @@ export function Main({
       {k.saveFailed && (
         <View style={styles.padded}>
           <Notice
-            colors={colors}
             text="保存できませんでした。もう一度お試しください。"
             action={{ label: '閉じる', onPress: k.dismissSaveFailed }}
           />

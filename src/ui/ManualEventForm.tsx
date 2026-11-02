@@ -5,7 +5,7 @@ import { CalendarEvent, DateKey, EVENT_COLORS, EventColor, normalizeTitle, Weigh
 import type { ManualEventInput } from '../data';
 import { Button, Text } from './components';
 import { dayTitle } from './format';
-import { Colors, fonts, radius } from './theme';
+import { fonts, radius, useColors } from './theme';
 import { TimeField } from './TimeField';
 
 const COLOR_NAMES: Record<EventColor, string> = {
@@ -19,17 +19,16 @@ const COLOR_NAMES: Record<EventColor, string> = {
 
 /** このアプリの中だけに予定を入れる。カレンダーを使わない人も、重なりのお知らせを受けられる */
 export function ManualEventForm({
-  colors,
   day,
   events,
   onAdd,
 }: {
-  colors: Colors;
   day: DateKey;
   /** 入れてある予定。同じ名前の予定は、前に選んだ色を使う（「会議」はあお、など） */
   events: CalendarEvent[];
   onAdd: (event: Omit<ManualEventInput, 'date'>) => void;
 }) {
+  const colors = useColors();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [weight, setWeight] = useState<Weight>('heavy');
@@ -37,7 +36,7 @@ export function ManualEventForm({
   const [timed, setTimed] = useState(false);
   const [start, setStart] = useState(10 * 60);
   const [end, setEnd] = useState(11 * 60);
-  if (!open) return <Button colors={colors} kind="secondary" label="この日に予定を入れる" onPress={() => setOpen(true)} />;
+  if (!open) return <Button kind="secondary" label="この日に予定を入れる" onPress={() => setOpen(true)} />;
   const name = normalizeTitle(title.trim());
   const remembered = [...events].reverse().find((event) => event.color && normalizeTitle(event.title) === name)?.color;
   const color = picked ?? remembered ?? 'blue';
@@ -98,8 +97,8 @@ export function ManualEventForm({
       </View>
       {timed && (
         <>
-          <TimeField colors={colors} label="開始" minutes={start} onChange={changeStart} />
-          <TimeField colors={colors} label="終了" minutes={end} onChange={setEnd} />
+          <TimeField label="開始" minutes={start} onChange={changeStart} />
+          <TimeField label="終了" minutes={end} onChange={setEnd} />
         </>
       )}
       <Text style={[styles.detailText, { color: colors.text }]}>色</Text>
@@ -118,7 +117,7 @@ export function ManualEventForm({
           </Pressable>
         ))}
       </View>
-      <Button colors={colors} label="入れる" onPress={add} disabled={!title.trim()} />
+      <Button label="入れる" onPress={add} disabled={!title.trim()} />
     </View>
   );
 }

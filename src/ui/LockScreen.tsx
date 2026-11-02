@@ -10,7 +10,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     <View style={styles.center}>
       <Text style={[styles.title, { color: colors.text }]}>ロックしています</Text>
       <Text style={[styles.help, { color: colors.muted }]}>{BIOMETRIC}（または{PASSCODE}）で開けます。</Text>
-      <Button colors={colors} label="ロックを解除" onPress={onUnlock} />
+      <Button label="ロックを解除" onPress={onUnlock} />
     </View>
   );
 }

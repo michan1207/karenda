@@ -4,7 +4,7 @@ import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } fr
 import { Action, addDays, ConflictAlert, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, shortDate } from './format';
-import { Colors, fonts, radius, useColors } from './theme';
+import { fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
 
@@ -43,18 +43,17 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Decorations colors={colors} />
+      <Decorations />
       <View style={styles.title}>
-        <Ribbon colors={colors} text={`これから${UPCOMING_DAYS}日のお知らせ`} />
+        <Ribbon text={`これから${UPCOMING_DAYS}日のお知らせ`} />
       </View>
       <Text style={[styles.sub, styles.center, { color: colors.muted }]}>
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
       </Text>
-      <MascotSays colors={colors} text={line} />
-      <Card colors={colors}>
-        <PillHeading colors={colors} text="パートナーに送る文の見本" />
+      <MascotSays text={line} />
+      <Card>
+        <PillHeading text="パートナーに送る文の見本" />
         <Chips
-          colors={colors}
           options={TEMPLATES}
           value={template}
           onPick={(id) => {
@@ -71,7 +70,6 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
         />
         {/* 送る前に開けなかっただけなので、失うものは無い */}
         <Button
-          colors={colors}
           label="パートナーに伝える"
           disabled={!text.trim()}
           onPress={async () => {
@@ -90,23 +88,21 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
       {k.access === 'denied' &&
         (k.calendarSkipped ? (
           <Notice
-            colors={colors}
             text="カレンダーは使っていません。このアプリの中だけに入れた予定との重なりを調べています。"
             action={{ label: 'カレンダーを使う', onPress: () => void k.enableCalendar() }}
           />
         ) : (
           <Notice
-            colors={colors}
             text="カレンダーへのアクセスが許可されていないため、予定との重なりを調べられません。"
             action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
           />
         ))}
       {k.starts.length === 0 ? (
-        <Notice colors={colors} text="生理の記録がまだ無いため、お知らせはありません。カレンダーで開始日を記録してください。" />
+        <Notice text="生理の記録がまだ無いため、お知らせはありません。カレンダーで開始日を記録してください。" />
       ) : (
         k.access === 'granted' &&
         alerts.length === 0 && (
-          <Notice colors={colors} text="気をつけたい時期と重なる予定はありません。" />
+          <Notice text="気をつけたい時期と重なる予定はありません。" />
         )
       )}
 
@@ -120,16 +116,15 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
 }
 
 function Chips<T extends string>({
-  colors,
   options,
   value,
   onPick,
 }: {
-  colors: Colors;
   options: [T, string][];
   value: T;
   onPick: (id: T) => void;
 }) {
+  const colors = useColors();
   return (
     <View style={styles.chips}>
       {options.map(([id, label]) => {
@@ -159,7 +154,8 @@ function Chips<T extends string>({
 }
 
 /** 何日も続く予定の、日ごとのきつさ。いちばんきつい日だけ色を付ける */
-function SeriesBars({ colors, tone, series }: { colors: Colors; tone: string; series: NonNullable<ConflictAlert['series']> }) {
+function SeriesBars({ tone, series }: { tone: string; series: NonNullable<ConflictAlert['series']> }) {
+  const colors = useColors();
   return (
     <View>
       <Text style={[styles.sub, { color: colors.muted }]}>日ごとのきつさ（色のついた日がいちばんきつい日）</Text>
@@ -190,8 +186,8 @@ function ReflectionCard({ k, today }: { k: Karenda; today: DateKey }) {
   const colors = useColors();
   const reflection = monthlyReflection(k.resolutions, today.slice(0, 7));
   return (
-    <Card colors={colors}>
-      <PillHeading colors={colors} text={`${Number(today.slice(5, 7))}月のふりかえり`} />
+    <Card>
+      <PillHeading text={`${Number(today.slice(5, 7))}月のふりかえり`} />
       {reflection.total === 0 ? (
         <Text style={[styles.message, { color: colors.muted }]}>
           今月はまだ、対応した予定はありません。お知らせのカードで「ずらした」「準備した」などを押すと、ここで数えます。
@@ -238,10 +234,10 @@ function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions
   const decline = actions.flatMap((action) => (action.kind === 'declineTemplate' ? [action.text] : []))[0];
 
   return (
-    <Card colors={colors} style={{ backgroundColor: strong ? colors.alertStrongSoft : colors.alertMildSoft, borderColor: tone }}>
+    <Card style={{ backgroundColor: strong ? colors.alertStrongSoft : colors.alertMildSoft, borderColor: tone }}>
       <View style={styles.cardHead}>
         <View style={styles.badgeRow}>
-          <AlertMark colors={colors} strong={strong} />
+          <AlertMark strong={strong} />
           <Text
             style={[
               styles.badge,
@@ -260,7 +256,7 @@ function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions
       </View>
       <Text style={[styles.eventTitle, { color: colors.text }]}>{title}</Text>
       <Text style={[styles.message, { color: colors.text }]}>{alert.reasonText}</Text>
-      {alert.series && <SeriesBars colors={colors} tone={tone} series={alert.series} />}
+      {alert.series && <SeriesBars tone={tone} series={alert.series} />}
       {alert.confidenceNote && <Text style={[styles.sub, { color: colors.muted }]}>{alert.confidenceNote}</Text>}
       <Text style={[styles.sub, { color: colors.muted }]}>{IMPACT_LABEL[alert.impact]}</Text>
       {deadline && <Text style={[styles.message, styles.strongText, { color: colors.text }]}>{deadline}</Text>}
@@ -273,10 +269,10 @@ function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions
         </Text>
       ))}
       {decline && (
-        <Button colors={colors} kind="secondary" label="断りの文を送る" onPress={() => Share.share({ message: decline }).catch(() => {})} />
+        <Button kind="secondary" label="断りの文を送る" onPress={() => Share.share({ message: decline }).catch(() => {})} />
       )}
       {state === 'unreviewed' ? (
-        <Button colors={colors} kind="secondary" label="確認した" onPress={() => k.dismiss(alert.eventId, alert.date)} />
+        <Button kind="secondary" label="確認した" onPress={() => k.dismiss(alert.eventId, alert.date)} />
       ) : (
         <Text style={[styles.sub, { color: colors.muted }]}>確認済み</Text>
       )}

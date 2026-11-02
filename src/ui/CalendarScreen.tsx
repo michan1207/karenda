@@ -30,7 +30,7 @@ import { ManualEventForm } from './ManualEventForm';
 import { mascotLine } from './mascotLines';
 import { MoodNotesCard } from './MoodNotesCard';
 import { ReviewCard } from './ReviewCard';
-import { Colors, radius, useColors } from './theme';
+import { radius, useColors } from './theme';
 import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
 
@@ -88,7 +88,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <Decorations colors={colors} />
+      <Decorations />
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -99,7 +99,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         >
           <Text style={[styles.navText, { color: colors.pink }]}>‹</Text>
         </Pressable>
-        <Ribbon colors={colors} text={`${year}年${month}月`} />
+        <Ribbon text={`${year}年${month}月`} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="次の月"
@@ -125,7 +125,6 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
 
       {!hidden && k.starts.length > 0 && k.access === 'granted' && (
         <DigestCard
-          colors={colors}
           digest={monthlyDigest(guard.alerts, `${year}-${String(month).padStart(2, '0')}`, k.statuses)}
           isThisMonth={today.startsWith(`${year}-${String(month).padStart(2, '0')}-`)}
           month={month}
@@ -135,40 +134,38 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         />
       )}
 
-      {!hidden && reviews.length > 0 && <ReviewCard colors={colors} reviews={reviews} onAnswer={k.answerReview} />}
+      {!hidden && reviews.length > 0 && <ReviewCard reviews={reviews} onAnswer={k.answerReview} />}
 
       {!hidden && consult.length > 0 && k.consultDismissed !== thisMonth && (
-        <Card colors={colors}>
+        <Card>
           <Text style={[styles.digestTitle, { color: colors.text }]}>周期の記録について</Text>
           <Text style={[styles.detailText, { color: colors.text }]}>{consultText(consult)}</Text>
-          <Button colors={colors} kind="secondary" label="今月はもう出さない" onPress={() => k.dismissConsult(thisMonth)} />
+          <Button kind="secondary" label="今月はもう出さない" onPress={() => k.dismissConsult(thisMonth)} />
         </Card>
       )}
 
-      {!hidden && <MascotSays colors={colors} text={mascotLine(phase, k.starts.length > 0, selected)} />}
+      {!hidden && <MascotSays text={mascotLine(phase, k.starts.length > 0, selected)} />}
 
       {k.access === 'denied' &&
         (k.calendarSkipped ? (
           <Notice
-            colors={colors}
             text="カレンダーは使っていません。日付を選んで「この日に予定を入れる」から、このアプリの中だけに予定を入れられます。"
             action={{ label: 'カレンダーを使う', onPress: () => void k.enableCalendar() }}
           />
         ) : (
           <Notice
-            colors={colors}
             text="カレンダーへのアクセスが許可されていないため、予定との重なりは表示できません。予定はこの端末の中で読むだけで、外には送りません。"
             action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
           />
         ))}
       {k.starts.length === 0 && !hidden && (
-        <Notice colors={colors} text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
+        <Notice text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
       )}
       {guard.prediction?.provisional && (
-        <Notice colors={colors} text="記録がまだ少ないため、28日周期を仮定した仮の予測です。" />
+        <Notice text="記録がまだ少ないため、28日周期を仮定した仮の予測です。" />
       )}
 
-      <Card colors={colors} style={styles.grid}>
+      <Card style={styles.grid}>
         <View style={styles.weekRow}>
           {WEEKDAYS.map((label, i) => (
             <Text
@@ -186,7 +183,6 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
               <DayCell
                 key={day}
                 day={day}
-                colors={colors}
                 zone={guard.zones.get(day)}
                 alerts={dayAlerts.get(day) ?? []}
                 dots={dotsByDay.get(day) ?? []}
@@ -199,12 +195,12 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           </View>
         ))}
 
-        {!hidden && <Legend colors={colors} />}
+        {!hidden && <Legend />}
       </Card>
 
-      <Card colors={colors}>
-        <PillHeading colors={colors} text={dayTitle(selected)} />
-        {!hidden && <ZoneBadge colors={colors} zone={selectedZone} />}
+      <Card>
+        <PillHeading text={dayTitle(selected)} />
+        {!hidden && <ZoneBadge zone={selectedZone} />}
         {guard.prediction &&
           selectedZone?.predicted &&
           predictionLines(guard.prediction, nearestPeriod(guard.prediction, selected)).map((line, i) => (
@@ -227,7 +223,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
             return (
               <View key={event.id} style={styles.eventRow}>
                 <View style={styles.eventHead}>
-                  {alert && <AlertMark colors={colors} strong={alert.grade === 'A'} />}
+                  {alert && <AlertMark strong={alert.grade === 'A'} />}
                   {event.color && <View style={[styles.eventDot, { backgroundColor: colors.event[event.color] }]} />}
                   <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title || '（タイトルなし）'}</Text>
                   {event.manual && <Text style={[styles.manualLabel, { color: colors.muted }]}>このアプリだけ</Text>}
@@ -239,7 +235,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                 </View>
                 {timeRange(event) && <Text style={[styles.detailText, { color: colors.muted }]}>{timeRange(event)}</Text>}
                 {event.manual && (
-                  <Button colors={colors} kind="danger" label={`「${event.title}」を消す`} onPress={() => k.removeManualEvent(event.id)} />
+                  <Button kind="danger" label={`「${event.title}」を消す`} onPress={() => k.removeManualEvent(event.id)} />
                 )}
                 {note ? (
                   <Text style={[styles.detailText, { color: colors.text }]}>{note}</Text>
@@ -255,19 +251,18 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           })
         )}
         <ManualEventForm
-          colors={colors}
           day={selected}
           events={k.manualEvents}
           onAdd={(event) => k.addManualEvent({ ...event, date: selected })}
         />
         {hidden ? null : isRecorded ? (
-          <Button colors={colors} kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
+          <Button kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
         ) : selected <= today ? (
-          <Button colors={colors} label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
+          <Button label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
         ) : null}
       </Card>
 
-      {phase && <MoodNotesCard phase={phase} colors={colors} />}
+      {phase && <MoodNotesCard phase={phase} />}
 
       {!hidden && (
         <Text style={[styles.footnote, { color: colors.muted }]}>
@@ -279,7 +274,8 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
 }
 
 /** 選んだ日の時期。生理・PMSの日はカレンダーと同じ色のカプセルで見せる */
-function ZoneBadge({ colors, zone }: { colors: Colors; zone: ZoneDay | undefined }) {
+function ZoneBadge({ zone }: { zone: ZoneDay | undefined }) {
+  const colors = useColors();
   const background = zone?.zone === 'heavy' ? colors.heavy : zone?.zone === 'pms' ? colors.pms : undefined;
   if (!background) return <Text style={[styles.detailZone, { color: colors.muted }]}>{zoneLabel(zone)}</Text>;
   return (

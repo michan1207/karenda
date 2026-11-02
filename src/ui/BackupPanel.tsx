@@ -5,7 +5,7 @@ import { ExportedData, isEncryptedBackup, OpenBackup, openBackup, readExport, Re
 import { DateKey } from '../engine';
 import { Button, Text } from './components';
 import { fullDate } from './format';
-import { Colors, fonts, radius, useColors } from './theme';
+import { fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
 const MIN_LENGTH = 8;
@@ -119,30 +119,30 @@ export function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
 
       {step === 'idle' && (
         <>
-          <Button colors={colors} kind="secondary" label="暗号化して書き出す" onPress={() => (reset(), setStep('export'))} />
-          <Button colors={colors} kind="secondary" label="ファイルから戻す" onPress={pick} />
+          <Button kind="secondary" label="暗号化して書き出す" onPress={() => (reset(), setStep('export'))} />
+          <Button kind="secondary" label="ファイルから戻す" onPress={pick} />
         </>
       )}
 
       {step === 'export' && (
         <>
-          <Passphrase colors={colors} label="パスワード" value={passphrase} onChange={setPassphrase} isNew />
-          <Passphrase colors={colors} label="パスワード（もう一度）" value={again} onChange={setAgain} isNew />
+          <Passphrase label="パスワード" value={passphrase} onChange={setPassphrase} isNew />
+          <Passphrase label="パスワード（もう一度）" value={again} onChange={setAgain} isNew />
           <Text style={[styles.help, { color: problem ? colors.danger : colors.muted }]}>
             {problem ?? (length >= 12 ? '強さ：強い' : length >= MIN_LENGTH ? '強さ：ふつう（12文字以上でもっと強くなります）' : '8文字以上で決めてください')}
           </Text>
-          {busy && <Busy colors={colors} text="鍵をかけています。少し時間がかかります…" />}
-          <Button colors={colors} label="書き出す" onPress={exportNow} disabled={!canExport || busy} />
-          <Button colors={colors} kind="secondary" label="やめる" onPress={() => reset()} />
+          {busy && <Busy text="鍵をかけています。少し時間がかかります…" />}
+          <Button label="書き出す" onPress={exportNow} disabled={!canExport || busy} />
+          <Button kind="secondary" label="やめる" onPress={() => reset()} />
         </>
       )}
 
       {step === 'unlock' && (
         <>
-          <Passphrase colors={colors} label="バックアップのパスワード" value={passphrase} onChange={setPassphrase} onSubmit={unlock} />
-          {busy && <Busy colors={colors} text="鍵を開けています。少し時間がかかります…" />}
-          <Button colors={colors} label="開く" onPress={unlock} disabled={!passphrase || busy} />
-          <Button colors={colors} kind="secondary" label="やめる" onPress={() => reset()} />
+          <Passphrase label="バックアップのパスワード" value={passphrase} onChange={setPassphrase} onSubmit={unlock} />
+          {busy && <Busy text="鍵を開けています。少し時間がかかります…" />}
+          <Button label="開く" onPress={unlock} disabled={!passphrase || busy} />
+          <Button kind="secondary" label="やめる" onPress={() => reset()} />
         </>
       )}
 
@@ -150,11 +150,11 @@ export function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
         <>
           <Text style={[styles.summary, { color: colors.text }]}>{summary}</Text>
           <Text style={[styles.help, { color: colors.muted }]}>戻し方を選んでください。</Text>
-          <Button colors={colors} label="記録を足す（設定は今のまま）" onPress={() => restore('keepMine')} disabled={busy} />
-          <Button colors={colors} kind="secondary" label="記録を足す（設定はファイルのもの）" onPress={() => restore('preferFile')} disabled={busy} />
+          <Button label="記録を足す（設定は今のまま）" onPress={() => restore('keepMine')} disabled={busy} />
+          <Button kind="secondary" label="記録を足す（設定はファイルのもの）" onPress={() => restore('preferFile')} disabled={busy} />
           <Text style={[styles.help, { color: colors.muted }]}>置き換えると、今の記録は消えてファイルの内容だけになります。</Text>
-          <Button colors={colors} kind="danger" label="ファイルの内容に置き換える" onPress={() => restore('replace')} disabled={busy} />
-          <Button colors={colors} kind="secondary" label="やめる" onPress={() => reset()} />
+          <Button kind="danger" label="ファイルの内容に置き換える" onPress={() => restore('replace')} disabled={busy} />
+          <Button kind="secondary" label="やめる" onPress={() => reset()} />
         </>
       )}
 
@@ -163,7 +163,8 @@ export function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
   );
 }
 
-function Busy({ colors, text }: { colors: Colors; text: string }) {
+function Busy({ text }: { text: string }) {
+  const colors = useColors();
   return (
     <View style={styles.busy}>
       <ActivityIndicator color={colors.accent} />
@@ -173,20 +174,19 @@ function Busy({ colors, text }: { colors: Colors; text: string }) {
 }
 
 function Passphrase({
-  colors,
   label,
   value,
   onChange,
   onSubmit,
   isNew = false,
 }: {
-  colors: Colors;
   label: string;
   value: string;
   onChange: (text: string) => void;
   onSubmit?: () => void;
   isNew?: boolean;
 }) {
+  const colors = useColors();
   return (
     <TextInput
       accessibilityLabel={label}

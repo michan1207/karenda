@@ -6,7 +6,7 @@ import { CALENDAR_NOTE, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../dat
 import { BackupPanel } from './BackupPanel';
 import { BIOMETRIC, Button, Decorations, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
-import { Colors, fonts, radius, useColors } from './theme';
+import { fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda; today: DateKey };
@@ -35,12 +35,12 @@ export function SettingsScreen({ k, today }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Decorations colors={colors} />
+      <Decorations />
       <View style={styles.title}>
-        <Ribbon colors={colors} text="設定" />
+        <Ribbon text="設定" />
       </View>
 
-      <Section colors={colors} title="カレンダー">
+      <Section title="カレンダー">
         {k.access === 'granted' ? (
           <Text style={[styles.help, { color: colors.muted }]}>
             カレンダーの予定を読んで、生理の時期との重なりを見ています。書き換えはしません。
@@ -50,18 +50,17 @@ export function SettingsScreen({ k, today }: Props) {
             <Text style={[styles.help, { color: colors.muted }]}>
               カレンダーは使っていません。予定はカレンダー画面から、このアプリの中だけに入れられます。
             </Text>
-            <Button colors={colors} kind="secondary" label="カレンダーを使う" onPress={() => void k.enableCalendar()} />
+            <Button kind="secondary" label="カレンダーを使う" onPress={() => void k.enableCalendar()} />
           </>
         ) : (
           <Notice
-            colors={colors}
             text="端末の設定でカレンダーがオフになっています。"
             action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
           />
         )}
       </Section>
 
-      <Section colors={colors} title="お知らせ通知">
+      <Section title="お知らせ通知">
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>通知を使う</Text>
           <Switch
@@ -76,7 +75,6 @@ export function SettingsScreen({ k, today }: Props) {
         </Text>
         {k.notifyEnabled && k.notifyAccess === 'denied' && (
           <Notice
-            colors={colors}
             text="端末の設定で通知がオフになっています。"
             action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
           />
@@ -116,9 +114,8 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section colors={colors} title="気をつける時期">
+      <Section title="気をつける時期">
         <Stepper
-          colors={colors}
           label="生理ヘビー期"
           unit="日間"
           value={k.settings.heavyDays}
@@ -156,7 +153,6 @@ export function SettingsScreen({ k, today }: Props) {
         </View>
         {k.pms.source === 'manual' ? (
           <Stepper
-            colors={colors}
             label="PMSの時期（予定日の何日前から）"
             unit="日前"
             value={k.pms.daysBefore}
@@ -174,15 +170,15 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section colors={colors} title="予定の重さを決める言葉">
+      <Section title="予定の重さを決める言葉">
         <Text style={[styles.help, { color: colors.muted }]}>
           予定のタイトルにこの言葉が入っていると、重い予定として扱います。終日の予定は「重い」になります（有給・休暇・代休・OFF の予定と祝日は除きます）。
         </Text>
-        <KeywordList colors={colors} level="high" label="重い予定" keywords={k.keywords} onChange={k.setKeywords} />
-        <KeywordList colors={colors} level="medium" label="ふつうの予定" keywords={k.keywords} onChange={k.setKeywords} />
+        <KeywordList level="high" label="重い予定" keywords={k.keywords} onChange={k.setKeywords} />
+        <KeywordList level="medium" label="ふつうの予定" keywords={k.keywords} onChange={k.setKeywords} />
       </Section>
 
-      <Section colors={colors} title="覚えた予定">
+      <Section title="覚えた予定">
         <Text style={[styles.help, { color: colors.muted }]}>
           予定のあとの「どうだった？」で同じ答えが2回続くと、その予定の重さを覚えて、上の言葉より優先します。重さを押すと直せます。
         </Text>
@@ -222,7 +218,7 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section colors={colors} title="生理の記録">
+      <Section title="生理の記録">
         {k.starts.length === 0 ? (
           <Text style={[styles.help, { color: colors.muted }]}>まだ記録がありません。カレンダーで日付を選んで記録できます。</Text>
         ) : (
@@ -243,7 +239,7 @@ export function SettingsScreen({ k, today }: Props) {
       </Section>
 
       {excluded.length > 0 && (
-        <Section colors={colors} title="予測に使っていない間隔">
+        <Section title="予測に使っていない間隔">
           <Text style={[styles.help, { color: colors.muted }]}>
             {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
             ）。15日より短い・45日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。記録は消えていません。
@@ -256,7 +252,7 @@ export function SettingsScreen({ k, today }: Props) {
         </Section>
       )}
 
-      <Section colors={colors} title="予測の当たり具合">
+      <Section title="予測の当たり具合">
         {latest && <Text style={[styles.rowLabel, { color: colors.text }]}>{latestLine(latest)}</Text>}
         {mean === null || rate === null ? (
           <Text style={[styles.help, { color: colors.muted }]}>
@@ -280,7 +276,7 @@ export function SettingsScreen({ k, today }: Props) {
         <Text style={[styles.help, { color: colors.muted }]}>予測は目安です。体調の判断は医師にご相談ください。</Text>
       </Section>
 
-      <Section colors={colors} title="アプリのロック">
+      <Section title="アプリのロック">
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>{BIOMETRIC}でロックする</Text>
           <Switch
@@ -306,7 +302,7 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section colors={colors} title="利用状況の記録">
+      <Section title="利用状況の記録">
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>利用状況をこの端末に記録する</Text>
           <Switch
@@ -321,7 +317,7 @@ export function SettingsScreen({ k, today }: Props) {
         </Text>
       </Section>
 
-      <Section colors={colors} title="プライバシー">
+      <Section title="プライバシー">
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>外部への送信</Text>
           <Text style={[styles.rowLabel, { color: colors.text }]}>{outboundCount()}件</Text>
@@ -345,7 +341,7 @@ export function SettingsScreen({ k, today }: Props) {
         <Text style={[styles.help, { color: colors.muted }]}>{CALENDAR_NOTE}</Text>
       </Section>
 
-      <Section colors={colors} title="データ">
+      <Section title="データ">
         <Text style={[styles.help, { color: colors.muted }]}>データはこの端末の中だけに保存しています。</Text>
         <BackupPanel k={k} today={today} />
         {confirmDelete ? (
@@ -354,7 +350,6 @@ export function SettingsScreen({ k, today }: Props) {
               記録・設定・閉じたお知らせをすべて消します。元に戻せません。
             </Text>
             <Button
-              colors={colors}
               kind="danger"
               label="すべて削除する"
               onPress={async () => {
@@ -362,10 +357,10 @@ export function SettingsScreen({ k, today }: Props) {
                 await k.deleteAll();
               }}
             />
-            <Button colors={colors} kind="secondary" label="やめる" onPress={() => setConfirmDelete(false)} />
+            <Button kind="secondary" label="やめる" onPress={() => setConfirmDelete(false)} />
           </View>
         ) : (
-          <Button colors={colors} kind="danger" label="すべてのデータを削除" onPress={() => setConfirmDelete(true)} />
+          <Button kind="danger" label="すべてのデータを削除" onPress={() => setConfirmDelete(true)} />
         )}
       </Section>
     </ScrollView>
@@ -386,7 +381,6 @@ function pmsBasis({ source, observations }: PmsEstimate): string {
 }
 
 function Stepper({
-  colors,
   label,
   unit,
   value,
@@ -394,7 +388,6 @@ function Stepper({
   max,
   onChange,
 }: {
-  colors: Colors;
   label: string;
   unit: string;
   value: number;
@@ -402,6 +395,7 @@ function Stepper({
   max: number;
   onChange: (value: number) => void;
 }) {
+  const colors = useColors();
   const step = (delta: number) => onChange(Math.min(max, Math.max(min, value + delta)));
   return (
     <View style={styles.row}>
@@ -437,18 +431,17 @@ function Stepper({
 }
 
 function KeywordList({
-  colors,
   level,
   label,
   keywords,
   onChange,
 }: {
-  colors: Colors;
   level: 'high' | 'medium';
   label: string;
   keywords: RiskKeywords;
   onChange: (keywords: RiskKeywords) => void;
 }) {
+  const colors = useColors();
   const [draft, setDraft] = useState('');
   const words = keywords[level];
 

@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Image, Platform, Pressable, Text as BaseText, StyleProp, StyleSheet, TextProps, View, ViewStyle } from 'react-native';
 
-import { Colors, fonts, radius } from './theme';
+import { fonts, radius, useColors } from './theme';
 
 /** 文字はすべてこれを通す。同梱のフォントは fontWeight では太くならないので、太さに合う書体を選ぶ */
 export function Text({ style, ...props }: TextProps) {
@@ -11,7 +11,8 @@ export function Text({ style, ...props }: TextProps) {
 }
 
 /** 白い地・ピンクの枠・大きな角丸・やわらかい影のカード。カード状のものはすべてこれを通す */
-export function Card({ colors, style, children }: { colors: Colors; style?: StyleProp<ViewStyle>; children: ReactNode }) {
+export function Card({ style, children }: { style?: StyleProp<ViewStyle>; children: ReactNode }) {
+  const colors = useColors();
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line, boxShadow: colors.shadow }, style]}>
       {children}
@@ -37,7 +38,8 @@ export function Heart({ color, size = 10 }: { color: string; size?: number }) {
 }
 
 /** 飾りのお花。花びら5枚と黄色いしべ */
-export function Flower({ colors, size = 14 }: { colors: Colors; size?: number }) {
+export function Flower({ size = 14 }: { size?: number }) {
+  const colors = useColors();
   const petal = size * 0.42;
   const r = (size - petal) / 2;
   return (
@@ -72,7 +74,8 @@ export function Flower({ colors, size = 14 }: { colors: Colors; size?: number })
 }
 
 /** 画面の上のほうに散らすハート・お花・キラキラ。触れても何も起きない */
-export function Decorations({ colors }: { colors: Colors }) {
+export function Decorations() {
+  const colors = useColors();
   const sparkle = (size: number) => (
     <Text allowFontScaling={false} style={{ fontSize: size, lineHeight: size + 2, color: colors.sparkle }}>
       ✦
@@ -85,21 +88,22 @@ export function Decorations({ colors }: { colors: Colors }) {
       </View>
       <View style={[styles.deco, { top: 2, left: '30%' }]}>{sparkle(12)}</View>
       <View style={[styles.deco, { top: 8, right: '28%' }]}>
-        <Flower colors={colors} size={16} />
+        <Flower size={16} />
       </View>
       <View style={[styles.deco, { top: 4, right: '5%' }]}>{sparkle(14)}</View>
       <View style={[styles.deco, { top: 64, right: '2%' }]}>
         <Heart color={colors.flower} size={12} />
       </View>
       <View style={[styles.deco, { top: 70, left: '1%' }]}>
-        <Flower colors={colors} size={12} />
+        <Flower size={12} />
       </View>
     </View>
   );
 }
 
 /** 画面の見出し。ハートで挟んだピンクのリボン */
-export function Ribbon({ colors, text }: { colors: Colors; text: string }) {
+export function Ribbon({ text }: { text: string }) {
+  const colors = useColors();
   return (
     <View style={[styles.ribbon, { backgroundColor: colors.pink, boxShadow: colors.shadow }]}>
       <Heart color={colors.onPink} size={12} />
@@ -112,10 +116,11 @@ export function Ribbon({ colors, text }: { colors: Colors; text: string }) {
 }
 
 /** カードの中の見出し。お花とハートで挟んだ淡いピンクのカプセル */
-export function PillHeading({ colors, text }: { colors: Colors; text: string }) {
+export function PillHeading({ text }: { text: string }) {
+  const colors = useColors();
   return (
     <View style={[styles.pill, { backgroundColor: colors.pinkSoft }]}>
-      <Flower colors={colors} size={14} />
+      <Flower size={14} />
       <Text accessibilityRole="header" style={[styles.pillText, { color: colors.pinkText }]}>
         {text}
       </Text>
@@ -132,7 +137,8 @@ export const BIOMETRIC = Platform.OS === 'ios' ? 'Face ID' : '指紋・顔認証
 export const PASSCODE = Platform.OS === 'ios' ? 'パスコード' : '画面ロック';
 
 /** ミアの丸い絵（assets/mascot.png。アイコンと同じ絵から切り出し）。飾りなので読み上げない */
-export function Mascot({ colors, size }: { colors: Colors; size: number }) {
+export function Mascot({ size }: { size: number }) {
+  const colors = useColors();
   return (
     <View {...hidden} style={[styles.avatar, { width: size, height: size, borderColor: colors.line, boxShadow: colors.shadow }]}>
       <Image source={require('../../assets/mascot.png')} style={{ width: size - 6, height: size - 6 }} />
@@ -141,10 +147,11 @@ export function Mascot({ colors, size }: { colors: Colors; size: number }) {
 }
 
 /** ミアと吹き出し。吹き出しの名前と文だけ読み上げる */
-export function MascotSays({ colors, text, size = 76 }: { colors: Colors; text: string; size?: number }) {
+export function MascotSays({ text, size = 76 }: { text: string; size?: number }) {
+  const colors = useColors();
   return (
     <View style={styles.mascotRow}>
-      <Mascot colors={colors} size={size} />
+      <Mascot size={size} />
       <View style={[styles.bubble, { backgroundColor: colors.surface, borderColor: colors.line, boxShadow: colors.shadow }]}>
         <Text style={[styles.mascotName, { color: colors.pinkText }]}>{MASCOT_NAME}</Text>
         <Text style={[styles.body, { color: colors.text }]}>{text}</Text>
@@ -154,7 +161,8 @@ export function MascotSays({ colors, text, size = 76 }: { colors: Colors; text: 
 }
 
 /** 予定と重なる印。要注意（A）は塗りの丸、注意（B）は枠だけの丸で、色だけに頼らない */
-export function AlertMark({ colors, strong, size = 16 }: { colors: Colors; strong: boolean; size?: number }) {
+export function AlertMark({ strong, size = 16 }: { strong: boolean; size?: number }) {
+  const colors = useColors();
   const tone = strong ? colors.alertStrong : colors.alertMild;
   return (
     <View
@@ -175,14 +183,13 @@ export function AlertMark({ colors, strong, size = 16 }: { colors: Colors; stron
 }
 
 export function Notice({
-  colors,
   text,
   action,
 }: {
-  colors: Colors;
   text: string;
   action?: { label: string; onPress: () => void };
 }) {
+  const colors = useColors();
   return (
     <View style={[styles.notice, { backgroundColor: colors.surface, borderColor: colors.line }]}>
       <Text style={[styles.body, { color: colors.text }]}>{text}</Text>
@@ -196,18 +203,17 @@ export function Notice({
 }
 
 export function Button({
-  colors,
   label,
   onPress,
   kind = 'primary',
   disabled = false,
 }: {
-  colors: Colors;
   label: string;
   onPress: () => void;
   kind?: 'primary' | 'secondary' | 'danger';
   disabled?: boolean;
 }) {
+  const colors = useColors();
   const filled = kind === 'primary';
   const tone = disabled ? colors.muted : kind === 'danger' ? colors.danger : filled ? colors.pink : colors.pinkText;
   return (
@@ -233,10 +239,10 @@ export function Button({
   );
 }
 
-export function Section({ colors, title, children }: { colors: Colors; title: string; children: ReactNode }) {
+export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Card colors={colors}>
-      <PillHeading colors={colors} text={title} />
+    <Card>
+      <PillHeading text={title} />
       {children}
     </Card>
   );

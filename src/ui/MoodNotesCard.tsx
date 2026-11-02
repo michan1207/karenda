@@ -3,9 +3,10 @@ import { StyleSheet, View } from 'react-native';
 import { PeriodPhase } from '../engine';
 import { Card, Heart, PillHeading, Text } from './components';
 import { MOOD_NOTES } from './moodNotes';
-import { Colors } from './theme';
+import { useColors } from './theme';
 
-function Bullet({ colors, text }: { colors: Colors; text: string }) {
+function Bullet({ text }: { text: string }) {
+  const colors = useColors();
   return (
     <View style={styles.bullet}>
       <View style={styles.bulletMark}>
@@ -16,15 +17,16 @@ function Bullet({ colors, text }: { colors: Colors; text: string }) {
   );
 }
 
-export function MoodNotesCard({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
+export function MoodNotesCard({ phase }: { phase: PeriodPhase }) {
+  const colors = useColors();
   const note = MOOD_NOTES[phase];
   return (
-    <Card colors={colors}>
-      <PillHeading colors={colors} text={note.title} />
+    <Card>
+      <PillHeading text={note.title} />
       <Text style={[styles.detailText, { color: colors.text }]}>{note.summary}</Text>
       <View>
         {note.feelings.map((feeling) => (
-          <Bullet key={feeling} colors={colors} text={feeling} />
+          <Bullet key={feeling} text={feeling} />
         ))}
       </View>
       <Text style={[styles.detailZone, { color: colors.muted }]}>

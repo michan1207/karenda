@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Answer, ReviewTarget } from '../engine';
 import { Card, Text } from './components';
 import { dayTitle } from './format';
-import { Colors, radius } from './theme';
+import { radius, useColors } from './theme';
 
 const ANSWERS: [Answer, string][] = [
   ['hard', 'きつかった'],
@@ -13,16 +13,15 @@ const ANSWERS: [Answer, string][] = [
 
 /** 終わった予定に「どうだった？」と聞く（3件まで）。答えから予定の重さを覚えていく */
 export function ReviewCard({
-  colors,
   reviews,
   onAnswer,
 }: {
-  colors: Colors;
   reviews: ReviewTarget[];
   onAnswer: (target: ReviewTarget, answer: Answer | null) => void;
 }) {
+  const colors = useColors();
   return (
-    <Card colors={colors}>
+    <Card>
       <Text style={[styles.digestTitle, { color: colors.text }]}>予定、どうだった？</Text>
       <Text style={[styles.reviewHelp, { color: colors.muted }]}>答えると予定の重さを覚えて、次のお知らせに生かします。</Text>
       {reviews.map((target) => {
