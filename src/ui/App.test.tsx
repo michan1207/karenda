@@ -38,7 +38,7 @@ import {
 import { createTestDatabase } from '../data/testDatabase';
 import { addDays, learnWeight, type CalendarEvent, type NotificationPlan } from '../engine';
 import { Main } from './App';
-import { MASCOT_LINES } from './CalendarScreen';
+import { MASCOT_LINES } from './mascotLines';
 
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 jest.mock('expo-calendar/legacy', () => ({}));
