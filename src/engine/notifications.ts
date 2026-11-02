@@ -17,6 +17,8 @@ export type NotificationPlan = {
   body: string;
   /** 「どうだった？」の通知。ボタンで答えると、この予定の答えとして保存する */
   review?: ReviewTarget;
+  /** 予約の数があふれる時（iPhone は64件まで）は、ほかの通知より後回しにしてよい（30分前の通知） */
+  optional?: true;
   /** 重なる予定の通知。ボタン（確認した／代替日を見る／今日は決めない）はここの予定すべてに効く。fixed は全部動かせない予定（代替日のボタンを付けない） */
   decide?: { conflicts: { eventId: string; date: DateKey }[]; fixed: boolean };
 };
@@ -192,7 +194,7 @@ export function planDayReminders(events: CalendarEvent[], today: DateKey): Notif
 }
 
 /** 予定が始まる何分前に、もう一度知らせるか */
-export const SOON_MINUTES = 30;
+const SOON_MINUTES = 30;
 
 /**
  * 時刻のある予定を、始まる30分前にもう一度知らせる（2026-11-02 オーナー決定。設定でオン・オフ）。
@@ -204,12 +206,15 @@ export function planSoonReminders(events: CalendarEvent[], today: DateKey): Noti
     for (const event of timedOn(events, day)) byStart.set(event.startMinutes, [...(byStart.get(event.startMinutes) ?? []), event.title.trim()]);
     return [...byStart].map(([start, titles]) => {
       const at = start - SOON_MINUTES;
+      const names = [...new Set(titles.filter(Boolean))].join('、');
       return {
         id: `soon-${day}-${start}`,
         date: at < 0 ? addDays(day, -1) : day,
         minutes: (at + 24 * 60) % (24 * 60),
-        title: '30分後の予定',
-        body: `${clock(start)}から${titles.filter(Boolean).join('、')}の予定です。`,
+        // 遅れて届くこともある（Android の「アラームとリマインダー」がオフの時）ので、「30分後」とは書かず始まる時刻を書く
+        title: `${clock(start)}からの予定`,
+        body: names ? `${names}の予定です。` : '名前の入っていない予定です。',
+        optional: true as const,
       };
     });
   });

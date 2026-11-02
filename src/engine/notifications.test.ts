@@ -220,18 +220,27 @@ describe('planSoonReminders', () => {
 
   it('tells each timed event 30 minutes before it starts, and puts events at the same time in one notice', () => {
     const plans = planSoonReminders(
-      [timed('a', '会議', '2026-10-25', 600), timed('b', '電話', '2026-10-25', 600), timed('c', '歯医者', '2026-10-25', 870), timed('d', '旅行', '2026-10-25', undefined, true)],
+      [
+        timed('a', '会議', '2026-10-25', 600),
+        timed('b', '電話', '2026-10-25', 600),
+        // 2つのカレンダーに入った同じ予定は、名前を1回だけ書く
+        timed('e', '会議', '2026-10-25', 600),
+        timed('c', '歯医者', '2026-10-25', 870),
+        timed('d', '旅行', '2026-10-25', undefined, true),
+      ],
       '2026-10-24',
     );
+    // 遅れて届いても正しいよう、題名は「30分後」でなく始まる時刻
     expect(plans).toEqual([
-      { id: 'soon-2026-10-25-600', date: '2026-10-25', minutes: 570, title: '30分後の予定', body: '10時から会議、電話の予定です。' },
-      { id: 'soon-2026-10-25-870', date: '2026-10-25', minutes: 840, title: '30分後の予定', body: '14時30分から歯医者の予定です。' },
+      { id: 'soon-2026-10-25-600', date: '2026-10-25', minutes: 570, title: '10時からの予定', body: '会議、電話の予定です。', optional: true },
+      { id: 'soon-2026-10-25-870', date: '2026-10-25', minutes: 840, title: '14時30分からの予定', body: '歯医者の予定です。', optional: true },
     ]);
   });
 
-  it('comes the night before for an event just after midnight, and leaves out an empty name', () => {
-    expect(planSoonReminders([timed('a', '', '2026-10-25', 10)], '2026-10-24')).toEqual([
-      { id: 'soon-2026-10-25-10', date: '2026-10-24', minutes: 1420, title: '30分後の予定', body: '0時10分からの予定です。' },
+  it('comes the night before for an event just after midnight, and at 0:00 for one at 0:30', () => {
+    expect(planSoonReminders([timed('a', '', '2026-10-25', 10), timed('b', '朝会', '2026-10-26', 30)], '2026-10-24')).toEqual([
+      { id: 'soon-2026-10-25-10', date: '2026-10-24', minutes: 1420, title: '0時10分からの予定', body: '名前の入っていない予定です。', optional: true },
+      { id: 'soon-2026-10-26-30', date: '2026-10-26', minutes: 0, title: '0時30分からの予定', body: '朝会の予定です。', optional: true },
     ]);
   });
 

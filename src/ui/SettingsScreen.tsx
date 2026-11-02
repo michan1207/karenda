@@ -93,9 +93,8 @@ export default function SettingsScreen({ k, today }: Props) {
               />
             </View>
             <Text style={[styles.help, { color: colors.muted }]}>
-              {k.soonEnabled && k.exactAlarm === false
-                ? '時刻のある予定が始まる30分前に、もう一度知らせます。下の「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。'
-                : '時刻のある予定が始まる30分前に、もう一度知らせます。'}
+              時刻のある予定が始まる30分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
+              {k.soonEnabled && k.exactAlarm === false && '下の「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。'}
             </Text>
           </>
         )}

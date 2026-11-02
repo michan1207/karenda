@@ -646,7 +646,9 @@ describe('notifications', () => {
     const last = () => notifier.replaceAll.mock.calls.at(-1)![0];
     const soon = () => last().filter((plan) => plan.id.startsWith('soon-'));
     await waitFor(() =>
-      expect(soon()).toEqual([{ id: 'soon-2026-10-26-600', date: '2026-10-26', minutes: 570, title: '30分後の予定', body: '10時から歯医者の予定です。' }]),
+      expect(soon()).toEqual([
+        { id: 'soon-2026-10-26-600', date: '2026-10-26', minutes: 570, title: '10時からの予定', body: '歯医者の予定です。', optional: true },
+      ]),
     );
     await fireEvent.press(screen.getByText('設定'));
     await fireEvent(screen.getByLabelText('予定の30分前にも知らせる'), 'valueChange', false);

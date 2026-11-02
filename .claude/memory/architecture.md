@@ -7,7 +7,7 @@
 ## SQLite（expo-sqlite、`karenda.db`）
 - 開く: `openKarendaDatabase()`（`open.ts`、1回だけ開いて `migrate` する）
 - 表: `period_starts(start)` / `settings(key,value)` / `keywords(word,level: high|medium)` / `conflict_states(event_id,date,state,resolution,updated_at)`（版2。2026-10-30 に dismissed_alerts を「確認済み」として移した）
-- `settings` のキー: `zone`（JSON: heavyDays, pmsDays）, `onboarded`（'1'）, `notify`（'1'/'0'）, `review_asked`（'1'）, `hide`（隠すモード）, `lock`（アプリのロック）
+- `settings` のキー: `zone`（JSON: heavyDays, pmsDays）, `onboarded`（'1'）, `notify`（'1'/'0'）, `review_asked`（'1'）, `hide`（隠すモード）, `lock`（アプリのロック）, `soon`（予定の30分前の通知、はじめはオン）
 - settings 表の読み書きは `settings.ts` だけ（2026-11-01 B4。前は store.ts に同じ形のSQLが21本）。はい／いいえの項目は `FLAGS`（鍵と行が無い時の値）1つの表と getFlag/setFlag で、外へは今までの名前（isOnboarded・setHideMode など）で出す。壊れた値でもアプリが開けるよう、zone は無い・壊れている・範囲の外なら既定（3日・7日前）、pms は壊れている・日数が0〜14の外なら無い時と同じに読む。はい／いいえは既定が「はい」なら '0' の時だけ「いいえ」
 - 利用状況の記録（版3の `metric_events(name, props, occurred_at)`、settings の `metrics`。はじめはオン）: `recordMetric` はオフなら何もしない。props に予定の名前・日付・本文は入れない。全削除で消える。外には送らない
 - 覚えた予定の重さ（版4の `title_weights(term, label, weight, source, observations, lean, updated_at)`）: `listTitleWeights` / `saveTitleWeight` / `removeTitleWeight`。`loadState` が決まったものだけ `keywords.learned` に入れる。全削除で消える。バックアップに入る（2026-11-01）
@@ -59,8 +59,8 @@
 - タイムゾーンが変わったら、戻った時（AppState active）に `getTimezoneOffset` の変化で予約し直す
 - Android の通知（2026-11-01、Q5 のあとオーナーが「文をやわらかくする」を選んだ）: `useNotificationSync` が `quietNotifications` で題名「Cocomia からのお知らせ」、本文「予定の確認があります」／「予定のふり返りがあります」だけにし、ボタンも付けない（見ないまま「確認した」で消したり、どの予定か分からずに答えたりしないため。押すとアプリが開く）。チャンネルは `guard-public`（`lockscreenVisibility` PUBLIC。文が中身を含まないので、鍵のかかったロック画面でも「内容を非表示」にせずこの文を出す）。チャンネルの見せ方は作ったあと変えられないため、前の `guard` は起動時の設定で消して作り直す。iPhone は今までどおり（本体の設定でロック中は中身を隠す）
 - その日の予定の通知（2026-11-01 オーナー決定）: `planDayReminders` が時刻のある予定すべて（カレンダーとこのアプリの予定。終日・時刻なしは除く）を、その日1件「今日の予定」「今日は10時から会議、14時30分から歯医者の予定です。」にまとめる。朝7時、8時より前に始まる予定がある日はその1時間前（`NotificationPlan.minutes`、`fireTime` が使う。無ければ9時）。今日から7日分（`useEventReminders`）。予定の名前を出す決定なので、Android でも `quietNotifications` は変えない（変えるのは review/decide のある通知だけ）
-- 予定の30分前の通知（2026-11-02 オーナー決定、設定でオン・オフ）: `planSoonReminders` が時刻のある予定を始まる30分前に「30分後の予定」「10時から会議の予定です。」。同じ時刻に始まる予定は1件（id `soon-<日>-<分>`）、0時台は前の日の夜。今日から7日分（`useEventReminders` が朝の通知と同じ予定から作る）。設定は `settings` の `soon`（はじめはオン、バックアップの `flags.soon`。1.0.3 までのファイルには無いので戻しても今のまま）
-- 予約の数: `notifier` が時刻の近い順に64件まで予約する（`MAX_PENDING`、iOS が待たせておける数）。あふれた先の分は次に組み直す時に入る
+- 予定の30分前の通知（2026-11-02 オーナー決定、設定でオン・オフ）: `planSoonReminders` が時刻のある予定を始まる30分前に「10時からの予定」「会議の予定です。」（遅れて届いても正しいよう「30分後」とは書かない）。同じ名前は1回だけ。同じ時刻に始まる予定は1件（id `soon-<日>-<分>`）、0時台は前の日の夜。今日から7日分（`useEventReminders` が朝の通知と同じ予定から作る）。設定は `settings` の `soon`（はじめはオン、バックアップの `flags.soon`。1.0.3 までのファイルには無いので戻しても今のまま）
+- 予約の数: iOS は待たせておける通知が64件までなので、`notifier` が近い順に64件まで予約する（`MAX_PENDING`）。あふれる時は30分前の通知（`NotificationPlan.optional`）を後回しにし、あふれた分は次に組み直す時に入る。Android は上限なし（数百件まで待たせておける）
 
 ## レビュー依頼（expo-store-review）
 - 開始日が3つそろい最新日を記録した直後に1回だけ（`shouldAskReview`）。`ReviewPrompt` 型で差し替え可能
