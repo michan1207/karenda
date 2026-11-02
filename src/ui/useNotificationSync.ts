@@ -16,7 +16,7 @@ export function useNotificationSync(
   reviews: ReviewTarget[],
   today: DateKey,
 ): void {
-  const { status, onboarded, access, notifyEnabled, notifyAccess, notifier, reviewed, deferrals } = k;
+  const { status, onboarded, access, notifyEnabled, notifyAccess, exactAlarm, notifier, reviewed, deferrals } = k;
   const ready = status === 'ready' && onboarded && access !== 'checking';
   // 時間帯が変わったら（旅先など）、戻った時にその土地の朝9時で予約し直す
   const [offset, setOffset] = useState(() => new Date().getTimezoneOffset());
@@ -43,5 +43,6 @@ export function useNotificationSync(
     // 通知を切った時は、端末の許可が外れていても予約を消す（消すのに許可は要らない）
     if (!ready || (notifyEnabled && notifyAccess !== 'granted')) return;
     notifier.replaceAll(JSON.parse(plans)).catch(() => {});
-  }, [ready, notifyEnabled, notifyAccess, notifier, plans, offset]);
+    // 「アラームとリマインダー」を変えた時も予約し直す（時刻ちょうどに出すかは、予約した時の許可で決まる）
+  }, [ready, notifyEnabled, notifyAccess, notifier, plans, offset, exactAlarm]);
 }

@@ -81,6 +81,22 @@ export default function SettingsScreen({ k, today }: Props) {
             action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
           />
         )}
+        {k.notifyEnabled && k.exactAlarm !== null && (
+          <>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>時刻ちょうどに知らせる</Text>
+              <Switch
+                accessibilityLabel="時刻ちょうどに知らせる"
+                value={k.exactAlarm}
+                onValueChange={() => void k.openExactAlarm()}
+                trackColor={{ true: colors.pink, false: colors.line }}
+              />
+            </View>
+            <Text style={[styles.help, { color: colors.muted }]}>
+              オフの時は、通知が決まった時刻より最大1時間ほど遅れて届くことがあります。切り替えると設定アプリが開くので、「アラームとリマインダー」でオンかオフを選んでください。
+            </Text>
+          </>
+        )}
       </Section>
 
       <Section colors={colors} title="気をつける時期">

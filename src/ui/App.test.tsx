@@ -92,10 +92,13 @@ function fakeCalendar(granted: boolean, events: CalendarEvent[] = EVENTS) {
   } satisfies CalendarSource;
 }
 
-function fakeNotifier(granted = true) {
+/** exact は Android の「アラームとリマインダー」。iPhone は null */
+function fakeNotifier(granted = true, exact: boolean | null = null) {
   return {
     requestAccess: jest.fn(async () => granted),
     hasAccess: jest.fn(async () => granted),
+    exactAlarm: jest.fn(async () => exact),
+    openExactAlarm: jest.fn(async () => {}),
     replaceAll: jest.fn(async (_plans: NotificationPlan[]) => {}),
     onReviewAnswer: jest.fn((_handler: Parameters<Notifier['onReviewAnswer']>[0]) => () => {}),
     onDecision: jest.fn((_handler: Parameters<Notifier['onDecision']>[0]) => () => {}),
@@ -690,6 +693,30 @@ describe('notifications', () => {
     const notifier = fakeNotifier(false);
     await setup({ notifier, prepare: (db) => setNotifyEnabled(db, false) });
     await waitFor(() => expect(notifier.replaceAll).toHaveBeenCalledWith([]));
+  });
+
+  it('lets the person choose exact times on Android in the Settings app, and books again when it changes', async () => {
+    const notifier = fakeNotifier(true, false);
+    await setup({ notifier });
+    await fireEvent.press(await screen.findByText('設定'));
+    expect((await screen.findByLabelText('時刻ちょうどに知らせる')).props.value).toBe(false);
+    const before = notifier.replaceAll.mock.calls.length;
+    notifier.exactAlarm.mockResolvedValue(true);
+    await fireEvent(screen.getByLabelText('時刻ちょうどに知らせる'), 'valueChange', true);
+    expect(notifier.openExactAlarm).toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByLabelText('時刻ちょうどに知らせる').props.value).toBe(true));
+    expect(notifier.replaceAll.mock.calls.length).toBeGreaterThan(before);
+    // オフにした時は設定アプリからすぐには戻らないので、アプリに戻った時に読み直す
+    notifier.exactAlarm.mockResolvedValue(false);
+    await returnToApp();
+    expect(screen.getByLabelText('時刻ちょうどに知らせる').props.value).toBe(false);
+  });
+
+  it('does not show the exact-time switch where notices always come on time', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByText('設定'));
+    expect(screen.getByLabelText('重なる予定の前に通知する')).toBeTruthy();
+    expect(screen.queryByLabelText('時刻ちょうどに知らせる')).toBeNull();
   });
 
   it('does not schedule when the device has notifications off, and says so', async () => {

@@ -84,6 +84,8 @@ export type Karenda = StoredState & {
   notifier: Notifier;
   /** 端末の通知の許可 */
   notifyAccess: Access;
+  /** Android の「アラームとリマインダー」（通知を時刻ちょうどに出す）がオンか。iPhone と、まだ読んでいない時は null */
+  exactAlarm: boolean | null;
   /** 保存に失敗した。次に保存できるか、閉じるまで案内を出す */
   saveFailed: boolean;
   dismissSaveFailed(): void;
@@ -112,6 +114,8 @@ export type Karenda = StoredState & {
   /** 予定のあとの「どうだった？」に答える。null は「答えない」 */
   answerReview(target: ReviewTarget, answer: Answer | null): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
+  /** 「アラームとリマインダー」の設定を開く（オン・オフは使う人が決める） */
+  openExactAlarm(): Promise<void>;
   setHideMode(on: boolean): Promise<void>;
   setMetrics(on: boolean): Promise<void>;
   /** 利用状況をこの端末に記録する（オフの時は何もしない）。予定の名前や日付は入れない */
@@ -162,6 +166,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
   const [status, setStatus] = useState<Karenda['status']>('loading');
   const [access, setAccess] = useState<Access>('checking');
   const [notifyAccess, setNotifyAccess] = useState<Access>('checking');
+  const [exactAlarm, setExactAlarm] = useState<boolean | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const [stored, setStored] = useState<StoredState>(INITIAL_STATE);
   const [alertsRequested, setAlertsRequested] = useState(0);
@@ -210,6 +215,20 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     };
   }, [loadDatabase, reload, requestAccess, requestNotifyAccess, calendar]);
 
+  // 「アラームとリマインダー」は設定アプリでしか変えられないので、開いた時と戻った時に読む
+  const readExactAlarm = useCallback(async () => setExactAlarm(await notifier.exactAlarm().catch(() => null)), [notifier]);
+  useEffect(() => {
+    if (status !== 'ready') return;
+    let active = true;
+    notifier
+      .exactAlarm()
+      .then((on) => active && setExactAlarm(on))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [status, notifier]);
+
   // 設定アプリで許可を変えて戻った時に読み直す。戻るたびに確認画面は出さない
   // 離れている間にカレンダーアプリで予定が変わることがあるので、予定も読み直す
   const { onboarded, notifyEnabled } = stored;
@@ -220,9 +239,10 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       setAccess((await calendar.hasAccess().catch(() => false)) ? 'granted' : 'denied');
       setResumed((count) => count + 1);
       if (notifyEnabled) setNotifyAccess((await notifier.hasAccess().catch(() => false)) ? 'granted' : 'denied');
+      await readExactAlarm();
     });
     return () => subscription.remove();
-  }, [status, onboarded, notifyEnabled, calendar, notifier]);
+  }, [status, onboarded, notifyEnabled, calendar, notifier, readExactAlarm]);
 
   const [unlocked, setUnlocked] = useState(false);
   const locked = stored.lockEnabled && !unlocked;
@@ -312,6 +332,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     calendar,
     notifier,
     notifyAccess,
+    exactAlarm,
     saveFailed,
     dismissSaveFailed: () => setSaveFailed(false),
     alertsRequested,
@@ -353,6 +374,11 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     setNotify: async (enabled) => {
       await withDb((opened) => setNotifyEnabled(opened, enabled));
       if (enabled) await requestNotifyAccess();
+    },
+    openExactAlarm: async () => {
+      // オンにした時は戻るまで待つ。アプリの情報を開いた時はすぐ戻るので、アプリに戻った時にもう一度読む
+      await notifier.openExactAlarm().catch(() => {});
+      await readExactAlarm();
     },
     setHideMode: (on) => withDb((opened) => saveHideMode(opened, on)),
     dismissConsult: (month) => withDb((opened) => saveConsultDismissed(opened, month)),

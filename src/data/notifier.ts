@@ -6,10 +6,12 @@ import {
   clearLastNotificationResponse,
   deleteNotificationChannelAsync,
   getAllScheduledNotificationsAsync,
+  getExactAlarmPermissionsAsync,
   getLastNotificationResponse,
   getPermissionsAsync,
   NotificationRequestInput,
   NotificationResponse,
+  requestExactAlarmPermissionsAsync,
   requestPermissionsAsync,
   scheduleNotificationAsync,
   SchedulableTriggerInputTypes,
@@ -17,7 +19,7 @@ import {
   setNotificationChannelAsync,
   setNotificationHandler,
 } from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { fromDateKey } from '../engine/date';
 import type { Answer, ReviewTarget } from '../engine/learning';
@@ -30,6 +32,13 @@ export type Notifier = {
   requestAccess(): Promise<boolean>;
   /** 確認画面を出さずに、いまの許可だけを返す */
   hasAccess(): Promise<boolean>;
+  /**
+   * Android の「アラームとリマインダー」（通知を時刻ちょうどに出す許可）がオンか。オフだと最大1時間ほど遅れて出る。
+   * iPhone はいつも時刻どおりなので null
+   */
+  exactAlarm(): Promise<boolean | null>;
+  /** 「アラームとリマインダー」の設定を開く。オンにするかオフにするかは使う人が決める */
+  openExactAlarm(): Promise<void>;
   /** 予約を渡したものだけにする。先の分は予約し直し、時刻を過ぎてまだ出ていない予約は中身が同じなら残す */
   replaceAll(plans: NotificationPlan[], now?: Date): Promise<void>;
   /** 「どうだった？」の通知のボタンで答えた時に呼ぶ（ボタンでアプリが開いた時の分も）。止める関数を返す */
@@ -134,6 +143,14 @@ export const deviceNotifier: Notifier = {
   },
   async hasAccess() {
     return (await getPermissionsAsync()).granted;
+  },
+  async exactAlarm() {
+    return Platform.OS === 'android' ? (await getExactAlarmPermissionsAsync()).granted : null;
+  },
+  async openExactAlarm() {
+    // オンの時は許可の画面が開かずにすぐ戻るので、オフにしたい時はアプリの情報の画面を開く（そこにも項目がある）
+    if ((await getExactAlarmPermissionsAsync()).granted) await Linking.openSettings();
+    else await requestExactAlarmPermissionsAsync();
   },
   replaceAll(plans, now = new Date()) {
     // 組み直しが重なると、先の分が後の全取消のあとに古い予約を足してしまうので、前が終わってから行う
