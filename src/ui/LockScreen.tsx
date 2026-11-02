@@ -4,7 +4,7 @@ import { BIOMETRIC, Button, PASSCODE, Text } from './components';
 import { useColors } from './theme';
 
 /** ロック中の画面。何の記録かが分からないよう、アプリの中身は何も出さない */
-export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const colors = useColors();
   return (
     <View style={styles.center}>

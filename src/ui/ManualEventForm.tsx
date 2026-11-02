@@ -6,7 +6,7 @@ import type { ManualEventInput } from '../data';
 import { Button, Text } from './components';
 import { dayTitle } from './format';
 import { Colors, fonts, radius } from './theme';
-import TimeField from './TimeField';
+import { TimeField } from './TimeField';
 
 const COLOR_NAMES: Record<EventColor, string> = {
   blue: 'あお',
@@ -18,7 +18,7 @@ const COLOR_NAMES: Record<EventColor, string> = {
 };
 
 /** このアプリの中だけに予定を入れる。カレンダーを使わない人も、重なりのお知らせを受けられる */
-export default function ManualEventForm({
+export function ManualEventForm({
   colors,
   day,
   events,

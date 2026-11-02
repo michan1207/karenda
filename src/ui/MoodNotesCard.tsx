@@ -16,7 +16,7 @@ function Bullet({ colors, text }: { colors: Colors; text: string }) {
   );
 }
 
-export default function MoodNotesCard({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
+export function MoodNotesCard({ phase, colors }: { phase: PeriodPhase; colors: Colors }) {
   const note = MOOD_NOTES[phase];
   return (
     <Card colors={colors}>

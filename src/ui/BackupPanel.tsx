@@ -21,7 +21,7 @@ const REASONS: Record<Exclude<OpenBackup, { ok: true }>['reason'], string> = {
 type Step = 'idle' | 'export' | 'unlock' | 'preview';
 
 /** パスワードで鍵をかけたバックアップの書き出しと、ファイルからの戻し */
-export default function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
+export function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
   const colors = useColors();
   const [step, setStep] = useState<Step>('idle');
   const [passphrase, setPassphrase] = useState('');

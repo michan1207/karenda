@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } f
 
 import { AccuracyReport, DateKey, PMS_CYCLES, PmsEstimate, predictCycle, RiskKeywords } from '../engine';
 import { CALENDAR_NOTE, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
-import BackupPanel from './BackupPanel';
+import { BackupPanel } from './BackupPanel';
 import { BIOMETRIC, Button, Decorations, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
 import { Colors, fonts, radius, useColors } from './theme';
@@ -11,7 +11,7 @@ import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda; today: DateKey };
 
-export default function SettingsScreen({ k, today }: Props) {
+export function SettingsScreen({ k, today }: Props) {
   const colors = useColors();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const learned = k.titleWeights.filter((entry) => entry.weight);
