@@ -6,7 +6,7 @@ import { clock } from './format';
 import { Colors, radius } from './theme';
 
 /** 時刻を選ぶ。iPhone は時刻の小さなボタン（押すと回して選ぶ）、Android は押すと時刻のダイアログ */
-export default function TimeField({
+export function TimeField({
   colors,
   label,
   minutes,

@@ -24,12 +24,12 @@ import {
 } from '../engine';
 import { DayCell, Legend } from './DayCell';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
-import DigestCard from './DigestCard';
+import { DigestCard } from './DigestCard';
 import { dayTitle, predictionLines, timeRange, WEEKDAYS, zoneLabel } from './format';
-import ManualEventForm from './ManualEventForm';
+import { ManualEventForm } from './ManualEventForm';
 import { mascotLine } from './mascotLines';
-import MoodNotesCard from './MoodNotesCard';
-import ReviewCard from './ReviewCard';
+import { MoodNotesCard } from './MoodNotesCard';
+import { ReviewCard } from './ReviewCard';
 import { Colors, radius, useColors } from './theme';
 import { useEvents } from './useEvents';
 import type { Karenda } from './useKarenda';
@@ -39,7 +39,7 @@ type Props = { k: Karenda; today: DateKey; reviews: ReviewTarget[]; openAlerts: 
 // 隠すモードでは、生理に関わる色・言葉・印を何も出さず、予定だけのカレンダーにする
 const HIDDEN: Guard = { prediction: null, zones: new Map(), alerts: [], actionsOf: () => [] };
 
-export default function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
+export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
   const colors = useColors();
   const [{ year, month }, setMonth] = useState(() => {
     const date = fromDateKey(today);

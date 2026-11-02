@@ -12,7 +12,7 @@ const ANSWERS: [Answer, string][] = [
 ];
 
 /** 終わった予定に「どうだった？」と聞く（3件まで）。答えから予定の重さを覚えていく */
-export default function ReviewCard({
+export function ReviewCard({
   colors,
   reviews,
   onAnswer,

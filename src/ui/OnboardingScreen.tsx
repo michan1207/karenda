@@ -15,7 +15,7 @@ const STEPS = 5;
  * はじめの案内。1つの手順に1つのことだけ。
  * 何ができるか → 通信しないこと → その場で1回記録 → 予測 → 最後にカレンダーの許可（「今はしない」も同じ重さで置く）
  */
-export default function OnboardingScreen({ k, today }: { k: Karenda; today: DateKey }) {
+export function OnboardingScreen({ k, today }: { k: Karenda; today: DateKey }) {
   const colors = useColors();
   const [step, setStep] = useState(0);
   const [day, setDay] = useState(today);

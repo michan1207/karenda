@@ -27,6 +27,8 @@ module.exports = defineConfig([
           })),
         },
       ],
+      // 名前で探せるよう、書き出しはすべて名前つきにする
+      'import/no-default-export': 'error',
     },
   },
   {

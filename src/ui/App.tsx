@@ -19,12 +19,12 @@ import {
   ReviewPrompt,
 } from '../data';
 import { ConflictAlert, DateKey, pendingReviews, statusOf, toDateKey } from '../engine';
-import AlertsScreen from './AlertsScreen';
-import CalendarScreen from './CalendarScreen';
-import LockScreen from './LockScreen';
+import { AlertsScreen } from './AlertsScreen';
+import { CalendarScreen } from './CalendarScreen';
+import { LockScreen } from './LockScreen';
 import { Heart, Notice, Text } from './components';
-import OnboardingScreen from './OnboardingScreen';
-import SettingsScreen from './SettingsScreen';
+import { OnboardingScreen } from './OnboardingScreen';
+import { SettingsScreen } from './SettingsScreen';
 import { fonts, radius, useColors } from './theme';
 import { useKarenda } from './useKarenda';
 import { useNotificationSync } from './useNotificationSync';
@@ -45,7 +45,7 @@ type Props = {
 
 const currentDay = () => toDateKey(new Date());
 
-export default function App(props: Props) {
+export function App(props: Props) {
   // 同梱の丸ゴシックを読む。読めなかった時は端末の標準フォントのまま進める
   const [fontsLoaded, fontError] = useFonts({
     [fonts.regular]: require('../../assets/fonts/ZenMaruGothic-Regular.ttf'),

@@ -6,7 +6,7 @@ import { dayTitle } from './format';
 import { Colors, radius } from './theme';
 
 /** その月の要注意のまとめ。上位3件を押すとその日を開き、ボタンでお知らせに移る */
-export default function DigestCard({
+export function DigestCard({
   colors,
   digest,
   isThisMonth,

@@ -26,7 +26,7 @@ const TEMPLATES: [string, string][] = [
 /** alerts は対応済みを除いた、今日から30日間のお知らせ */
 type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[]; actionsOf: Guard['actionsOf'] };
 
-export default function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
+export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
   const colors = useColors();
   const [template, setTemplate] = useState(TEMPLATES[0][0]);
   // null の間は見本の文のまま。書き換えたら、その文を送る
