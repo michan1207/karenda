@@ -11,7 +11,8 @@ const networkGlobals = ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'].m
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*', 'node_modules/*'],
+    // .claude/worktrees には別の作業のコピーがあり、android/ios は作られたファイル。ここでは見ない
+    ignores: ['dist/*', 'node_modules/*', '.claude/**', 'android/**', 'ios/**'],
   },
   {
     files: ['src/**/*.{ts,tsx}', 'index.ts'],

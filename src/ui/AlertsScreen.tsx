@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 
 import { Action, addDays, ConflictAlert, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';

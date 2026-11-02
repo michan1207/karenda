@@ -1,7 +1,7 @@
 import { planActions } from './actions';
 import { CalendarEvent, detectConflicts, impactOf } from './conflicts';
 import { predictCycle } from './cycle';
-import { buildZones, DEFAULT_ZONE_SETTINGS } from './zones';
+import { buildZones } from './zones';
 
 // 記録 9/28。次は 10/26 ごろ（ヘビー期 10/25〜29）、PMS期 10/18〜24、生理の終わりごろ 10/30〜11/2。
 // 落ち着いている日は 10/5〜17 と 11/3〜14
