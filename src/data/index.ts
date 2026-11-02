@@ -1,7 +1,7 @@
 export type { Database } from './database';
-export { migrate, SCHEMA_VERSION } from './migrations';
+export { migrate } from './migrations';
 export { openKarendaDatabase } from './open';
-export { deviceCalendar, toCalendarEvent } from './calendar';
+export { deviceCalendar } from './calendar';
 export type { CalendarSource } from './calendar';
 export { deviceNotifier } from './notifier';
 export type { Notifier } from './notifier';

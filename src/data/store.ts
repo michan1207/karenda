@@ -4,7 +4,7 @@ import { predictCycle } from '../engine/cycle';
 import { DateKey, fromDateKey, toDateKey } from '../engine/date';
 import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
 import { Answer, learnWeight, ReviewPhase, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
-import { DEFAULT_PMS, nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
+import { nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
 import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
 import { validateZoneSettings, ZoneSettings } from '../engine/zones';
