@@ -66,7 +66,21 @@ describe('deviceNotifier.replaceAll', () => {
     await deviceNotifier.replaceAll(plans, new Date(2026, 10, 2, 5, 34));
     await deviceNotifier.replaceAll(plans, new Date(2026, 10, 2, 7, 3));
     expect([...mockBooked.keys()]).toEqual(['day-2026-11-02', 'guard-2026-11-03']);
+  });
+
+  it('books the future ones again even when nothing changed', async () => {
+    // Android は強制停止や「アラームとリマインダー」をオフにした時に予約の目覚ましを消すが、一覧には残る。開くたびに予約し直して戻す
+    const plans = [{ id: 'guard-2026-11-03', date: '2026-11-03', title: 't', body: 'b' }];
+    await deviceNotifier.replaceAll(plans, new Date(2026, 10, 2, 5, 34));
+    await deviceNotifier.replaceAll(plans, new Date(2026, 10, 2, 7, 3));
     expect(mocked.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops a notice that is due but not shown yet when its text changed', async () => {
+    const day = { id: 'day-2026-11-02', date: '2026-11-02', minutes: 420, title: '今日の予定', body: '今日は10時から会議の予定です。' };
+    await deviceNotifier.replaceAll([day], new Date(2026, 10, 2, 5, 34));
+    await deviceNotifier.replaceAll([{ ...day, body: '今日は10時から会議、14時から歯医者の予定です。' }], new Date(2026, 10, 2, 7, 3));
+    expect(mockBooked.size).toBe(0);
   });
 
   it('cancels a notice that is no longer planned, and replaces one whose text changed', async () => {

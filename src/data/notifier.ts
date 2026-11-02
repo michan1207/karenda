@@ -30,7 +30,7 @@ export type Notifier = {
   requestAccess(): Promise<boolean>;
   /** 確認画面を出さずに、いまの許可だけを返す */
   hasAccess(): Promise<boolean>;
-  /** 予約を渡したものだけにする。中身の変わらない予約は残し、要らなくなった・変わったものを取り消して予約し直す */
+  /** 予約を渡したものだけにする。先の分は予約し直し、時刻を過ぎてまだ出ていない予約は中身が同じなら残す */
   replaceAll(plans: NotificationPlan[], now?: Date): Promise<void>;
   /** 「どうだった？」の通知のボタンで答えた時に呼ぶ（ボタンでアプリが開いた時の分も）。止める関数を返す */
   onReviewAnswer(handler: (target: ReviewTarget, answer: Answer | null) => void): () => void;
@@ -161,7 +161,7 @@ export const deviceNotifier: Notifier = {
 
 let scheduling: Promise<void> = Promise.resolve();
 
-/** 1件の予約。出す時刻と中身から作った印（key）を data に入れ、組み直す時に同じ予約かを見分ける */
+/** 1件の予約。出す時刻と中身から作った印（key）を data に入れ、組み直す時に、時刻を過ぎた予約が同じものかを見分ける */
 function toRequest(plan: NotificationPlan) {
   const date = fireTime(plan);
   const content = plan.review
@@ -186,17 +186,19 @@ function toRequest(plan: NotificationPlan) {
 }
 
 /**
- * 渡したものだけが予約されているようにする（replaceAll から1つずつ呼ぶ）。中身の同じ予約は消さずに残す。
- * Android は通知を時刻から最大1時間遅らせて出すので、全部消して組み直すと、時刻を過ぎてまだ出ていない通知が
- * 戻らないまま消える（2026-11-02、7時の「今日の予定」が7時3分にアプリを開いて消えた）
+ * 渡したものだけが予約されているようにする（replaceAll から1つずつ呼ぶ）。要らなくなった予約は取り消し、先の予約は
+ * 毎回予約し直す（Android は強制停止などで目覚ましを消しても一覧には残すので、残っていても鳴るとは限らない）。
+ * 時刻を過ぎてまだ出ていない予約は、中身が同じならそのまま残す。Android は通知を時刻から最大1時間遅らせて出すので、
+ * 取り消すと戻らないまま消える（2026-11-02、7時の「今日の予定」が7時3分にアプリを開いて消えた）
  */
 async function schedule(plans: NotificationPlan[], now: Date) {
   await configure();
   const wanted = new Map(plans.map((plan) => [plan.id, toRequest(plan)]));
   for (const booked of await getAllScheduledNotificationsAsync()) {
-    const same = wanted.get(booked.identifier)?.request.content.data.key;
-    if (same !== undefined && same === booked.content.data?.key) wanted.delete(booked.identifier);
-    else await cancelScheduledNotificationAsync(booked.identifier);
+    const want = wanted.get(booked.identifier);
+    if (want && want.date <= now && want.request.content.data.key === booked.content.data?.key) continue;
+    // 先の予約は下で予約し直す（同じ id で置き換わる）
+    if (!want || want.date <= now) await cancelScheduledNotificationAsync(booked.identifier);
   }
   for (const { date, request } of wanted.values()) {
     if (date <= now) continue;
