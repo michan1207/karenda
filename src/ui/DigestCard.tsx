@@ -26,7 +26,7 @@ export function DigestCard({
   if (digest.isEmpty) {
     return (
       <Card>
-        <Text style={[styles.digestTitle, { color: colors.text }]}>{name}、重なる予定はありません</Text>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>{name}、重なる予定はありません</Text>
         {isThisMonth && <Button kind="secondary" label="来月を見る" onPress={nextMonth} />}
       </Card>
     );
@@ -34,7 +34,7 @@ export function DigestCard({
   return (
     <Card>
       <View style={styles.digestHead}>
-        <Text style={[styles.digestTitle, { color: colors.text }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>
           {name}の要注意 {digest.conflicts.length}件
         </Text>
         {digest.unreviewedCount > 0 && (
@@ -70,7 +70,7 @@ export function DigestCard({
 
 const styles = StyleSheet.create({
   digestHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  digestTitle: { fontSize: 16, fontWeight: '700' },
+  cardTitle: { fontSize: 16, fontWeight: '700' },
   digestBadge: { fontSize: 12, fontWeight: '700', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 2 },
   digestRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   digestGrade: { fontSize: 14, fontWeight: '700' },

@@ -4,31 +4,17 @@ import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } fr
 import { Action, addDays, ConflictAlert, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, gradeLabel, shortDate, titleOf } from './format';
+import { PARTNER_TEMPLATES } from './partnerTemplates';
 import { fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
-
-/** パートナーにLINEなどで送る見本の文と、選ぶボタンの名前（2026-10-28 オーナー指定の文面） */
-const TEMPLATES: [string, string][] = [
-  ['本日より省エネモード（生理）に入りました🔋\n省電力で動くので、やさしく見守ってください（笑）', '省エネモード'],
-  ['【緊急速報】生理が始まりました！\n本日から「取扱注意（優しく接する）」指定期間となります⚠️笑', '緊急速報'],
-  ['生理到来につき、本日よりポンコツ化しております🤖\nちょっとボーッとしてても許してね！', 'ポンコツ化'],
-  ['生理でHP（体力量）がほぼゼロです……🪫\nゴロゴロしながら充電するので、温かい目で見守ってください！', 'HPほぼゼロ'],
-  ['今日から生理になっちゃいました💦\nちょっと体調重めなので、のんびり過ごさせてもらえると助かります！', '体調重め'],
-  [
-    '生理が始まったので、もしイライラしたり落ち込んで見えたらごめんね😢\nホルモンのせいなので優しくしてもらえると嬉しいです！',
-    'イライラごめん',
-  ],
-  ['今日から生理になっちゃった！\n今度の予定は、無理せずゆっくり過ごせるプランにしてもらえると助かります🙇‍♀️', '予定ゆっくり'],
-  ['今日から生理期間に入りました！\n今月も体調見ながらマイペースに過ごします〜！', 'マイペース'],
-];
 
 /** alerts は対応済みを除いた、今日から30日間のお知らせ */
 type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[]; actionsOf: Guard['actionsOf'] };
 
 export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
   const colors = useColors();
-  const [template, setTemplate] = useState(TEMPLATES[0][0]);
+  const [template, setTemplate] = useState(PARTNER_TEMPLATES[0][0]);
   // null の間は見本の文のまま。書き換えたら、その文を送る
   const [edited, setEdited] = useState<string | null>(null);
   const text = edited ?? template;
@@ -54,7 +40,7 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
       <Card>
         <PillHeading text="パートナーに送る文の見本" />
         <Chips
-          options={TEMPLATES}
+          options={PARTNER_TEMPLATES}
           value={template}
           onPick={(id) => {
             setTemplate(id);
@@ -76,7 +62,7 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
             const result = await Share.share({ message: text }).catch(() => null);
             // どの見本を使ったかだけ数える。文そのものは残さない
             if (result?.action === Share.sharedAction) {
-              k.track('partner_message_sent', { template: edited === null ? (TEMPLATES.find(([body]) => body === template)?.[1] ?? '') : '書き換え' });
+              k.track('partner_message_sent', { template: edited === null ? (PARTNER_TEMPLATES.find(([body]) => body === template)?.[1] ?? '') : '書き換え' });
             }
           }}
         />
