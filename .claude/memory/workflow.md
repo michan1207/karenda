@@ -5,6 +5,7 @@
 - `npx expo start`（iPhoneのExpo GoでQRを読む）
 - Android の Expo Go ではこのアプリは起動しない（expo-notifications の一部 ExpoTopicSubscriptionModule が SDK 53 から Android の Expo Go に入っていない。2026-10-31 エミュレーターで確認）。Android の画面を確かめるには開発ビルド（`npx expo run:android`）か EAS のビルドを使う。エミュレーターは AVD `Medium_Phone_API_36.1`。USB で実機がつながっていることがあるので、adb は必ず `-s emulator-5554` を付ける
 - テストはチリの時間帯で動く（`jest.timezone.js`。夏時間の切り替えで0時が無い日がある）。今の判定結果は `src/engine/regression.test.ts` に固定してあり、判定を変える時はここも意図して書き換える
+- 画面全体のテストは `src/ui/App.test.tsx` と `App.<画面>.test.tsx`（calendar・alerts・notifications・settings）に分けてある。共通の偽物・データ・`setup()` は `src/ui/testApp.tsx`。テストファイルではこれを**いちばん先に** import する（中の `jest.mock` をアプリのコードより先に効かせるため）（2026-11-02 D1）
 
 ## ライブラリを足す時
 - Expo Go に入っているモジュールだけ使う。追加は `npx expo install`（ネットが無ければ `node_modules/expo/bundledNativeModules.json` の版で `npm install`）
