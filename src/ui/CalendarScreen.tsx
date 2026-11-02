@@ -22,13 +22,13 @@ import {
   shiftMonth,
   ZoneDay,
 } from '../engine';
-import { DayCell, Legend } from './CalendarGrid';
+import { DayCell, Legend } from './DayCell';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import DigestCard from './DigestCard';
 import { dayTitle, predictionLines, timeRange, WEEKDAYS, zoneLabel } from './format';
 import ManualEventForm from './ManualEventForm';
 import { mascotLine } from './mascotLines';
-import MoodNotes from './MoodNotesCard';
+import MoodNotesCard from './MoodNotesCard';
 import ReviewCard from './ReviewCard';
 import { Colors, radius, useColors } from './theme';
 import { useEvents } from './useEvents';
@@ -267,7 +267,7 @@ export default function CalendarScreen({ k, today, reviews, openAlerts }: Props)
         ) : null}
       </Card>
 
-      {phase && <MoodNotes phase={phase} colors={colors} />}
+      {phase && <MoodNotesCard phase={phase} colors={colors} />}
 
       {!hidden && (
         <Text style={[styles.footnote, { color: colors.muted }]}>

@@ -5,7 +5,7 @@
 - はじめの案内（2026-10-31）は5つの手順を1つずつ: 何ができるか → 通信を切っても使える（外部への送信の件数）→ その場で生理開始日を1回記録（iPhone は datetimepicker の inline、「まだ記録しない」も可）→ 予測（`predictionLines`＋目安の注意）→ 最後にカレンダー（「カレンダーを使う」「今はしない」を同じ見た目で）。通知の許可はどちらの道でも最後に求める
 - 共有状態は `useKarenda`（DB・許可・設定）。予定は `useEvents`、今後30日の警告は `useUpcomingAlerts`、通知の予約は `useNotificationSync`
 - 部品は `components.tsx`（Card / PillHeading / Heart / AlertMark / Notice / Button / Section）。日付表示・ゾーン名は `format.ts`（`dayTitle`, `zoneLabel`）
-- カレンダー画面（2026-11-02 B7 で分けた）: `CalendarScreen.tsx` は画面と日の詳細だけ。日のマスと凡例 `CalendarGrid.tsx`、今月の要注意 `DigestCard.tsx`、「どうだった？」`ReviewCard.tsx`、このアプリだけの予定 `ManualEventForm.tsx`、心の変化 `MoodNotesCard.tsx`、ミアの一言 `mascotLines.ts`
+- カレンダー画面（2026-11-02 B7 で分けた）: `CalendarScreen.tsx` は画面と日の詳細だけ。日のマスと色の説明 `DayCell.tsx`、今月の要注意 `DigestCard.tsx`、「どうだった？」`ReviewCard.tsx`、このアプリだけの予定 `ManualEventForm.tsx`、心の変化 `MoodNotesCard.tsx`、ミアの一言 `mascotLines.ts`
 
 ## 色（theme.ts の `useColors()`、ライト/ダーク両対応）
 - 生理ヘビー期のセル背景 `heavy`（淡いピンク）、PMS警戒期 `pms`（淡いパープル）。予測の幅のはし（periodDay の無い予測のヘビー期）は `heavyEdge`（もっと淡いピンク、凡例「生理かもしれない日」）
