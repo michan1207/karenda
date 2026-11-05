@@ -1,0 +1,12 @@
+{
+  "enabledPlugins": {
+    "diagram-design@diagram-design": false,
+    "frontend-slides@frontend-slides": false,
+    "hallmark@hallmark": false,
+    "last30days@last30days-skill": false,
+    "taste-skill@taste-skill": false
+  },
+  "skillOverrides": {
+    "scrapling": "user-invocable-only"
+  }
+}

@@ -16,5 +16,6 @@
 | 画面・色・文言、`src/ui` を触る時 | `.claude/memory/ui_rules.md` |
 | ライブラリ追加・テスト・ブランチ/PRの手順 | `.claude/memory/workflow.md` |
 | ストア提出・EAS・`docs/` の公開ページ | `.claude/memory/release.md` |
+| スキルやプラグインを起動する前、調査・図・スライドを頼まれた時 | `.claude/memory/tools.md` |
 
-コードはまず Grep で場所を特定し、必要な範囲だけ読む。新しく決まったことは該当メモリーに1行で追記する。
+コードもメモリーもまず Grep で場所を特定し、必要な範囲だけ読む。新しく決まったことは該当メモリーに1行で追記する。
