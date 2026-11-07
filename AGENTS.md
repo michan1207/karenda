@@ -17,7 +17,7 @@ Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
 ```bash
 npx expo install <package>  # use instead of npm/yarn/pnpm/bun add — then pin native expo-* to node_modules/expo/bundledNativeModules.json
 npx expo start              # start the dev server
-npm run check               # typecheck + lint + tests (same as CI)
+npm run check               # typecheck + lint + Knip + tests (same as CI)
 npx expo-doctor             # diagnose dependency and config issues
 ```
 

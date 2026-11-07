@@ -4,5 +4,7 @@
   "ignoreExportsUsedInFile": true,
   // Knip は app.json に updates.enabled: false が無いと expo-updates が要ると考える。
   // このアプリは更新の配信（Expo のサーバーとの通信）を使わないので入れない
-  "ignoreDependencies": ["expo-updates"]
+  "ignoreDependencies": ["expo-updates"],
+  // Claude Code が .claude/settings.json から呼ぶので、import されていなくても使われている
+  "ignore": [".claude/hooks/**"]
 }

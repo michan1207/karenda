@@ -8,5 +8,29 @@
   },
   "skillOverrides": {
     "scrapling": "user-invocable-only"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/factGate.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/factGate.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }
