@@ -6,6 +6,7 @@ import { DateKey } from '../engine';
 import { Button, Confirm, Text } from './components';
 import { fullDate } from './format';
 import { fonts, radius, useColors } from './theme';
+import { useBackButton } from './useBackButton';
 import type { Karenda } from './useKarenda';
 
 const MIN_LENGTH = 8;
@@ -39,6 +40,11 @@ export function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
     setData(null);
     setMessage(next);
   };
+
+  // 暗号化や読み込みの途中は閉じない
+  useBackButton(step !== 'idle', () => {
+    if (!busy) reset();
+  });
 
   const length = Array.from(passphrase).length;
   const problem =

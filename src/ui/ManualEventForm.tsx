@@ -7,6 +7,7 @@ import { Button, Text } from './components';
 import { dayTitle } from './format';
 import { fonts, radius, useColors } from './theme';
 import { TimeField } from './TimeField';
+import { useBackButton } from './useBackButton';
 
 const COLOR_NAMES: Record<EventColor, string> = {
   blue: 'あお',
@@ -36,6 +37,13 @@ export function ManualEventForm({
   const [timed, setTimed] = useState(false);
   const [start, setStart] = useState(10 * 60);
   const [end, setEnd] = useState(11 * 60);
+  const close = () => {
+    setTitle('');
+    setPicked(null);
+    setTimed(false);
+    setOpen(false);
+  };
+  useBackButton(open, close);
   if (!open) return <Button kind="secondary" label="この日に予定を入れる" onPress={() => setOpen(true)} />;
   const name = normalizeTitle(title.trim());
   const remembered = [...events].reverse().find((event) => event.color && normalizeTitle(event.title) === name)?.color;
@@ -43,12 +51,6 @@ export function ManualEventForm({
   const changeStart = (minutes: number) => {
     setStart(minutes);
     if (end <= minutes) setEnd(Math.min(minutes + 60, 24 * 60 - 5));
-  };
-  const close = () => {
-    setTitle('');
-    setPicked(null);
-    setTimed(false);
-    setOpen(false);
   };
   const add = () => {
     if (!title.trim()) return;
