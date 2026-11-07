@@ -70,7 +70,7 @@ export function DigestCard({
 
 const styles = StyleSheet.create({
   digestHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  cardTitle: { fontSize: 16, fontWeight: '700' },
+  cardTitle: { fontSize: 16, fontWeight: '700', flexShrink: 1 },
   digestBadge: { fontSize: 12, fontWeight: '700', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 2 },
   digestRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   digestGrade: { fontSize: 14, fontWeight: '700' },
