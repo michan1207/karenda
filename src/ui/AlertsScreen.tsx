@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { Action, addDays, ConflictAlert, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
-import { AlertMark, Button, Card, Decorations, Input, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
+import { AlertMark, Button, Card, Chip, Decorations, Input, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, gradeLabel, shortDate, titleOf } from './format';
 import { PARTNER_TEMPLATES } from './partnerTemplates';
 import { radius, useColors } from './theme';
@@ -110,31 +110,11 @@ function Chips<T extends string>({
   value: T;
   onPick: (id: T) => void;
 }) {
-  const colors = useColors();
   return (
     <View style={styles.chips}>
-      {options.map(([id, label]) => {
-        const selected = id === value;
-        return (
-          <Pressable
-            key={id}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            onPress={() => onPick(id)}
-            hitSlop={4}
-            style={[
-              styles.chip,
-              selected
-                ? { borderColor: colors.pink, backgroundColor: colors.pinkSoft }
-                : { borderColor: colors.line, backgroundColor: colors.surface },
-            ]}
-          >
-            <Text style={[styles.chipText, { color: selected ? colors.pinkText : colors.text }, selected && styles.chipSelected]}>
-              {label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {options.map(([id, label]) => (
+        <Chip key={id} label={label} selected={id === value} onPress={() => onPick(id)} />
+      ))}
     </View>
   );
 }
@@ -265,15 +245,13 @@ function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions
       <Text style={[styles.sub, { color: colors.muted }]}>どうしましたか？選ぶと一覧から外れます。</Text>
       <View style={styles.chips}>
         {RESOLUTIONS.map(([resolution, label]) => (
-          <Pressable
+          <Chip
             key={resolution}
-            accessibilityRole="button"
+            label={label}
             accessibilityLabel={`「${title}」は${label}`}
+            tone={tone}
             onPress={() => k.resolve(alert.eventId, alert.date, resolution)}
-            style={[styles.chip, { borderColor: tone }]}
-          >
-            <Text style={[styles.chipText, { color: colors.text }]}>{label}</Text>
-          </Pressable>
+          />
         ))}
       </View>
     </Card>
@@ -286,9 +264,6 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   sub: { fontSize: 13 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
-  chipText: { fontSize: 13 },
-  chipSelected: { fontWeight: '700' },
   draft: { lineHeight: 22 },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -301,7 +276,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 2,
   },
-  date: { fontSize: 13 },
+  date: { fontSize: 13, flexShrink: 1 },
   eventTitle: { fontSize: 16, fontWeight: '700' },
   message: { fontSize: 14, lineHeight: 21 },
   strongText: { fontWeight: '700' },

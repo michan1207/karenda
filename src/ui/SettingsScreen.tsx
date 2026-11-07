@@ -19,7 +19,7 @@ import {
 } from '../engine';
 import { CALENDAR_NOTE, NOTIFY_HOUR, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import { BackupPanel } from './BackupPanel';
-import { BIOMETRIC, Button, Confirm, Decorations, Input, Notice, PASSCODE, Ribbon, Section, Text } from './components';
+import { BIOMETRIC, Button, Chip, Confirm, Decorations, Input, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
 import { radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
@@ -143,24 +143,12 @@ export function SettingsScreen({ k, today }: Props) {
             {([false, true] as const).map((manual) => {
               const selected = (k.pms.source === 'manual') === manual;
               return (
-                <Pressable
+                <Chip
                   key={String(manual)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
+                  label={manual ? '手動で指定' : '自動（推定）'}
+                  selected={selected}
                   onPress={() => !selected && k.setPmsManual(manual)}
-                  hitSlop={4}
-                  style={[
-                    styles.chip,
-                    styles.choice,
-                    selected
-                      ? { borderColor: colors.pink, backgroundColor: colors.pinkSoft }
-                      : { borderColor: colors.line, backgroundColor: colors.surface },
-                  ]}
-                >
-                  <Text style={[styles.chipText, { color: selected ? colors.pinkText : colors.muted }]}>
-                    {manual ? '手動で指定' : '自動（推定）'}
-                  </Text>
-                </Pressable>
+                />
               );
             })}
           </View>
@@ -210,14 +198,12 @@ export function SettingsScreen({ k, today }: Props) {
                     {entry.source === 'user' ? '自分で決めた' : `${entry.observations}回の答えから`}
                   </Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
+                <Chip
+                  soft
+                  label={now}
                   accessibilityLabel={`「${entry.label}」は${now}。押すと${next === 'heavy' ? '重い' : 'ふつう'}にする`}
                   onPress={() => k.setTitleWeight(entry, next)}
-                  style={[styles.chip, { backgroundColor: colors.pinkSoft }]}
-                >
-                  <Text style={[styles.chipText, { color: colors.pinkText }]}>{now}</Text>
-                </Pressable>
+                />
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`「${entry.label}」の重さを忘れる`}
@@ -406,7 +392,16 @@ function Stepper({
   const colors = useColors();
   const step = (delta: number) => onChange(Math.min(max, Math.max(min, value + delta)));
   return (
-    <View style={styles.row}>
+    // 読み上げでは1つのまとまりにして、今の値を読み、上下のスワイプで増減する
+    <View
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ text: `${value}${unit}` }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={({ nativeEvent }) => step(nativeEvent.actionName === 'increment' ? 1 : -1)}
+      style={styles.row}
+    >
       <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
       <View style={styles.stepper}>
         <Pressable
@@ -470,15 +465,13 @@ function KeywordList({
       <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
       <View style={styles.chips}>
         {words.map((word) => (
-          <Pressable
+          <Chip
             key={word}
-            accessibilityRole="button"
+            soft
+            label={`${word} ×`}
             accessibilityLabel={`「${word}」を${label}から外す`}
             onPress={() => onChange({ ...keywords, [level]: words.filter((existing) => existing !== word) })}
-            style={[styles.chip, { backgroundColor: colors.pinkSoft }]}
-          >
-            <Text style={[styles.chipText, { color: colors.pinkText }]}>{word} ×</Text>
-          </Pressable>
+          />
         ))}
       </View>
       <View style={styles.addRow}>
@@ -512,10 +505,7 @@ const styles = StyleSheet.create({
   stepText: { fontSize: 20, fontWeight: '700' },
   stepValue: { fontSize: 15, minWidth: 48, textAlign: 'center' },
   keywordBlock: { gap: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  choice: { borderWidth: 1 },
-  chip: { borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
-  chipText: { fontSize: 13 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flexShrink: 1 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addInput: { flex: 1 },
   addLabel: { fontSize: 15, fontWeight: '600' },
