@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Image, Platform, Pressable, Text as BaseText, StyleProp, StyleSheet, TextProps, View, ViewStyle } from 'react-native';
+import { Image, Platform, Pressable, Text as BaseText, StyleProp, StyleSheet, TextInput, TextInputProps, TextProps, View, ViewStyle } from 'react-native';
 
 import { fonts, radius, useColors } from './theme';
 
@@ -8,6 +8,18 @@ export function Text({ style, ...props }: TextProps) {
   const weight = StyleSheet.flatten(style)?.fontWeight;
   const bold = weight === '600' || weight === '700' || weight === 'bold';
   return <BaseText {...props} style={[style, { fontFamily: bold ? fonts.bold : fonts.regular, fontWeight: 'normal' }]} />;
+}
+
+/** 文字を入れる欄。入力欄はすべてこれを通す */
+export function Input({ style, ...props }: TextInputProps) {
+  const colors = useColors();
+  return (
+    <TextInput
+      placeholderTextColor={colors.muted}
+      {...props}
+      style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }, style]}
+    />
+  );
 }
 
 /** 白い地・ピンクの枠・大きな角丸・やわらかい影のカード。カード状のものはすべてこれを通す */
@@ -284,4 +296,12 @@ export const styles = StyleSheet.create({
   linkLabel: { fontSize: 15, fontWeight: '600' },
   button: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 2, alignItems: 'center' },
   buttonLabel: { fontSize: 16, fontWeight: '600' },
+  input: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: fonts.regular,
+  },
 });

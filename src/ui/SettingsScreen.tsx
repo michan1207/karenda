@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import {
   AccuracyReport,
@@ -19,9 +19,9 @@ import {
 } from '../engine';
 import { CALENDAR_NOTE, NOTIFY_HOUR, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import { BackupPanel } from './BackupPanel';
-import { BIOMETRIC, Button, Decorations, Notice, PASSCODE, Ribbon, Section, Text } from './components';
+import { BIOMETRIC, Button, Decorations, Input, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
-import { fonts, radius, useColors } from './theme';
+import { radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda; today: DateKey };
@@ -492,15 +492,14 @@ function KeywordList({
         ))}
       </View>
       <View style={styles.addRow}>
-        <TextInput
+        <Input
           accessibilityLabel={`${label}に言葉を追加`}
           value={draft}
           onChangeText={setDraft}
           onSubmitEditing={add}
           placeholder="言葉を追加"
-          placeholderTextColor={colors.muted}
           returnKeyType="done"
-          style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
+          style={styles.addInput}
         />
         <Pressable accessibilityRole="button" accessibilityLabel={`${label}に追加`} onPress={add} hitSlop={8}>
           <Text style={[styles.addLabel, { color: colors.pinkText }]}>追加</Text>
@@ -528,15 +527,7 @@ const styles = StyleSheet.create({
   chip: { borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    fontFamily: fonts.regular,
-  },
+  addInput: { flex: 1 },
   addLabel: { fontSize: 15, fontWeight: '600' },
   confirm: { gap: 8 },
 });
