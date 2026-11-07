@@ -154,7 +154,8 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
       onPress={onPress}
       style={styles.tab}
     >
-      <View style={[styles.tabPill, active && { backgroundColor: colors.pinkSoft }]}>
+      {/* 色を付けたり外したりすると Android で角が四角くなるので、いつも地の色を渡す */}
+      <View style={[styles.tabPill, { backgroundColor: active ? colors.pinkSoft : 'transparent' }]}>
         {active && <Heart color={colors.heart} />}
         <Text
           maxFontSizeMultiplier={1.6}
