@@ -392,7 +392,16 @@ function Stepper({
   const colors = useColors();
   const step = (delta: number) => onChange(Math.min(max, Math.max(min, value + delta)));
   return (
-    <View style={styles.row}>
+    // 読み上げでは1つのまとまりにして、今の値を読み、上下のスワイプで増減する
+    <View
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ text: `${value}${unit}` }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={({ nativeEvent }) => step(nativeEvent.actionName === 'increment' ? 1 : -1)}
+      style={styles.row}
+    >
       <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
       <View style={styles.stepper}>
         <Pressable
@@ -496,7 +505,7 @@ const styles = StyleSheet.create({
   stepText: { fontSize: 20, fontWeight: '700' },
   stepValue: { fontSize: 15, minWidth: 48, textAlign: 'center' },
   keywordBlock: { gap: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flexShrink: 1 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addInput: { flex: 1 },
   addLabel: { fontSize: 15, fontWeight: '600' },

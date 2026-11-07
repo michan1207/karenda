@@ -127,6 +127,17 @@ describe('settings', () => {
     expect(await screen.findByText('まだありません。')).toBeTruthy();
   });
 
+  it('reads a stepper as one adjustable value and stops at its limits', async () => {
+    const { db } = await openSettings();
+    const stepper = screen.getByLabelText('生理ヘビー期');
+    expect(stepper.props.accessibilityRole).toBe('adjustable');
+    expect(stepper.props.accessibilityValue).toEqual({ text: '3日間' });
+    await fireEvent(stepper, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    expect((await getZoneSettings(db)).heavyDays).toBe(4);
+    await fireEvent(screen.getByLabelText('生理ヘビー期'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+    expect((await getZoneSettings(db)).heavyDays).toBe(3);
+  });
+
   it('lists records newest first and removes one', async () => {
     const { db } = await openSettings();
     expect(screen.getByText('9月28日（月）〜')).toBeTruthy();
