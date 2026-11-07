@@ -158,6 +158,8 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
         {active && <Heart color={colors.heart} />}
         <Text
           maxFontSizeMultiplier={1.6}
+          numberOfLines={1}
+          adjustsFontSizeToFit
           style={[styles.tabLabel, { color: active ? colors.pinkText : colors.muted }, active && styles.tabActive]}
         >
           {label}
@@ -173,7 +175,7 @@ const styles = StyleSheet.create({
   padded: { padding: 16 },
   tabs: { flexDirection: 'row', paddingVertical: 8, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
-  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
+  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 6 },
   tabLabel: { fontSize: 14, flexShrink: 1 },
   tabActive: { fontWeight: '700' },
 });

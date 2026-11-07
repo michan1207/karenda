@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   detailText: { fontSize: 14, lineHeight: 21 },
   zoneBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 3 },
   eventRow: { gap: 2 },
-  eventHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  eventHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   eventTitle: { fontSize: 15, fontWeight: '600', flexShrink: 1 },
   manualLabel: { fontSize: 12 },
   eventDot: { width: 10, height: 10, borderRadius: 5 },
