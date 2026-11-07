@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Answer, ReviewTarget } from '../engine';
-import { Card, Text } from './components';
+import { Card, Chip, Text } from './components';
 import { dayTitle, titleOf } from './format';
-import { radius, useColors } from './theme';
+import { useColors } from './theme';
 
 const ANSWERS: [Answer, string][] = [
   ['hard', 'きつかった'],
@@ -31,15 +31,7 @@ export function ReviewCard({
             <Text style={[styles.detailText, { color: colors.text }]}>{name}</Text>
             <View style={styles.reviewChips}>
               {ANSWERS.map(([answer, label]) => (
-                <Pressable
-                  key={answer}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${name}は${label}`}
-                  onPress={() => onAnswer(target, answer)}
-                  style={[styles.reviewChip, { borderColor: colors.pink }]}
-                >
-                  <Text style={[styles.reviewChipText, { color: colors.text }]}>{label}</Text>
-                </Pressable>
+                <Chip key={answer} label={label} accessibilityLabel={`${name}は${label}`} tone={colors.pink} onPress={() => onAnswer(target, answer)} />
               ))}
               <Pressable
                 accessibilityRole="button"
@@ -64,7 +56,6 @@ const styles = StyleSheet.create({
   reviewHelp: { fontSize: 13 },
   review: { gap: 6 },
   reviewChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  reviewChip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   reviewChipText: { fontSize: 13 },
   reviewSkip: { paddingHorizontal: 8, paddingVertical: 6 },
 });

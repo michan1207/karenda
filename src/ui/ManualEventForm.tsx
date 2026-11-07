@@ -3,9 +3,9 @@ import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { CalendarEvent, DateKey, EVENT_COLORS, EventColor, normalizeTitle, Weight } from '../engine';
 import type { ManualEventInput } from '../data';
-import { Button, Input, Text } from './components';
+import { Button, Chip, Input, Text } from './components';
 import { dayTitle } from './format';
-import { radius, useColors } from './theme';
+import { useColors } from './theme';
 import { TimeField } from './TimeField';
 import { useBackButton } from './useBackButton';
 
@@ -75,18 +75,7 @@ export function ManualEventForm({
             ['normal', 'ふつうの予定'],
           ] as const
         ).map(([value, label]) => (
-          <Pressable
-            key={value}
-            accessibilityRole="button"
-            accessibilityState={{ selected: weight === value }}
-            onPress={() => setWeight(value)}
-            style={[
-              styles.reviewChip,
-              weight === value ? { borderColor: colors.pink, backgroundColor: colors.pinkSoft } : { borderColor: colors.line },
-            ]}
-          >
-            <Text style={[styles.reviewChipText, { color: weight === value ? colors.pinkText : colors.muted }]}>{label}</Text>
-          </Pressable>
+          <Chip key={value} label={label} selected={weight === value} onPress={() => setWeight(value)} />
         ))}
       </View>
       <View style={styles.timeRow}>
@@ -130,8 +119,6 @@ const styles = StyleSheet.create({
   manualForm: { gap: 8 },
   reviewHelp: { fontSize: 13 },
   reviewChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  reviewChip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
-  reviewChipText: { fontSize: 13 },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
   detailText: { fontSize: 14, lineHeight: 21 },
   colorChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
