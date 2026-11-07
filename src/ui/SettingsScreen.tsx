@@ -19,7 +19,7 @@ import {
 } from '../engine';
 import { CALENDAR_NOTE, NOTIFY_HOUR, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import { BackupPanel } from './BackupPanel';
-import { BIOMETRIC, Button, Decorations, Input, Notice, PASSCODE, Ribbon, Section, Text } from './components';
+import { BIOMETRIC, Button, Confirm, Decorations, Input, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
 import { radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
@@ -28,7 +28,6 @@ type Props = { k: Karenda; today: DateKey };
 
 export function SettingsScreen({ k, today }: Props) {
   const colors = useColors();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const learned = k.titleWeights.filter((entry) => entry.weight);
   const { n, meanAbsErrorDays: mean, within1DayRate: rate, latest } = k.accuracy;
   const excluded = predictCycle(k.starts)?.excluded ?? [];
@@ -238,17 +237,20 @@ export function SettingsScreen({ k, today }: Props) {
           <Text style={[styles.help, { color: colors.muted }]}>まだ記録がありません。カレンダーで日付を選んで記録できます。</Text>
         ) : (
           [...k.starts].reverse().map((start) => (
-            <View key={start} style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>{dayTitle(start)}〜</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${dayTitle(start)}の記録を消す`}
-                onPress={() => k.removeStart(start)}
-                hitSlop={8}
-              >
-                <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
-              </Pressable>
-            </View>
+            <Confirm
+              key={start}
+              message={`${dayTitle(start)}の記録を消します。予測も変わります。`}
+              label="記録を消す"
+              onConfirm={() => k.removeStart(start)}
+              trigger={(ask) => (
+                <View style={styles.row}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>{dayTitle(start)}〜</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`${dayTitle(start)}の記録を消す`} onPress={ask} hitSlop={8}>
+                    <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
+                  </Pressable>
+                </View>
+              )}
+            />
           ))
         )}
       </Section>
@@ -359,24 +361,12 @@ export function SettingsScreen({ k, today }: Props) {
       <Section title="データ">
         <Text style={[styles.help, { color: colors.muted }]}>データはこの端末の中だけに保存しています。</Text>
         <BackupPanel k={k} today={today} />
-        {confirmDelete ? (
-          <View style={styles.confirm}>
-            <Text style={[styles.help, { color: colors.text }]}>
-              記録・設定・閉じたお知らせをすべて消します。元に戻せません。
-            </Text>
-            <Button
-              kind="danger"
-              label="すべて削除する"
-              onPress={async () => {
-                setConfirmDelete(false);
-                await k.deleteAll();
-              }}
-            />
-            <Button kind="secondary" label="やめる" onPress={() => setConfirmDelete(false)} />
-          </View>
-        ) : (
-          <Button kind="danger" label="すべてのデータを削除" onPress={() => setConfirmDelete(true)} />
-        )}
+        <Confirm
+          message="記録・設定・閉じたお知らせをすべて消します。元に戻せません。"
+          label="すべて削除する"
+          onConfirm={k.deleteAll}
+          trigger={(ask) => <Button kind="danger" label="すべてのデータを削除" onPress={ask} />}
+        />
       </Section>
     </ScrollView>
   );
@@ -529,5 +519,4 @@ const styles = StyleSheet.create({
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   addInput: { flex: 1 },
   addLabel: { fontSize: 15, fontWeight: '600' },
-  confirm: { gap: 8 },
 });

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Image, Platform, Pressable, Text as BaseText, StyleProp, StyleSheet, TextInput, TextInputProps, TextProps, View, ViewStyle } from 'react-native';
 
 import { fonts, radius, useColors } from './theme';
@@ -251,6 +251,37 @@ export function Button({
   );
 }
 
+/** 消す操作の前に、その場でもう一度聞く。trigger は押す前の見た目で、渡された ask を押すと聞き始める */
+export function Confirm({
+  trigger,
+  message,
+  label,
+  onConfirm,
+}: {
+  trigger: (ask: () => void) => ReactNode;
+  message: string;
+  label: string;
+  onConfirm: () => void;
+}) {
+  const colors = useColors();
+  const [asking, setAsking] = useState(false);
+  if (!asking) return trigger(() => setAsking(true));
+  return (
+    <View style={styles.confirm}>
+      <Text style={[styles.confirmText, { color: colors.text }]}>{message}</Text>
+      <Button
+        kind="danger"
+        label={label}
+        onPress={() => {
+          setAsking(false);
+          onConfirm();
+        }}
+      />
+      <Button kind="secondary" label="やめる" onPress={() => setAsking(false)} />
+    </View>
+  );
+}
+
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card>
@@ -296,6 +327,8 @@ export const styles = StyleSheet.create({
   linkLabel: { fontSize: 15, fontWeight: '600' },
   button: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 2, alignItems: 'center' },
   buttonLabel: { fontSize: 16, fontWeight: '600' },
+  confirm: { gap: 8 },
+  confirmText: { fontSize: 13, lineHeight: 19 },
   input: {
     borderWidth: 1,
     borderRadius: radius.md,

@@ -4,7 +4,7 @@
 - `App.tsx` が3タブ（calendar / alerts / settings）＋初回は `OnboardingScreen`。Expo Router は使っていない（AGENTS.md の Router 節は当てはまらない）
 - はじめの案内（2026-10-31）は5つの手順を1つずつ: 何ができるか → 通信を切っても使える（外部への送信の件数）→ その場で生理開始日を1回記録（iPhone は datetimepicker の inline、「まだ記録しない」も可）→ 予測（`predictionLines`＋目安の注意）→ 最後にカレンダー（「カレンダーを使う」「今はしない」を同じ見た目で）。通知の許可はどちらの道でも最後に求める
 - 共有状態は `useKarenda`（DB・許可・設定）。予定は `useEvents`、今後30日の警告は `useUpcomingAlerts`、通知の予約は `useNotificationSync`
-- 部品は `components.tsx`（Card / PillHeading / Heart / AlertMark / Notice / Button / Input / Section）。日付表示・ゾーン名は `format.ts`（`dayTitle`, `zoneLabel`）
+- 部品は `components.tsx`（Card / PillHeading / Heart / AlertMark / Notice / Button / Confirm / Input / Section）。日付表示・ゾーン名は `format.ts`（`dayTitle`, `zoneLabel`）
 - カレンダー画面（2026-11-02 B7 で分けた）: `CalendarScreen.tsx` は画面と日の詳細だけ。日のマスと色の説明 `DayCell.tsx`、今月の要注意 `DigestCard.tsx`、「どうだった？」`ReviewCard.tsx`、このアプリだけの予定 `ManualEventForm.tsx`、心の変化 `MoodNotesCard.tsx`、ミアの一言 `mascotLines.ts`
 
 ## 色（theme.ts の `useColors()`、ライト/ダーク両対応）
@@ -17,6 +17,7 @@
 - 値と役割の仕様は `AMIEL_DESIGN_SYSTEM.md`（2026-10-27決定: アイコンのローズ`#c44c74`=ブランド色、しっかり注意=くすみブルー`#4a5ead`（女性が好む・幅広い世代向けの色として選定。朱色・ミント・そらいろ等は見送り）、削除ボタンは`danger`（赤のまま）。実装は同書§9の順）
 
 ## 表示ルール
+- 消す前の確認（2026-11-07 C4、オーナー決定）: 生理開始日（カレンダー・設定）、このアプリの予定、バックアップの置き換え、すべてのデータの削除は `Confirm` でその場でもう一度聞く。キーワードのチップと、学んだ重さの「消す」は1回押しのまま
 - 衝突のある日・予定には `AlertMark`（しっかり注意＝塗りの丸、少し注意＝枠の丸）。詳細に警告メッセージを alertStrong/alertMild で表示
 - 予測には「（予測）」を付ける。医療的な断定をしない
 - 文言（F18、2026-10-31）: 警戒・警告・危険・診断・治療・PMDD・可能性が高い・絶対・100%・必ず・保証・「PMSです／PMSの可能性」を画面・通知・権限・ストア下書き・docs に使わない（`src/engine/wording.ts` の `BANNED_PHRASES`、`src/wording.test.ts` がコメント以外の文字列を全部見る）。時期名は「PMSの時期（予測）」。「体調の判断は医師にご相談ください」はカレンダー下の注意書き・はじめの案内の予測の手順・設定の「予測の当たり具合」に1つずつ（お知らせタブは予定の段取りだけなので置かない）
