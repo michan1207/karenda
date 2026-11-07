@@ -44,14 +44,17 @@ export function ManualEventForm({
     setStart(minutes);
     if (end <= minutes) setEnd(Math.min(minutes + 60, 24 * 60 - 5));
   };
-  const add = () => {
-    if (!title.trim()) return;
-    const time = timed ? { startMinutes: start, ...(end > start ? { durationMinutes: end - start } : {}) } : {};
-    onAdd({ title, weight, color, ...time });
+  const close = () => {
     setTitle('');
     setPicked(null);
     setTimed(false);
     setOpen(false);
+  };
+  const add = () => {
+    if (!title.trim()) return;
+    const time = timed ? { startMinutes: start, ...(end > start ? { durationMinutes: end - start } : {}) } : {};
+    onAdd({ title, weight, color, ...time });
+    close();
   };
   return (
     <View style={styles.manualForm}>
@@ -118,6 +121,7 @@ export function ManualEventForm({
         ))}
       </View>
       <Button label="入れる" onPress={add} disabled={!title.trim()} />
+      <Button kind="secondary" label="やめる" onPress={close} />
     </View>
   );
 }

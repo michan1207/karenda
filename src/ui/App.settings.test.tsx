@@ -131,6 +131,11 @@ describe('settings', () => {
     const { db } = await openSettings();
     expect(screen.getByText('9月28日（月）〜')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('9月28日（月）の記録を消す'));
+    expect(screen.getByText('9月28日（月）の記録を消します。予測も変わります。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('やめる'));
+    expect(await listPeriodStarts(db)).toEqual(REGULAR);
+    await fireEvent.press(screen.getByLabelText('9月28日（月）の記録を消す'));
+    await fireEvent.press(screen.getByText('記録を消す'));
     expect(await listPeriodStarts(db)).toEqual(REGULAR.slice(0, 3));
   });
 
@@ -193,6 +198,9 @@ describe('settings', () => {
     await fireEvent.changeText(await screen.findByLabelText('バックアップのパスワード'), 'pass-1234');
     await fireEvent.press(screen.getByText('開く'));
     await fireEvent.press(await screen.findByText('ファイルの内容に置き換える'));
+    expect(screen.getByText('今の記録を消して置き換えます。元に戻せません。')).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual(REGULAR);
+    await fireEvent.press(screen.getByText('置き換える'));
     expect(await screen.findByText(/戻しました/)).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual(['2026-05-01']);
     expect(await getZoneSettings(db)).toEqual({ heavyDays: 5, pmsDays: 10 });

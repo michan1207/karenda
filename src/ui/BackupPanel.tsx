@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 
 import { ExportedData, isEncryptedBackup, OpenBackup, openBackup, readExport, RestoreMode } from '../data';
 import { DateKey } from '../engine';
-import { Button, Text } from './components';
+import { Button, Confirm, Text } from './components';
 import { fullDate } from './format';
 import { fonts, radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
@@ -153,7 +153,12 @@ export function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
           <Button label="記録を足す（設定は今のまま）" onPress={() => restore('keepMine')} disabled={busy} />
           <Button kind="secondary" label="記録を足す（設定はファイルのもの）" onPress={() => restore('preferFile')} disabled={busy} />
           <Text style={[styles.help, { color: colors.muted }]}>置き換えると、今の記録は消えてファイルの内容だけになります。</Text>
-          <Button kind="danger" label="ファイルの内容に置き換える" onPress={() => restore('replace')} disabled={busy} />
+          <Confirm
+            message="今の記録を消して置き換えます。元に戻せません。"
+            label="置き換える"
+            onConfirm={() => restore('replace')}
+            trigger={(ask) => <Button kind="danger" label="ファイルの内容に置き換える" onPress={ask} disabled={busy} />}
+          />
           <Button kind="secondary" label="やめる" onPress={() => reset()} />
         </>
       )}
