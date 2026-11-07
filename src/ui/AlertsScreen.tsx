@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { Action, addDays, ConflictAlert, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
-import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
+import { AlertMark, Button, Card, Decorations, Input, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, gradeLabel, shortDate, titleOf } from './format';
 import { PARTNER_TEMPLATES } from './partnerTemplates';
-import { fonts, radius, useColors } from './theme';
+import { radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
 
@@ -47,12 +47,12 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
             setEdited(null);
           }}
         />
-        <TextInput
+        <Input
           accessibilityLabel="送る文"
           value={text}
           onChangeText={setEdited}
           multiline
-          style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
+          style={styles.draft}
         />
         {/* 送る前に開けなかっただけなので、失うものは無い */}
         <Button
@@ -289,15 +289,7 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   chipText: { fontSize: 13 },
   chipSelected: { fontWeight: '700' },
-  input: {
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    lineHeight: 22,
-    fontFamily: fonts.regular,
-  },
+  draft: { lineHeight: 22 },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badge: {
