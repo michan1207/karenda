@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { ExportedData, isEncryptedBackup, OpenBackup, openBackup, readExport, RestoreMode } from '../data';
 import { DateKey } from '../engine';
-import { Button, Confirm, Text } from './components';
+import { Button, Confirm, Input, Text } from './components';
 import { fullDate } from './format';
-import { fonts, radius, useColors } from './theme';
+import { useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
 const MIN_LENGTH = 8;
@@ -191,12 +191,10 @@ function Passphrase({
   onSubmit?: () => void;
   isNew?: boolean;
 }) {
-  const colors = useColors();
   return (
-    <TextInput
+    <Input
       accessibilityLabel={label}
       placeholder={label}
-      placeholderTextColor={colors.muted}
       value={value}
       onChangeText={onChange}
       onSubmitEditing={onSubmit}
@@ -204,7 +202,6 @@ function Passphrase({
       autoCapitalize="none"
       autoCorrect={false}
       textContentType={isNew ? 'newPassword' : 'password'}
-      style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
     />
   );
 }
@@ -214,12 +211,4 @@ const styles = StyleSheet.create({
   help: { fontSize: 13, lineHeight: 19 },
   summary: { fontSize: 15, fontWeight: '600' },
   busy: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  input: {
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    fontFamily: fonts.regular,
-  },
 });
