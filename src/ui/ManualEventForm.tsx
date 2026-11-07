@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { CalendarEvent, DateKey, EVENT_COLORS, EventColor, normalizeTitle, Weight } from '../engine';
 import type { ManualEventInput } from '../data';
-import { Button, Text } from './components';
+import { Button, Input, Text } from './components';
 import { dayTitle } from './format';
-import { fonts, radius, useColors } from './theme';
+import { radius, useColors } from './theme';
 import { TimeField } from './TimeField';
 import { useBackButton } from './useBackButton';
 
@@ -61,14 +61,12 @@ export function ManualEventForm({
   return (
     <View style={styles.manualForm}>
       <Text style={[styles.reviewHelp, { color: colors.muted }]}>このアプリの中だけに残し、端末のカレンダーには書きません。</Text>
-      <TextInput
+      <Input
         accessibilityLabel={`${dayTitle(day)}に入れる予定の名前`}
         value={title}
         onChangeText={setTitle}
         placeholder="予定の名前"
-        placeholderTextColor={colors.muted}
         returnKeyType="done"
-        style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
       />
       <View style={styles.reviewChips}>
         {(
@@ -131,7 +129,6 @@ export function ManualEventForm({
 const styles = StyleSheet.create({
   manualForm: { gap: 8 },
   reviewHelp: { fontSize: 13 },
-  input: { borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, fontFamily: fonts.regular },
   reviewChips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   reviewChip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
   reviewChipText: { fontSize: 13 },
