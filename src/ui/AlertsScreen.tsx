@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 2,
   },
-  date: { fontSize: 13 },
+  date: { fontSize: 13, flexShrink: 1 },
   eventTitle: { fontSize: 16, fontWeight: '700' },
   message: { fontSize: 14, lineHeight: 21 },
   strongText: { fontWeight: '700' },
