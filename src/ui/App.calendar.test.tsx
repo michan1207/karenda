@@ -1,4 +1,4 @@
-import { fakeCalendar, setup } from './testApp';
+import { fakeCalendar, REGULAR, setup } from './testApp';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 import { dismissConsult, isHideMode, listPeriodStarts, loadState } from '../data';
@@ -133,6 +133,17 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByText('この日の記録を消す'));
     expect(await screen.findByText('この日を生理開始日として記録')).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual([]);
+  });
+
+  it('records the day the period ended, colors the days up to it, and removes it', async () => {
+    const { db } = await setup({ starts: [...REGULAR, '2026-10-19'] });
+    await fireEvent.press(await screen.findByLabelText(/^10月23日（金）/));
+    await fireEvent.press(screen.getByText('この日を生理の終わりの日として記録'));
+    expect(await screen.findByLabelText(/^10月23日（金）、生理5日目/)).toBeTruthy();
+    expect((await loadState(db)).ends).toEqual(new Map([['2026-10-19', '2026-10-23']]));
+    await fireEvent.press(screen.getByText('終わりの日の記録を消す'));
+    expect(await screen.findByText('この日を生理の終わりの日として記録')).toBeTruthy();
+    expect((await loadState(db)).ends).toEqual(new Map());
   });
 
   it('asks for a review once, right after the third recorded start', async () => {

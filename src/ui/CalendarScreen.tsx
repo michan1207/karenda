@@ -17,6 +17,7 @@ import {
   isInMonth,
   monthGrid,
   nearestPeriod,
+  periodEndChoice,
   periodPhase,
   ReviewTarget,
   shiftMonth,
@@ -54,6 +55,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
     () =>
       computeGuard({
         starts: k.starts,
+        ends: k.ends,
         settings: k.settings,
         keywords: k.keywords,
         events,
@@ -61,7 +63,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         range: { from: addDays(grid.from, -AFTER_PERIOD_DAYS), until: grid.until },
         today,
       }),
-    [k.starts, k.settings, k.keywords, events, grid, today],
+    [k.starts, k.ends, k.settings, k.keywords, events, grid, today],
   );
   const hidden = k.hideMode;
   const guard = hidden ? HIDDEN : computed;
@@ -83,6 +85,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
   const alertFor = (eventId: string) =>
     guard.alerts.find((alert) => (alert.event.memberIds ?? [alert.eventId]).includes(eventId));
   const isRecorded = k.starts.includes(selected);
+  const endChoice = periodEndChoice(selected, k.starts, k.ends, today);
   const phase = periodPhase(selected, guard.zones);
   const selectedZone = guard.zones.get(selected);
 
@@ -260,6 +263,11 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         ) : selected <= today ? (
           <Button label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
         ) : null}
+        {hidden || !endChoice ? null : endChoice.recorded ? (
+          <Button kind="secondary" label="終わりの日の記録を消す" onPress={() => k.setPeriodEnd(endChoice.start, null)} />
+        ) : (
+          <Button kind="secondary" label="この日を生理の終わりの日として記録" onPress={() => k.setPeriodEnd(endChoice.start, selected)} />
+        )}
       </Card>
 
       {phase && <MoodNotesCard phase={phase} />}

@@ -7,6 +7,8 @@ import { buildZones, DateRange, ZoneMap, ZoneSettings } from './zones';
 
 export type GuardInput = {
   starts: DateKey[];
+  /** 記録した終わりの日（開始日→終わりの日） */
+  ends?: ReadonlyMap<DateKey, DateKey>;
   settings: ZoneSettings;
   keywords: RiskKeywords;
   events: CalendarEvent[];
@@ -24,15 +26,15 @@ export type Guard = {
 };
 
 /** 記録・設定・予定から、表示する期間のゾーンと警告、その対処をまとめて出す。画面と通知はここだけを入り口にする */
-export function computeGuard({ starts, settings, keywords, events, range, today }: GuardInput): Guard {
+export function computeGuard({ starts, ends, settings, keywords, events, range, today }: GuardInput): Guard {
   const prediction = predictCycle(starts);
-  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts, today) : new Map();
+  const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts, today, ends) : new Map();
   const made = new Map<ConflictAlert, Action[]>();
   const actionsOf = (alert: ConflictAlert): Action[] => {
     let actions = made.get(alert);
     if (!actions) {
       // 別の日を探すので、表示する期間の外も、予定の前後の時期を作る
-      const around: ZoneMap = prediction ? buildZones(prediction, searchRange(alert.event), settings, starts, today) : new Map();
+      const around: ZoneMap = prediction ? buildZones(prediction, searchRange(alert.event), settings, starts, today, ends) : new Map();
       actions = planActions({ alert, zones: around, keywords, today });
       made.set(alert, actions);
     }

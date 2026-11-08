@@ -154,6 +154,10 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       ALTER TABLE deferred_alerts_by_event RENAME TO deferred_alerts;
     `);
   },
+  // 2026-11-08: 生理の終わりの日（無い時は NULL＝設定の日数で見る）
+  async (db) => {
+    await db.execAsync('ALTER TABLE period_starts ADD COLUMN end_date TEXT');
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

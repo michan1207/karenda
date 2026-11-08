@@ -72,7 +72,7 @@ describe('settings', () => {
     expect(screen.getByText('外部のSDK')).toBeTruthy();
     expect(screen.getByText('なし')).toBeTruthy();
     expect(screen.getByText('この端末の中だけ')).toBeTruthy();
-    expect(screen.getByText('・生理開始日：次の生理と、気をつける時期を予測するため')).toBeTruthy();
+    expect(screen.getByText('・生理開始日と終わりの日：次の生理と、気をつける時期を予測するため')).toBeTruthy();
   });
 
   it('says there is not enough data yet instead of showing numbers', async () => {

@@ -1,13 +1,13 @@
 import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snapshotPrediction } from '../engine/accuracy';
 import { advanceStatus, ConflictState, ConflictStatus, Resolution, statusOf } from '../engine/conflictState';
 import { predictCycle } from '../engine/cycle';
-import { DateKey, fromDateKey, toDateKey } from '../engine/date';
+import { DateKey, diffDays, fromDateKey, toDateKey } from '../engine/date';
 import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
 import { Answer, learnWeight, ReviewPhase, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
 import { nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
 import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
-import { validateZoneSettings, ZoneSettings } from '../engine/zones';
+import { MAX_PERIOD_DAYS, validateZoneSettings, ZoneSettings } from '../engine/zones';
 import type { Database } from './database';
 import { SCHEMA_VERSION, seedDefaults } from './migrations';
 import { STORED_DATA } from './privacy';
@@ -48,6 +48,22 @@ export async function removePeriodStart(db: Database, start: DateKey): Promise<v
     await db.runAsync('DELETE FROM prediction_records WHERE based_on = ?', start);
     await db.runAsync('UPDATE prediction_records SET actual_start = NULL, abs_error_days = NULL WHERE actual_start = ?', start);
   });
+}
+
+/** 記録した終わりの日（開始日→終わりの日） */
+export async function listPeriodEnds(db: Database): Promise<Map<DateKey, DateKey>> {
+  const rows = await db.getAllAsync<{ start: string; end_date: string }>('SELECT start, end_date FROM period_starts WHERE end_date IS NOT NULL');
+  return new Map(rows.map((row) => [row.start, row.end_date]));
+}
+
+/** 生理の終わりの日を残す（null で消す）。開始日の翌日から MAX_PERIOD_DAYS 日目まで、次の開始日より前の日だけ */
+export async function setPeriodEnd(db: Database, start: DateKey, end: DateKey | null): Promise<void> {
+  if (end !== null) {
+    const days = diffDays(start, end);
+    const next = (await listPeriodStarts(db)).find((s) => s > start);
+    if (days < 1 || days >= MAX_PERIOD_DAYS || (next && end >= next)) throw new Error(`period end out of range: ${start}..${end}`);
+  }
+  await db.runAsync('UPDATE period_starts SET end_date = ? WHERE start = ?', end, start);
 }
 
 /** 画面から生理開始日を記録する。いちばん新しい開始日なら、前の開始日から出していた予測と比べる（同じ日をもう一度記録しても比べ直さない） */
@@ -331,6 +347,8 @@ export type StoredState = {
   /** お知らせで何をしたかと、その日時（今月のふりかえり用） */
   resolutions: { resolution: Resolution; at: string }[];
   starts: DateKey[];
+  /** 記録した生理の終わりの日（開始日→終わりの日） */
+  ends: Map<DateKey, DateKey>;
   /** 予測の帯に使う設定。PMS の日数は pms のもの（設定画面の手動の日数は pms.daysBefore で読む） */
   settings: ZoneSettings;
   /** PMS を生理予定日の何日前からにするかと、その根拠 */
@@ -387,6 +405,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     lockEnabled,
     metricsEnabled,
     starts,
+    ends: await listPeriodEnds(db),
     settings: pmsZoneSettings(settings, pms),
     pms,
     accuracy: buildReport(await listPredictionRecords(db)),
@@ -403,7 +422,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
 }
 
 /** 書き出しの形の版。表の版（SCHEMA_VERSION）とは別に、書き出しの形を変えた時だけ上げる。これを持たない前のファイルは 0 */
-export const EXPORT_VERSION = 1;
+export const EXPORT_VERSION = 2;
 
 /** このアプリだけの予定。id は、戻した時に「どうだった？」の答えを付け直すために使う */
 export type ExportedManualEvent = {
@@ -426,6 +445,8 @@ export type ExportedData = {
   schemaVersion: number;
   exportedAt: string;
   periodStarts: DateKey[];
+  /** 生理の終わりの日。版1までのファイルには無い */
+  periodEnds: { start: DateKey; end: DateKey }[];
   zoneSettings: ZoneSettings;
   keywords: RiskKeywords;
   manualEvents: ExportedManualEvent[];
@@ -444,6 +465,7 @@ export async function exportData(db: Database, now: Date = new Date()): Promise<
     schemaVersion: SCHEMA_VERSION,
     exportedAt: now.toISOString(),
     periodStarts: await listPeriodStarts(db),
+    periodEnds: [...(await listPeriodEnds(db))].map(([start, end]) => ({ start, end })),
     zoneSettings: await getZoneSettings(db),
     keywords: await getKeywords(db),
     manualEvents: await db.getAllAsync<ExportedManualEvent>(
@@ -536,6 +558,7 @@ export function readExport(text: string): ReadExport {
   if (version === 0 && typeof schemaVersion === 'number' && schemaVersion > SCHEMA_VERSION) return { ok: false, reason: 'newer' };
   const old = version === 0;
   const extra: Record<string, unknown> = old ? { manualEvents: [], titleWeights: [], reviews: [], predictionRecords: [] } : raw;
+  const periodEnds = isWhole(version, 2) ? raw.periodEnds : [];
   if (
     !isWhole(version) ||
     !Number.isInteger(schemaVersion) ||
@@ -548,6 +571,8 @@ export function readExport(text: string): ReadExport {
     !isListOf<TitleWeight>(extra.titleWeights, isTitleWeight) ||
     !isListOf<ExportedReview>(extra.reviews, isReview) ||
     !isListOf<PredictionRecord>(extra.predictionRecords, isPrediction) ||
+    !isListOf<{ start: DateKey; end: DateKey }>(periodEnds, (e) => isDay(e.start) && isDay(e.end) && periodStarts.includes(e.start)) ||
+    !periodEnds.every(({ start, end }) => diffDays(start, end) >= 1 && diffDays(start, end) < MAX_PERIOD_DAYS) ||
     !(old || isFlags(raw.flags))
   ) {
     return { ok: false, reason: 'broken' };
@@ -567,6 +592,7 @@ export function readExport(text: string): ReadExport {
       schemaVersion: schemaVersion as number,
       exportedAt: typeof exportedAt === 'string' ? exportedAt : '',
       periodStarts,
+      periodEnds,
       zoneSettings: settings,
       keywords: { high: keywords.high, medium: keywords.medium },
       manualEvents: extra.manualEvents,
@@ -598,6 +624,10 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
       `);
     }
     for (const start of data.periodStarts) await addPeriodStart(db, start);
+    for (const { start, end } of data.periodEnds) {
+      // keepMine は、この端末に終わりの日がもうあれば変えない
+      await db.runAsync('UPDATE period_starts SET end_date = ? WHERE start = ? AND (? OR end_date IS NULL)', end, start, mode !== 'keepMine');
+    }
     // このアプリだけの予定は、戻すと ID が変わる。答えはその新しい ID に付け直す
     const movedIds = new Map<string, string>();
     for (const event of data.manualEvents) movedIds.set(event.id, await restoreManualEvent(db, event));
