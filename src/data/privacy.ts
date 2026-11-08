@@ -24,7 +24,7 @@ export const STORED_DATA: { table: string; what: string; why: string; backup: bo
     why: '予定の重さと、気をつける時期の日数を推定するため',
     backup: true,
   },
-  { table: 'daily_checks', what: 'その日の体調（3つの答えと、選んだ症状）', why: 'あとから見返せるようにするため', backup: true },
+  { table: 'daily_checks', what: 'その日の体調（3つの答えと、選んだ症状）', why: 'あとから見返し、気をつける時期の日数を推定するため', backup: true },
   { table: 'prediction_records', what: '出した予測と、実際の開始日', why: '予測の当たり具合を出すため', backup: true },
   { table: 'manual_events', what: 'このアプリの中だけに入れた予定（名前・日付・重さ）', why: '生理の時期と重なる時に知らせるため', backup: true },
   { table: 'deferred_alerts', what: '通知で「今日は決めない」を押した予定（予定のIDと日付）', why: '次の日に一度だけ知らせ直すため', backup: false },

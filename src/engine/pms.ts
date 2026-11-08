@@ -1,3 +1,4 @@
+import type { DailyCheck } from './dailyCheck';
 import { DateKey, diffDays } from './date';
 import type { Answer, ReviewPhase } from './learning';
 import { DEFAULT_ZONE_SETTINGS, ZoneSettings } from './zones';
@@ -61,6 +62,28 @@ export function estimatePmsDays(answers: ReviewAnswer[], starts: DateKey[]): { d
   const sd = Math.sqrt(recent.reduce((sum, days) => sum + (days - mean) ** 2, 0) / recent.length);
   const daysBefore = sd <= MAX_SPREAD ? Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.round(mean))) : null;
   return { daysBefore, observations: onsets.length };
+}
+
+/**
+ * その日の体調を「どうだった？」の答えと同じ形にして足す。体調はその日まるごとの答えなので、同じ日の予定の答えより先に使う。
+ * 「答えない」の日は入れない。記録した生理の日（終わりの日まで、無ければ heavyDays 日）は period にする（推定では使わない）
+ */
+export function withDailyChecks(
+  answers: ReviewAnswer[],
+  checks: DailyCheck[],
+  { starts, ends, heavyDays }: { starts: DateKey[]; ends: ReadonlyMap<DateKey, DateKey>; heavyDays: number },
+): ReviewAnswer[] {
+  const inPeriod = (day: DateKey) =>
+    starts.some((start) => {
+      const end = ends.get(start);
+      const n = diffDays(start, day);
+      return n >= 0 && n < (end ? diffDays(start, end) + 1 : heavyDays);
+    });
+  const checked = new Set(checks.flatMap((check) => (check.answer ? [check.date] : [])));
+  const fromChecks = checks.flatMap(({ date, answer }): ReviewAnswer[] =>
+    answer ? [{ date, answer, phase: inPeriod(date) ? 'period' : 'other' }] : [],
+  );
+  return [...answers.filter((a) => !checked.has(a.date)), ...fromChecks];
 }
 
 /** 記録を反映した PMS の日数。手動の時は変えない。日数が変わる時は今日から使う */

@@ -5,7 +5,7 @@ import { DailyCheck, Symptom, SYMPTOMS } from '../engine/dailyCheck';
 import { DateKey, diffDays, fromDateKey, toDateKey } from '../engine/date';
 import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
 import { Answer, learnWeight, ReviewPhase, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
-import { nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
+import { nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer, withDailyChecks } from '../engine/pms';
 import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
 import { MAX_PERIOD_DAYS, validateZoneSettings, ZoneSettings } from '../engine/zones';
@@ -415,7 +415,10 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
   const learned = new Map(titleWeights.flatMap(({ term, weight }) => (weight ? [[term, weight] as const] : [])));
   const keywords = { ...words, learned };
   const current = await getPmsEstimate(db);
-  const pms = nextPmsEstimate(current, await listReviewAnswers(db), starts, toDateKey(now));
+  const checks = await listDailyChecks(db);
+  const ends = await listPeriodEnds(db);
+  const answers = withDailyChecks(await listReviewAnswers(db), checks, { starts, ends, heavyDays: settings.heavyDays });
+  const pms = nextPmsEstimate(current, answers, starts, toDateKey(now));
   if (JSON.stringify(pms) !== JSON.stringify(current)) await savePmsEstimate(db, pms);
   // まだ比べていない予測は、今の記録からの予測に合わせておく（開始日を記録した時に、直前に出していた予測と比べる）
   const snapshot = snapshotPrediction(predictCycle(starts), toDateKey(now));
@@ -428,7 +431,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     lockEnabled,
     metricsEnabled,
     starts,
-    ends: await listPeriodEnds(db),
+    ends,
     settings: pmsZoneSettings(settings, pms),
     pms,
     accuracy: buildReport(await listPredictionRecords(db)),
@@ -439,7 +442,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     keywords,
     titleWeights,
     reviewed,
-    checks: new Map((await listDailyChecks(db)).map((check) => [check.date, check])),
+    checks: new Map(checks.map((check) => [check.date, check])),
     statuses,
     resolutions,
   };

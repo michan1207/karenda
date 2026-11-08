@@ -608,6 +608,16 @@ describe('daily checks', () => {
     expect((await loadState(db)).checks.get('2026-10-21')).toEqual({ date: '2026-10-21', answer: null, symptoms: [] });
   });
 
+  it('estimates when PMS starts from the daily conditions', async () => {
+    const starts = ['2026-05-04', '2026-06-01', '2026-06-29', '2026-07-27', '2026-08-24', '2026-09-21'];
+    for (const start of starts) {
+      await addPeriodStart(db, start);
+      for (const n of [1, 2, 3, 4, 5]) await saveDailyCheck(db, { date: addDays(start, -n), answer: 'hard', symptoms: [] });
+      await saveDailyCheck(db, { date: addDays(start, -6), answer: 'normal', symptoms: [] });
+    }
+    expect((await loadState(db, new Date(2026, 9, 1, 12))).pms).toMatchObject({ daysBefore: 5, source: 'auto', observations: 6 });
+  });
+
   it('refuses a broken day or an unknown symptom', async () => {
     await expect(saveDailyCheck(db, { date: '2026-02-30', answer: 'hard', symptoms: [] })).rejects.toThrow();
     await expect(saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['fever' as never] })).rejects.toThrow();
