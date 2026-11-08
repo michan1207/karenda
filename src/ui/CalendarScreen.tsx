@@ -6,6 +6,7 @@ import {
   alertsByDay,
   AFTER_PERIOD_DAYS,
   computeGuard,
+  dayToCheck,
   consultReasons,
   consultText,
   DateKey,
@@ -23,6 +24,7 @@ import {
   shiftMonth,
   ZoneDay,
 } from '../engine';
+import { DailyCheckCard, DayCheck } from './DailyCheckCard';
 import { DayCell, Legend } from './DayCell';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { DigestCard } from './DigestCard';
@@ -86,6 +88,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
     guard.alerts.find((alert) => (alert.event.memberIds ?? [alert.eventId]).includes(eventId));
   const isRecorded = k.starts.includes(selected);
   const endChoice = periodEndChoice(selected, k.starts, k.ends, today);
+  const askDay = dayToCheck(today, k.checks);
   const phase = periodPhase(selected, guard.zones);
   const selectedZone = guard.zones.get(selected);
 
@@ -136,6 +139,8 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           nextMonth={() => goMonth(1)}
         />
       )}
+
+      {!hidden && askDay && <DailyCheckCard key={askDay} date={askDay} onSave={k.saveCheck} />}
 
       {!hidden && reviews.length > 0 && <ReviewCard reviews={reviews} onAnswer={k.answerReview} />}
 
@@ -268,6 +273,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         ) : (
           <Button kind="secondary" label="この日を生理の終わりの日として記録" onPress={() => k.setPeriodEnd(endChoice.start, selected)} />
         )}
+        {!hidden && selected <= today && <DayCheck key={selected} date={selected} check={k.checks.get(selected)} onSave={k.saveCheck} />}
       </Card>
 
       {phase && <MoodNotesCard phase={phase} />}

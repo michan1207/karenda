@@ -158,6 +158,17 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
   async (db) => {
     await db.execAsync('ALTER TABLE period_starts ADD COLUMN end_date TEXT');
   },
+  // 2026-11-08: その日の体調。answer が NULL なら「答えない」、symptoms は症状をカンマでつないだもの
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE daily_checks (
+        date TEXT PRIMARY KEY NOT NULL,
+        answer TEXT CHECK (answer IN ('hard', 'normal', 'easy')),
+        symptoms TEXT NOT NULL,
+        answered_at TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

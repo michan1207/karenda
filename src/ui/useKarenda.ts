@@ -25,6 +25,7 @@ import {
   recordPeriodStart,
   removeManualEvent as deleteManualEvent,
   removePeriodStart,
+  saveDailyCheck,
   setPeriodEnd as savePeriodEnd,
   removeTitleWeight,
   saveTitleWeight,
@@ -48,6 +49,7 @@ import {
   addDays,
   buildReport,
   Answer,
+  DailyCheck,
   DateKey,
   DEFAULT_KEYWORDS,
   DEFAULT_PMS,
@@ -113,6 +115,8 @@ export type Karenda = StoredState & {
   removeTitleWeight(term: string): Promise<void>;
   /** 予定のあとの「どうだった？」に答える。null は「答えない」 */
   answerReview(target: ReviewTarget, answer: Answer | null): Promise<void>;
+  /** その日の体調を残す（同じ日は書き換える）。answer が null は「答えない」 */
+  saveCheck(check: DailyCheck): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
   /** 予定の30分前にも知らせるか */
   setSoon(enabled: boolean): Promise<void>;
@@ -162,6 +166,7 @@ const INITIAL_STATE: StoredState = {
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
   reviewed: new Set(),
+  checks: new Map(),
   statuses: new Map(),
 };
 
@@ -365,6 +370,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     setTitleWeight: (entry, weight) => withDb((opened) => saveTitleWeight(opened, overrideWeight(entry, entry.label, weight))),
     removeTitleWeight: (term) => withDb((opened) => removeTitleWeight(opened, term)),
     answerReview: (target, answer) => withDb((opened) => saveReviewAnswer(opened, target, answer)),
+    saveCheck: (check) => withDb((opened) => saveDailyCheck(opened, check)),
     setNotify: async (enabled) => {
       await withDb((opened) => setNotifyEnabled(opened, enabled));
       if (enabled) await requestNotifyAccess();

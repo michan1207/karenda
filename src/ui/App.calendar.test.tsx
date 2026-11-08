@@ -1,7 +1,7 @@
 import { fakeCalendar, REGULAR, setup } from './testApp';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Linking } from 'react-native';
-import { dismissConsult, isHideMode, listPeriodStarts, loadState } from '../data';
+import { dismissConsult, isHideMode, listDailyChecks, listPeriodStarts, loadState } from '../data';
 import { MASCOT_LINES } from './mascotLines';
 
 describe('calendar', () => {
@@ -76,6 +76,7 @@ describe('calendar', () => {
     await screen.findByText(/^そろそろPMSのころかな。/);
     await fireEvent.press(screen.getByLabelText('生理の表示をかくす'));
     expect(screen.queryAllByText(/生理|PMS|予測|ころかな/)).toEqual([]);
+    expect(screen.queryAllByText(/体調/)).toEqual([]);
     expect(await isHideMode(db)).toBe(true);
     // 予定は今までどおり見られるが、重なりの説明は出さない
     await fireEvent.press(screen.getByLabelText('10月27日（火）'));
@@ -144,6 +145,43 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByText('終わりの日の記録を消す'));
     expect(await screen.findByText('この日を生理の終わりの日として記録')).toBeTruthy();
     expect((await loadState(db)).ends).toEqual(new Map());
+  });
+
+  it('asks about yesterday once when opened, with symptoms to pick, and stops asking after an answer', async () => {
+    const { db } = await setup();
+    expect(await screen.findByText('昨日（10月23日（金））の体調は？')).toBeTruthy();
+    await fireEvent.press(screen.getByText('ふつう'));
+    await fireEvent.press(screen.getByText('頭痛'));
+    await fireEvent.press(screen.getByText('眠気'));
+    await fireEvent.press(screen.getByText('記録する'));
+    await waitFor(() => expect(screen.queryByText(/の体調は？/)).toBeNull());
+    expect(await listDailyChecks(db)).toEqual([{ date: '2026-10-23', answer: 'normal', symptoms: ['headache', 'sleepy'] }]);
+  });
+
+  it('stops asking about yesterday after "答えない"', async () => {
+    const { db } = await setup();
+    await fireEvent.press(await screen.findByText('答えない'));
+    await waitFor(() => expect(screen.queryByText(/の体調は？/)).toBeNull());
+    expect(await listDailyChecks(db)).toEqual([{ date: '2026-10-23', answer: null, symptoms: [] }]);
+  });
+
+  it('records and fixes the condition of a past day picked on the calendar', async () => {
+    const { db } = await setup();
+    await fireEvent.press(await screen.findByText('答えない'));
+    await fireEvent.press(await screen.findByLabelText(/^10月20日（火）/));
+    await fireEvent.press(screen.getByText('この日の体調を記録'));
+    await fireEvent.press(screen.getByText('きつかった'));
+    await fireEvent.press(screen.getByText('おなかの痛み'));
+    await fireEvent.press(screen.getByText('記録する'));
+    expect(await screen.findByText('体調：きつかった・おなかの痛み')).toBeTruthy();
+    await fireEvent.press(screen.getByText('この日の体調を直す'));
+    await fireEvent.press(screen.getByText('元気だった'));
+    await fireEvent.press(screen.getByText('おなかの痛み'));
+    await fireEvent.press(screen.getByText('記録する'));
+    expect(await screen.findByText('体調：元気だった')).toBeTruthy();
+    expect((await listDailyChecks(db)).find((c) => c.date === '2026-10-20')).toEqual({ date: '2026-10-20', answer: 'easy', symptoms: [] });
+    await fireEvent.press(screen.getByLabelText('10月30日（金）'));
+    expect(screen.queryByText('この日の体調を記録')).toBeNull();
   });
 
   it('asks for a review once, right after the third recorded start', async () => {

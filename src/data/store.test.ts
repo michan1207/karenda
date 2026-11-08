@@ -22,6 +22,7 @@ import {
   isDismissed,
   saveConflictStatus,
   listManualEvents,
+  listDailyChecks,
   listPeriodEnds,
   listPeriodStarts,
   listPredictionRecords,
@@ -35,6 +36,7 @@ import {
   removePeriodStart,
   removeTitleWeight,
   restoreData,
+  saveDailyCheck,
   saveTitleWeight,
   setKeywords,
   setPeriodEnd,
@@ -594,6 +596,33 @@ describe('period end days', () => {
   });
 });
 
+describe('daily checks', () => {
+  it('keeps one condition per day, rewrites it, and loads it by day', async () => {
+    await saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['cramps', 'tired'] });
+    await saveDailyCheck(db, { date: '2026-10-21', answer: null, symptoms: [] });
+    await saveDailyCheck(db, { date: '2026-10-20', answer: 'normal', symptoms: [] });
+    expect(await listDailyChecks(db)).toEqual([
+      { date: '2026-10-20', answer: 'normal', symptoms: [] },
+      { date: '2026-10-21', answer: null, symptoms: [] },
+    ]);
+    expect((await loadState(db)).checks.get('2026-10-21')).toEqual({ date: '2026-10-21', answer: null, symptoms: [] });
+  });
+
+  it('refuses a broken day or an unknown symptom', async () => {
+    await expect(saveDailyCheck(db, { date: '2026-02-30', answer: 'hard', symptoms: [] })).rejects.toThrow();
+    await expect(saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['fever' as never] })).rejects.toThrow();
+  });
+
+  it('keeps the condition on this phone when restoring with keepMine, and takes the file one otherwise', async () => {
+    await saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: [] });
+    const data = { ...(await exportData(db)), dailyChecks: [{ date: '2026-10-20', answer: 'easy' as const, symptoms: [] }] };
+    await restoreData(db, data, 'keepMine');
+    expect((await listDailyChecks(db))[0].answer).toBe('hard');
+    await restoreData(db, data, 'preferFile');
+    expect((await listDailyChecks(db))[0].answer).toBe('easy');
+  });
+});
+
 describe('export and delete', () => {
   it('exports records and settings as JSON-ready data', async () => {
     await addPeriodStart(db, '2026-10-01');
@@ -611,6 +640,7 @@ describe('export and delete', () => {
       titleWeights: [],
       reviews: [],
       predictionRecords: [],
+      dailyChecks: [],
       flags: { lock: false, hide: false, notify: true, soon: true },
     });
     expect(JSON.parse(JSON.stringify(data))).toEqual(data);
@@ -630,6 +660,7 @@ describe('export and delete', () => {
     await loadState(db, new Date(2026, 9, 1, 12));
     await addManualEvent(db, { title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange' });
     await deferAlert(db, 'ev2', '2026-10-28', '2026-10-21');
+    await saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['cramps'] });
     for (const { table } of STORED_DATA) {
       expect([table, (await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`))!.n > 0]).toEqual([table, true]);
     }
@@ -773,7 +804,7 @@ describe('reading an exported file back', () => {
     await setLockEnabled(db, true);
     const before = { app: 'karenda', schemaVersion: 9, periodStarts: ['2026-09-01'], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: DEFAULT_KEYWORDS };
     const read = readExport(JSON.stringify(before));
-    expect(read).toMatchObject({ ok: true, data: { exportVersion: 0, periodEnds: [], manualEvents: [], reviews: [], flags: null } });
+    expect(read).toMatchObject({ ok: true, data: { exportVersion: 0, periodEnds: [], dailyChecks: [], manualEvents: [], reviews: [], flags: null } });
     if (!read.ok) throw new Error(read.reason);
     await restoreData(db, read.data, 'replace');
     expect(await listPeriodStarts(db)).toEqual(['2026-09-01']);
@@ -797,6 +828,7 @@ describe('reading an exported file back', () => {
     titleWeights: [],
     reviews: [{ eventId: 'manual:1', date: '2026-10-20', phase: 'pms', answer: 'hard', answeredAt: '2026-10-21T00:00:00.000Z' }],
     predictionRecords: [],
+    dailyChecks: [{ date: '2026-10-20', answer: 'hard', symptoms: ['headache', 'low'] }],
     flags: { lock: false, hide: false, notify: true, soon: true },
   };
 
@@ -820,6 +852,7 @@ describe('reading an exported file back', () => {
     ['an event with an unknown color', JSON.stringify({ ...full, manualEvents: [{ ...full.manualEvents[0], color: 'pink' }] }), 'broken'],
     ['an end day for a start that is not in the file', JSON.stringify({ ...full, periodStarts: [] }), 'broken'],
     ['an end day too far from its start', JSON.stringify({ ...full, periodEnds: [{ start: '2026-10-01', end: '2026-10-20' }] }), 'broken'],
+    ['a condition with an unknown symptom', JSON.stringify({ ...full, dailyChecks: [{ date: '2026-10-20', answer: 'hard', symptoms: ['fever'] }] }), 'broken'],
     ['an answer with an unknown time of the cycle', JSON.stringify({ ...full, reviews: [{ ...full.reviews[0], phase: 'luteal' }] }), 'broken'],
     ['a new file without its settings', JSON.stringify({ ...full, flags: undefined }), 'broken'],
     ['an impossible date', JSON.stringify({ app: 'karenda', schemaVersion: 1, periodStarts: ['2026-02-30'], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: DEFAULT_KEYWORDS }), 'broken'],

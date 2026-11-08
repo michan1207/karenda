@@ -1,6 +1,7 @@
 import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snapshotPrediction } from '../engine/accuracy';
 import { advanceStatus, ConflictState, ConflictStatus, Resolution, statusOf } from '../engine/conflictState';
 import { predictCycle } from '../engine/cycle';
+import { DailyCheck, Symptom, SYMPTOMS } from '../engine/dailyCheck';
 import { DateKey, diffDays, fromDateKey, toDateKey } from '../engine/date';
 import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
 import { Answer, learnWeight, ReviewPhase, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
@@ -163,6 +164,26 @@ export async function saveTitleWeight(db: Database, entry: TitleWeight, now: Dat
 /** 覚えた重さを忘れて、言葉の決まりに戻す */
 export async function removeTitleWeight(db: Database, term: string): Promise<void> {
   await db.runAsync('DELETE FROM title_weights WHERE term = ?', term);
+}
+
+/** その日の体調を残す（同じ日は書き換える）。answer が null は「答えない」 */
+export async function saveDailyCheck(db: Database, check: DailyCheck, now: Date = new Date()): Promise<void> {
+  fromDateKey(check.date);
+  if (!isDailyCheck(check)) throw new Error(`broken daily check: ${JSON.stringify(check)}`);
+  await db.runAsync(
+    'INSERT OR REPLACE INTO daily_checks (date, answer, symptoms, answered_at) VALUES (?, ?, ?, ?)',
+    check.date,
+    check.answer,
+    check.symptoms.join(','),
+    now.toISOString(),
+  );
+}
+
+export async function listDailyChecks(db: Database): Promise<DailyCheck[]> {
+  const rows = await db.getAllAsync<{ date: string; answer: DailyCheck['answer']; symptoms: string }>(
+    'SELECT date, answer, symptoms FROM daily_checks ORDER BY date',
+  );
+  return rows.map((row) => ({ date: row.date, answer: row.answer, symptoms: row.symptoms ? (row.symptoms.split(',') as Symptom[]) : [] }));
 }
 
 /** 答えた（答えないを選んだ）予定のID */
@@ -369,6 +390,8 @@ export type StoredState = {
   titleWeights: TitleWeight[];
   /** 「どうだった？」に答えた予定のID */
   reviewed: Set<string>;
+  /** その日の体調（日付→記録） */
+  checks: Map<DateKey, DailyCheck>;
   /** お知らせの状態（`statusOf` で読む） */
   statuses: Map<string, ConflictStatus>;
 };
@@ -416,13 +439,14 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     keywords,
     titleWeights,
     reviewed,
+    checks: new Map((await listDailyChecks(db)).map((check) => [check.date, check])),
     statuses,
     resolutions,
   };
 }
 
 /** 書き出しの形の版。表の版（SCHEMA_VERSION）とは別に、書き出しの形を変えた時だけ上げる。これを持たない前のファイルは 0 */
-export const EXPORT_VERSION = 2;
+export const EXPORT_VERSION = 3;
 
 /** このアプリだけの予定。id は、戻した時に「どうだった？」の答えを付け直すために使う */
 export type ExportedManualEvent = {
@@ -453,6 +477,8 @@ export type ExportedData = {
   titleWeights: TitleWeight[];
   reviews: ExportedReview[];
   predictionRecords: PredictionRecord[];
+  /** その日の体調。版2までのファイルには無い */
+  dailyChecks: DailyCheck[];
   /** 前のファイルには無い（戻しても今の設定のまま） */
   flags: ExportedFlags | null;
 };
@@ -477,6 +503,7 @@ export async function exportData(db: Database, now: Date = new Date()): Promise<
       'SELECT event_id AS eventId, date, phase, answer, answered_at AS answeredAt FROM event_reviews ORDER BY date, event_id',
     ),
     predictionRecords: await listPredictionRecords(db),
+    dailyChecks: await listDailyChecks(db),
     flags: { lock: await isLockEnabled(db), hide: await isHideMode(db), notify: await isNotifyEnabled(db), soon: await isSoonEnabled(db) },
   };
 }
@@ -535,6 +562,13 @@ const isPrediction = (record: Record<string, unknown>) =>
   (record.actualStart === null || isDay(record.actualStart)) &&
   (record.absErrorDays === null || isWhole(record.absErrorDays));
 
+const isDailyCheck = (check: Record<string, unknown>) =>
+  isDay(check.date) &&
+  (check.answer === null || isOneOf(['hard', 'normal', 'easy'], check.answer)) &&
+  Array.isArray(check.symptoms) &&
+  check.symptoms.every((symptom) => isOneOf(SYMPTOMS, symptom)) &&
+  new Set(check.symptoms).size === check.symptoms.length;
+
 const isFlags = (flags: unknown): flags is ExportedFlags =>
   isRecord(flags) &&
   typeof flags.lock === 'boolean' &&
@@ -559,6 +593,7 @@ export function readExport(text: string): ReadExport {
   const old = version === 0;
   const extra: Record<string, unknown> = old ? { manualEvents: [], titleWeights: [], reviews: [], predictionRecords: [] } : raw;
   const periodEnds = isWhole(version, 2) ? raw.periodEnds : [];
+  const dailyChecks = isWhole(version, 3) ? raw.dailyChecks : [];
   if (
     !isWhole(version) ||
     !Number.isInteger(schemaVersion) ||
@@ -571,6 +606,7 @@ export function readExport(text: string): ReadExport {
     !isListOf<TitleWeight>(extra.titleWeights, isTitleWeight) ||
     !isListOf<ExportedReview>(extra.reviews, isReview) ||
     !isListOf<PredictionRecord>(extra.predictionRecords, isPrediction) ||
+    !isListOf<DailyCheck>(dailyChecks, isDailyCheck) ||
     !isListOf<{ start: DateKey; end: DateKey }>(periodEnds, (e) => isDay(e.start) && isDay(e.end) && periodStarts.includes(e.start)) ||
     !periodEnds.every(({ start, end }) => diffDays(start, end) >= 1 && diffDays(start, end) < MAX_PERIOD_DAYS) ||
     !(old || isFlags(raw.flags))
@@ -599,6 +635,7 @@ export function readExport(text: string): ReadExport {
       titleWeights: extra.titleWeights,
       reviews: extra.reviews,
       predictionRecords: extra.predictionRecords,
+      dailyChecks,
       flags: old ? null : (raw.flags as ExportedFlags),
     },
   };
@@ -621,6 +658,7 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
         DELETE FROM title_weights;
         DELETE FROM event_reviews;
         DELETE FROM prediction_records;
+        DELETE FROM daily_checks;
       `);
     }
     for (const start of data.periodStarts) await addPeriodStart(db, start);
@@ -642,6 +680,15 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
       );
     }
     for (const record of data.predictionRecords) await savePrediction(db, record);
+    for (const check of data.dailyChecks) {
+      await db.runAsync(
+        `INSERT OR ${mode === 'keepMine' ? 'IGNORE' : 'REPLACE'} INTO daily_checks (date, answer, symptoms, answered_at) VALUES (?, ?, ?, ?)`,
+        check.date,
+        check.answer,
+        check.symptoms.join(','),
+        data.exportedAt,
+      );
+    }
     for (const entry of data.titleWeights) {
       await db.runAsync(
         `INSERT OR ${mode === 'keepMine' ? 'IGNORE' : 'REPLACE'} INTO title_weights (term, label, weight, source, observations, lean, updated_at)
