@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
-import { Text } from './components';
+import { Chip, Input, Text } from './components';
 import { fonts } from './theme';
 
 it('uses the bundled rounded font and picks the bold face for heavy text', async () => {
@@ -17,4 +17,26 @@ it('uses the bundled rounded font and picks the bold face for heavy text', async
     fontWeight: 'normal',
     fontSize: 14,
   });
+});
+
+it('gives every input the same field look and lets a screen add to it', async () => {
+  await render(<Input accessibilityLabel="欄" placeholder="入れる" style={{ flex: 1 }} />);
+  const field = screen.getByLabelText('欄');
+  expect(StyleSheet.flatten(field.props.style)).toMatchObject({ fontFamily: fonts.regular, fontSize: 15, borderWidth: 1, flex: 1 });
+  expect(field.props.placeholderTextColor).toBeTruthy();
+});
+
+it('makes a picked chip bold and pink, and keeps one-tap chips unpicked', async () => {
+  await render(
+    <>
+      <Chip label="選んだ" selected onPress={() => {}} />
+      <Chip label="選ばない" selected={false} onPress={() => {}} />
+      <Chip label="1回押し" onPress={() => {}} />
+    </>,
+  );
+  const face = (label: string) => StyleSheet.flatten(screen.getByText(label).props.style).fontFamily;
+  expect(face('選んだ')).toBe(fonts.bold);
+  expect(face('選ばない')).toBe(fonts.regular);
+  expect(screen.getByRole('button', { name: '選んだ', selected: true })).toBeTruthy();
+  expect(screen.getByRole('button', { name: '1回押し' }).props.accessibilityState?.selected).toBeUndefined();
 });

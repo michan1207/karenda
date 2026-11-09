@@ -132,6 +132,11 @@ describe('calendar', () => {
     expect(await screen.findByText(/28日周期を仮定した仮の予測/)).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual(['2026-10-20']);
     await fireEvent.press(screen.getByText('この日の記録を消す'));
+    expect(screen.getByText('10月20日（火）の記録を消します。予測も変わります。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('やめる'));
+    expect(await listPeriodStarts(db)).toEqual(['2026-10-20']);
+    await fireEvent.press(screen.getByText('この日の記録を消す'));
+    await fireEvent.press(screen.getByText('記録を消す'));
     expect(await screen.findByText('この日を生理開始日として記録')).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual([]);
   });
@@ -232,6 +237,7 @@ describe('calendar', () => {
     expect(await screen.findByText('この日の記録を消す')).toBeTruthy();
     expect(askReview).toHaveBeenCalledTimes(1);
     await fireEvent.press(screen.getByText('この日の記録を消す'));
+    await fireEvent.press(screen.getByText('記録を消す'));
     await fireEvent.press(await screen.findByText('この日を生理開始日として記録'));
     expect(await screen.findByText('この日の記録を消す')).toBeTruthy();
     expect(askReview).toHaveBeenCalledTimes(1);
@@ -293,8 +299,25 @@ describe('calendar', () => {
     expect((await loadState(db)).manualEvents).toMatchObject([{ title: '発表', color: 'green', startMinutes: 840, durationMinutes: 90 }]);
 
     await fireEvent.press(screen.getByText('「発表」を消す'));
+    expect(screen.getByText('「発表」を消します。元に戻せません。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('やめる'));
+    expect((await loadState(db)).manualEvents).toHaveLength(1);
+    await fireEvent.press(screen.getByText('「発表」を消す'));
+    await fireEvent.press(screen.getByText('予定を消す'));
     await waitFor(() => expect(screen.queryByText('このアプリだけ')).toBeNull());
     expect((await loadState(db)).manualEvents).toEqual([]);
+  });
+
+  it('closes the form without keeping what was typed when cancelled', async () => {
+    const { db } = await setup({ calendar: fakeCalendar(false) });
+    await fireEvent.press(await screen.findByLabelText('10月14日（水）'));
+    await fireEvent.press(screen.getByText('この日に予定を入れる'));
+    await fireEvent.changeText(screen.getByLabelText('10月14日（水）に入れる予定の名前'), '会議');
+    await fireEvent.press(screen.getByText('やめる'));
+    expect(screen.queryByLabelText('10月14日（水）に入れる予定の名前')).toBeNull();
+    expect((await loadState(db)).manualEvents).toEqual([]);
+    await fireEvent.press(screen.getByText('この日に予定を入れる'));
+    expect(screen.getByLabelText('10月14日（水）に入れる予定の名前').props.value).toBe('');
   });
 
   it('judges an event put in this app with the words in the settings, and follows them when they change', async () => {

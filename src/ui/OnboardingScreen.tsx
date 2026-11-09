@@ -7,6 +7,7 @@ import { DateKey, fromDateKey, predictCycle, predictedPeriod, toDateKey } from '
 import { Button, Card, Decorations, Heart, Mascot, MASCOT_NAME, Ribbon, Text } from './components';
 import { dayTitle, predictionLines } from './format';
 import { useColors } from './theme';
+import { useBackButton } from './useBackButton';
 import type { Karenda } from './useKarenda';
 
 const STEPS = 5;
@@ -20,6 +21,7 @@ export function OnboardingScreen({ k, today }: { k: Karenda; today: DateKey }) {
   const [step, setStep] = useState(0);
   const [day, setDay] = useState(today);
   const next = () => setStep((current) => current + 1);
+  useBackButton(step > 0, () => setStep(step - 1));
   const prediction = predictCycle(k.starts);
 
   return (

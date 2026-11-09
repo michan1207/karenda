@@ -129,6 +129,17 @@ describe('settings', () => {
     expect(await screen.findByText('まだありません。')).toBeTruthy();
   });
 
+  it('reads a stepper as one adjustable value and stops at its limits', async () => {
+    const { db } = await openSettings();
+    const stepper = screen.getByLabelText('生理ヘビー期');
+    expect(stepper.props.accessibilityRole).toBe('adjustable');
+    expect(stepper.props.accessibilityValue).toEqual({ text: '3日間' });
+    await fireEvent(stepper, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    expect((await getZoneSettings(db)).heavyDays).toBe(4);
+    await fireEvent(screen.getByLabelText('生理ヘビー期'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+    expect((await getZoneSettings(db)).heavyDays).toBe(3);
+  });
+
   it('records when the pill was started and stopped, notes it on the calendar, and forgets a period', async () => {
     const { db } = await openSettings();
     // ピルの欄が先、月経移動の欄が後
@@ -186,6 +197,11 @@ describe('settings', () => {
     const { db } = await openSettings();
     expect(screen.getByText('9月28日（月）〜')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('9月28日（月）の記録を消す'));
+    expect(screen.getByText('9月28日（月）の記録を消します。予測も変わります。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('やめる'));
+    expect(await listPeriodStarts(db)).toEqual(REGULAR);
+    await fireEvent.press(screen.getByLabelText('9月28日（月）の記録を消す'));
+    await fireEvent.press(screen.getByText('記録を消す'));
     expect(await listPeriodStarts(db)).toEqual(REGULAR.slice(0, 3));
   });
 
@@ -248,6 +264,9 @@ describe('settings', () => {
     await fireEvent.changeText(await screen.findByLabelText('バックアップのパスワード'), 'pass-1234');
     await fireEvent.press(screen.getByText('開く'));
     await fireEvent.press(await screen.findByText('ファイルの内容に置き換える'));
+    expect(screen.getByText('今の記録を消して置き換えます。元に戻せません。')).toBeTruthy();
+    expect(await listPeriodStarts(db)).toEqual(REGULAR);
+    await fireEvent.press(screen.getByText('置き換える'));
     expect(await screen.findByText(/戻しました/)).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual(['2026-05-01']);
     expect(await getZoneSettings(db)).toEqual({ heavyDays: 5, pmsDays: 10 });

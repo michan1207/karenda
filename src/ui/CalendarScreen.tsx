@@ -31,7 +31,7 @@ import {
 } from '../engine';
 import { DailyCheckCard, DayCheck } from './DailyCheckCard';
 import { DayCell, Legend, MedicineMark } from './DayCell';
-import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
+import { AlertMark, Button, Card, Confirm, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { DigestCard } from './DigestCard';
 import { dayTitle, gradeLabel, predictionLines, riskLabel, timeRange, titleOf, WEEKDAYS, zoneLabel } from './format';
 import { ManualEventForm } from './ManualEventForm';
@@ -260,7 +260,12 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                   {[riskLabel(classifyRisk(event, k.keywords)), timeRange(event)].filter(Boolean).join('・')}
                 </Text>
                 {event.manual && (
-                  <Button kind="danger" label={`「${event.title}」を消す`} onPress={() => k.removeManualEvent(event.id)} />
+                  <Confirm
+                    message={`「${event.title}」を消します。元に戻せません。`}
+                    label="予定を消す"
+                    onConfirm={() => k.removeManualEvent(event.id)}
+                    trigger={(ask) => <Button kind="danger" label={`「${event.title}」を消す`} onPress={ask} />}
+                  />
                 )}
                 {note ? (
                   <Text style={[styles.detailText, { color: colors.text }]}>{note}</Text>
@@ -283,7 +288,13 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         />
         {hidden ? null : isRecorded ? (
           <>
-            <Button kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
+            <Confirm
+              key={selected}
+              message={`${dayTitle(selected)}の記録を消します。予測も変わります。`}
+              label="記録を消す"
+              onConfirm={() => k.removeStart(selected)}
+              trigger={(ask) => <Button kind="secondary" label="この日の記録を消す" onPress={ask} />}
+            />
             {afterShiftMedicine(selected, k.notes) ? (
               <Text style={[styles.detailText, { color: colors.muted }]}>
                 月経移動の薬のあとの生理です。前の生理からの日数は、予測に使っていません。
@@ -350,8 +361,8 @@ const styles = StyleSheet.create({
   detailText: { fontSize: 14, lineHeight: 21 },
   zoneBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 3 },
   eventRow: { gap: 2 },
-  eventHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  eventTitle: { fontSize: 15, fontWeight: '600' },
+  eventHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  eventTitle: { fontSize: 15, fontWeight: '600', flexShrink: 1 },
   manualLabel: { fontSize: 12 },
   eventDot: { width: 10, height: 10, borderRadius: 5 },
   footnote: { fontSize: 12, textAlign: 'center', marginTop: 8 },
