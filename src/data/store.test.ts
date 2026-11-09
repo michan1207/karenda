@@ -310,6 +310,10 @@ describe('events put in this app only', () => {
         durationMinutes: 90,
       },
     ]);
+    // おまかせは weight を持たない（設定の言葉・覚えた重さで決まる）
+    await addManualEvent(db, { title: 'ヨガ', date: '2026-10-28', weight: null, color: 'green' });
+    expect((await listManualEvents(db)).at(-1)).toEqual({ id: 'manual:3', title: 'ヨガ', start: '2026-10-28', end: '2026-10-28', allDay: false, manual: true, color: 'green' });
+    await removeManualEvent(db, 'manual:3');
     // カレンダーの予定のIDでは消さない
     await removeManualEvent(db, '2');
     await removeManualEvent(db, 'manual:2');
@@ -365,6 +369,8 @@ describe('dismissed alerts', () => {
         ('talk', '2026-11-02', 'acknowledged', NULL, '2026-10-21T00:00:00.000Z');
       CREATE TABLE deferred_alerts (event_id TEXT NOT NULL, date TEXT NOT NULL, remind_on TEXT NOT NULL, PRIMARY KEY (event_id, date));
       INSERT INTO deferred_alerts VALUES ('talk', '2026-11-03', '2026-10-23'), ('talk', '2026-11-02', '2026-10-22');
+      CREATE TABLE manual_events (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, date TEXT NOT NULL, weight TEXT NOT NULL CHECK (weight IN ('heavy', 'normal')), start_minutes INTEGER, duration_minutes INTEGER, color TEXT NOT NULL DEFAULT 'blue');
+      INSERT INTO manual_events (title, date, weight, color) VALUES ('ヨガ', '2026-10-30', 'normal', 'green');
       PRAGMA user_version = 9;
     `);
     await migrate(old);
@@ -375,6 +381,8 @@ describe('dismissed alerts', () => {
       ]),
     );
     expect(await listDeferrals(old)).toEqual(new Map([['talk', '2026-10-22']]));
+    // 入れた時に選んだ重さは、おまかせにできるよう表を作り直した後も残る
+    expect(await listManualEvents(old)).toMatchObject([{ id: 'manual:1', title: 'ヨガ', weight: 'normal', color: 'green' }]);
   });
 
   it('keeps alerts closed with the old "わかった" as acknowledged after updating', async () => {
@@ -827,6 +835,8 @@ describe('reading an exported file back', () => {
     await setKeywords(db, { high: ['ヨガ'], medium: ['会議'] });
     await addManualEvent(db, { title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange', startMinutes: 600, durationMinutes: 90 });
     await addManualEvent(db, { title: '通院', date: '2026-10-22', weight: 'normal', color: 'blue' });
+    // おまかせ（重さを選んでいない）も、おまかせのまま戻る
+    await addManualEvent(db, { title: 'ヨガ', date: '2026-10-25', weight: null, color: 'green' });
     const review = { eventId: 'manual:2', title: '通院', date: '2026-10-22', phase: 'pms' as const, risk: 'medium' as const };
     await answerReview(db, review, 'hard', new Date('2026-10-23T00:00:00Z'));
     await saveTitleWeight(db, overrideWeight(learnWeight(undefined, '役員会議', 'hard', 'pms'), '役員会議', 'normal'));

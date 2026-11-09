@@ -5,6 +5,7 @@ import {
   addDays,
   alertsByDay,
   AFTER_PERIOD_DAYS,
+  classifyRisk,
   computeGuard,
   dayToCheck,
   consultReasons,
@@ -32,7 +33,7 @@ import { DailyCheckCard, DayCheck } from './DailyCheckCard';
 import { DayCell, Legend, MedicineMark } from './DayCell';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { DigestCard } from './DigestCard';
-import { dayTitle, gradeLabel, predictionLines, timeRange, titleOf, WEEKDAYS, zoneLabel } from './format';
+import { dayTitle, gradeLabel, predictionLines, riskLabel, timeRange, titleOf, WEEKDAYS, zoneLabel } from './format';
 import { ManualEventForm } from './ManualEventForm';
 import { mascotLine } from './mascotLines';
 import { MoodNotesCard } from './MoodNotesCard';
@@ -254,7 +255,10 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                     </Text>
                   )}
                 </View>
-                {timeRange(event) && <Text style={[styles.detailText, { color: colors.muted }]}>{timeRange(event)}</Text>}
+                {/* 重なりの印と同じ判定（設定の言葉・覚えた重さ・入れた時の重さ）で、予定の重さを見せる */}
+                <Text style={[styles.detailText, { color: colors.muted }]}>
+                  {[riskLabel(classifyRisk(event, k.keywords)), timeRange(event)].filter(Boolean).join('・')}
+                </Text>
                 {event.manual && (
                   <Button kind="danger" label={`「${event.title}」を消す`} onPress={() => k.removeManualEvent(event.id)} />
                 )}
@@ -274,6 +278,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         <ManualEventForm
           day={selected}
           events={k.manualEvents}
+          keywords={k.keywords}
           onAdd={(event) => k.addManualEvent({ ...event, date: selected })}
         />
         {hidden ? null : isRecorded ? (

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
-import { CalendarEvent, DateKey, EVENT_COLORS, EventColor, normalizeTitle, Weight } from '../engine';
+import { CalendarEvent, classifyRisk, DateKey, EVENT_COLORS, EventColor, normalizeTitle, RiskKeywords, Weight } from '../engine';
 import type { ManualEventInput } from '../data';
 import { Button, Text } from './components';
-import { dayTitle } from './format';
+import { dayTitle, riskLabel } from './format';
 import { fonts, radius, useColors } from './theme';
 import { TimeField } from './TimeField';
 
@@ -21,17 +21,20 @@ const COLOR_NAMES: Record<EventColor, string> = {
 export function ManualEventForm({
   day,
   events,
+  keywords,
   onAdd,
 }: {
   day: DateKey;
   /** 入れてある予定。同じ名前の予定は、前に選んだ色を使う（「会議」はあお、など） */
   events: CalendarEvent[];
+  /** 「おまかせ」の時に、今の名前がどの重さになるかを見せる */
+  keywords: RiskKeywords;
   onAdd: (event: Omit<ManualEventInput, 'date'>) => void;
 }) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const [weight, setWeight] = useState<Weight>('heavy');
+  const [weight, setWeight] = useState<Weight | null>(null);
   const [picked, setPicked] = useState<EventColor | null>(null);
   const [timed, setTimed] = useState(false);
   const [start, setStart] = useState(10 * 60);
@@ -68,12 +71,13 @@ export function ManualEventForm({
       <View style={styles.reviewChips}>
         {(
           [
+            [null, 'おまかせ'],
             ['heavy', '重い予定'],
             ['normal', 'ふつうの予定'],
           ] as const
         ).map(([value, label]) => (
           <Pressable
-            key={value}
+            key={label}
             accessibilityRole="button"
             accessibilityState={{ selected: weight === value }}
             onPress={() => setWeight(value)}
@@ -86,6 +90,13 @@ export function ManualEventForm({
           </Pressable>
         ))}
       </View>
+      {weight === null && (
+        <Text style={[styles.reviewHelp, { color: colors.muted }]}>
+          {title.trim()
+            ? `設定の「予定の重さを決める言葉」で決めます。今は「${riskLabel(classifyRisk({ title, allDay: false }, keywords))}」です。`
+            : '設定の「予定の重さを決める言葉」で決めます。'}
+        </Text>
+      )}
       <View style={styles.timeRow}>
         <Text style={[styles.detailText, { color: colors.text }]}>時間を入れる</Text>
         <Switch

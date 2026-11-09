@@ -272,7 +272,7 @@ export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
     id: number;
     title: string;
     date: string;
-    weight: Weight;
+    weight: Weight | null;
     color: EventColor;
     start_minutes: number | null;
     duration_minutes: number | null;
@@ -284,7 +284,7 @@ export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
     end: row.date,
     allDay: false,
     manual: true,
-    weight: row.weight,
+    ...(row.weight ? { weight: row.weight } : {}),
     color: row.color,
     ...(row.start_minutes === null ? {} : { startMinutes: row.start_minutes }),
     ...(row.duration_minutes === null ? {} : { durationMinutes: row.duration_minutes }),
@@ -294,7 +294,8 @@ export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
 export type ManualEventInput = {
   title: string;
   date: DateKey;
-  weight: Weight;
+  /** null は「おまかせ」。設定の言葉・覚えた重さで決める */
+  weight: Weight | null;
   color: EventColor;
   /** 時刻を入れる時だけ。0時からの分 */
   startMinutes?: number;
@@ -505,14 +506,14 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
 }
 
 /** 書き出しの形の版。表の版（SCHEMA_VERSION）とは別に、書き出しの形を変えた時だけ上げる。これを持たない前のファイルは 0 */
-export const EXPORT_VERSION = 6;
+export const EXPORT_VERSION = 7;
 
 /** このアプリだけの予定。id は、戻した時に「どうだった？」の答えを付け直すために使う */
 export type ExportedManualEvent = {
   id: string;
   title: string;
   date: DateKey;
-  weight: Weight;
+  weight: Weight | null;
   color: EventColor;
   startMinutes: number | null;
   durationMinutes: number | null;
@@ -600,7 +601,7 @@ const isManualEvent = (event: Record<string, unknown>) =>
   typeof event.title === 'string' &&
   event.title.trim() !== '' &&
   isDay(event.date) &&
-  isOneOf(['heavy', 'normal'], event.weight) &&
+  (event.weight === null || isOneOf(['heavy', 'normal'], event.weight)) &&
   isOneOf(EVENT_COLORS, event.color) &&
   (event.startMinutes === null || isWhole(event.startMinutes, 0, 24 * 60 - 1)) &&
   (event.durationMinutes === null || isWhole(event.durationMinutes, 1, 24 * 60));

@@ -181,6 +181,24 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
   async (db) => {
     await db.execAsync('CREATE TABLE shift_periods (start TEXT PRIMARY KEY NOT NULL, end_date TEXT)');
   },
+  // 2026-11-09: このアプリに入れた予定の重さを「おまかせ」（NULL＝設定の言葉で決める）にできるようにする。SQLite は NOT NULL を外せないので作り直す
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE manual_events_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        date TEXT NOT NULL,
+        weight TEXT CHECK (weight IN ('heavy', 'normal')),
+        start_minutes INTEGER,
+        duration_minutes INTEGER,
+        color TEXT NOT NULL DEFAULT 'blue' CHECK (color IN ('blue', 'green', 'orange', 'purple', 'yellow', 'gray'))
+      );
+      INSERT INTO manual_events_new (id, title, date, weight, start_minutes, duration_minutes, color)
+        SELECT id, title, date, weight, start_minutes, duration_minutes, color FROM manual_events;
+      DROP TABLE manual_events;
+      ALTER TABLE manual_events_new RENAME TO manual_events;
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

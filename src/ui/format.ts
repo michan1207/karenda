@@ -1,4 +1,4 @@
-import { CalendarEvent, CyclePrediction, DateKey, fromDateKey, Grade, PredictedPeriod, ZoneDay } from '../engine';
+import { CalendarEvent, CyclePrediction, DateKey, fromDateKey, Grade, PredictedPeriod, Risk, ZoneDay } from '../engine';
 
 export const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日'];
 
@@ -20,6 +20,9 @@ export function zoneLabel(zone: ZoneDay | undefined): string {
 }
 
 export const gradeLabel = (grade: Exclude<Grade, 'C'>) => (grade === 'A' ? 'A 要注意' : 'B 注意');
+
+/** 予定の重さの呼び方。設定の言葉と同じ「重い予定」「ふつうの予定」にそろえる */
+export const riskLabel = (risk: Risk) => (risk === 'high' ? '重い予定' : risk === 'medium' ? 'ふつうの予定' : '軽い予定');
 
 export const titleOf = (title: string) => title || '（タイトルなし）';
 

@@ -287,7 +287,7 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByLabelText('色をみどりにする'));
     await fireEvent.press(screen.getByText('入れる'));
     expect(await screen.findByText('このアプリだけ')).toBeTruthy();
-    expect(screen.getByText('14:00〜15:30')).toBeTruthy();
+    expect(screen.getByText('重い予定・14:00〜15:30')).toBeTruthy();
     expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
     expect(calendar.getEvents).not.toHaveBeenCalled();
     expect((await loadState(db)).manualEvents).toMatchObject([{ title: '発表', color: 'green', startMinutes: 840, durationMinutes: 90 }]);
@@ -295,6 +295,28 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByText('「発表」を消す'));
     await waitFor(() => expect(screen.queryByText('このアプリだけ')).toBeNull());
     expect((await loadState(db)).manualEvents).toEqual([]);
+  });
+
+  it('judges an event put in this app with the words in the settings, and follows them when they change', async () => {
+    await setup({ calendar: fakeCalendar(false) });
+    await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）'));
+    await fireEvent.press(screen.getByText('この日に予定を入れる'));
+    await fireEvent.changeText(screen.getByLabelText('10月27日（火）に入れる予定の名前'), 'ヨガ');
+    // 重さは選ばない（おまかせ）。今の言葉では重くない
+    expect(screen.getByText('設定の「予定の重さを決める言葉」で決めます。今は「軽い予定」です。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('入れる'));
+    expect(await screen.findByText('軽い予定')).toBeTruthy();
+    expect(screen.queryByText(/^お知らせ（/)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('tab', { name: '設定' }));
+    await fireEvent.changeText(await screen.findByLabelText('重い予定に言葉を追加'), 'ヨガ');
+    await fireEvent.press(screen.getByLabelText('重い予定に追加'));
+    await screen.findByLabelText('「ヨガ」を重い予定から外す');
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
+    await fireEvent.press(await screen.findByLabelText(/^10月27日（火）、生理2日目（予測）、予定と重なっています/));
+    expect(await screen.findByText('重い予定')).toBeTruthy();
+    expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
   });
 
   it('shows the color of an event put in this app on the day, and reuses it for the same name', async () => {
