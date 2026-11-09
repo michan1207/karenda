@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { Image, Platform, Pressable, Text as BaseText, StyleProp, StyleSheet, TextProps, View, ViewStyle } from 'react-native';
+import { ReactNode, useState } from 'react';
+import { Image, Platform, Pressable, Text as BaseText, StyleProp, StyleSheet, TextInput, TextInputProps, TextProps, View, ViewStyle } from 'react-native';
 
 import { fonts, radius, useColors } from './theme';
 
@@ -8,6 +8,18 @@ export function Text({ style, ...props }: TextProps) {
   const weight = StyleSheet.flatten(style)?.fontWeight;
   const bold = weight === '600' || weight === '700' || weight === 'bold';
   return <BaseText {...props} style={[style, { fontFamily: bold ? fonts.bold : fonts.regular, fontWeight: 'normal' }]} />;
+}
+
+/** 文字を入れる欄。入力欄はすべてこれを通す */
+export function Input({ style, ...props }: TextInputProps) {
+  const colors = useColors();
+  return (
+    <TextInput
+      placeholderTextColor={colors.muted}
+      {...props}
+      style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }, style]}
+    />
+  );
 }
 
 /** 白い地・ピンクの枠・大きな角丸・やわらかい影のカード。カード状のものはすべてこれを通す */
@@ -239,6 +251,77 @@ export function Button({
   );
 }
 
+/**
+ * 小さな丸いボタン。selected を渡すと選ぶチップ（選ぶと太字）、渡さないと1回押しのチップ。
+ * tone は枠の色、soft は淡いピンクの地
+ */
+export function Chip({
+  label,
+  onPress,
+  selected,
+  tone,
+  soft = false,
+  accessibilityLabel,
+}: {
+  label: string;
+  onPress: () => void;
+  selected?: boolean;
+  tone?: string;
+  soft?: boolean;
+  accessibilityLabel?: string;
+}) {
+  const colors = useColors();
+  const pink = selected || soft;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      hitSlop={4}
+      style={[
+        styles.chip,
+        { borderColor: soft ? colors.pinkSoft : selected ? colors.pink : (tone ?? colors.line) },
+        // 1回押しのチップは、色つきのカードの上でもカードの色のまま
+        pink ? { backgroundColor: colors.pinkSoft } : selected === false && { backgroundColor: colors.surface },
+      ]}
+    >
+      <Text style={[styles.chipText, { color: pink ? colors.pinkText : colors.text }, selected && styles.chipSelected]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** 消す操作の前に、その場でもう一度聞く。trigger は押す前の見た目で、渡された ask を押すと聞き始める */
+export function Confirm({
+  trigger,
+  message,
+  label,
+  onConfirm,
+}: {
+  trigger: (ask: () => void) => ReactNode;
+  message: string;
+  label: string;
+  onConfirm: () => void;
+}) {
+  const colors = useColors();
+  const [asking, setAsking] = useState(false);
+  if (!asking) return trigger(() => setAsking(true));
+  return (
+    <View style={styles.confirm}>
+      <Text style={[styles.confirmText, { color: colors.text }]}>{message}</Text>
+      <Button
+        kind="danger"
+        label={label}
+        onPress={() => {
+          setAsking(false);
+          onConfirm();
+        }}
+      />
+      <Button kind="secondary" label="やめる" onPress={() => setAsking(false)} />
+    </View>
+  );
+}
+
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card>
@@ -284,4 +367,17 @@ export const styles = StyleSheet.create({
   linkLabel: { fontSize: 15, fontWeight: '600' },
   button: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 2, alignItems: 'center' },
   buttonLabel: { fontSize: 16, fontWeight: '600' },
+  chip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  chipText: { fontSize: 13 },
+  chipSelected: { fontWeight: '700' },
+  confirm: { gap: 8 },
+  confirmText: { fontSize: 13, lineHeight: 19 },
+  input: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontFamily: fonts.regular,
+  },
 });

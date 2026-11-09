@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import {
   AccuracyReport,
@@ -19,16 +19,15 @@ import {
 } from '../engine';
 import { CALENDAR_NOTE, NOTIFY_HOUR, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import { BackupPanel } from './BackupPanel';
-import { BIOMETRIC, Button, Decorations, Notice, PASSCODE, Ribbon, Section, Text } from './components';
+import { BIOMETRIC, Button, Chip, Confirm, Decorations, Input, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
-import { fonts, radius, useColors } from './theme';
+import { radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
 type Props = { k: Karenda; today: DateKey };
 
 export function SettingsScreen({ k, today }: Props) {
   const colors = useColors();
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const learned = k.titleWeights.filter((entry) => entry.weight);
   const { n, meanAbsErrorDays: mean, within1DayRate: rate, latest } = k.accuracy;
   const excluded = predictCycle(k.starts)?.excluded ?? [];
@@ -144,24 +143,12 @@ export function SettingsScreen({ k, today }: Props) {
             {([false, true] as const).map((manual) => {
               const selected = (k.pms.source === 'manual') === manual;
               return (
-                <Pressable
+                <Chip
                   key={String(manual)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
+                  label={manual ? '手動で指定' : '自動（推定）'}
+                  selected={selected}
                   onPress={() => !selected && k.setPmsManual(manual)}
-                  hitSlop={4}
-                  style={[
-                    styles.chip,
-                    styles.choice,
-                    selected
-                      ? { borderColor: colors.pink, backgroundColor: colors.pinkSoft }
-                      : { borderColor: colors.line, backgroundColor: colors.surface },
-                  ]}
-                >
-                  <Text style={[styles.chipText, { color: selected ? colors.pinkText : colors.muted }]}>
-                    {manual ? '手動で指定' : '自動（推定）'}
-                  </Text>
-                </Pressable>
+                />
               );
             })}
           </View>
@@ -211,14 +198,12 @@ export function SettingsScreen({ k, today }: Props) {
                     {entry.source === 'user' ? '自分で決めた' : `${entry.observations}回の答えから`}
                   </Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
+                <Chip
+                  soft
+                  label={now}
                   accessibilityLabel={`「${entry.label}」は${now}。押すと${next === 'heavy' ? '重い' : 'ふつう'}にする`}
                   onPress={() => k.setTitleWeight(entry, next)}
-                  style={[styles.chip, { backgroundColor: colors.pinkSoft }]}
-                >
-                  <Text style={[styles.chipText, { color: colors.pinkText }]}>{now}</Text>
-                </Pressable>
+                />
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`「${entry.label}」の重さを忘れる`}
@@ -238,17 +223,20 @@ export function SettingsScreen({ k, today }: Props) {
           <Text style={[styles.help, { color: colors.muted }]}>まだ記録がありません。カレンダーで日付を選んで記録できます。</Text>
         ) : (
           [...k.starts].reverse().map((start) => (
-            <View key={start} style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>{dayTitle(start)}〜</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${dayTitle(start)}の記録を消す`}
-                onPress={() => k.removeStart(start)}
-                hitSlop={8}
-              >
-                <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
-              </Pressable>
-            </View>
+            <Confirm
+              key={start}
+              message={`${dayTitle(start)}の記録を消します。予測も変わります。`}
+              label="記録を消す"
+              onConfirm={() => k.removeStart(start)}
+              trigger={(ask) => (
+                <View style={styles.row}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>{dayTitle(start)}〜</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`${dayTitle(start)}の記録を消す`} onPress={ask} hitSlop={8}>
+                    <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
+                  </Pressable>
+                </View>
+              )}
+            />
           ))
         )}
       </Section>
@@ -359,24 +347,12 @@ export function SettingsScreen({ k, today }: Props) {
       <Section title="データ">
         <Text style={[styles.help, { color: colors.muted }]}>データはこの端末の中だけに保存しています。</Text>
         <BackupPanel k={k} today={today} />
-        {confirmDelete ? (
-          <View style={styles.confirm}>
-            <Text style={[styles.help, { color: colors.text }]}>
-              記録・設定・閉じたお知らせをすべて消します。元に戻せません。
-            </Text>
-            <Button
-              kind="danger"
-              label="すべて削除する"
-              onPress={async () => {
-                setConfirmDelete(false);
-                await k.deleteAll();
-              }}
-            />
-            <Button kind="secondary" label="やめる" onPress={() => setConfirmDelete(false)} />
-          </View>
-        ) : (
-          <Button kind="danger" label="すべてのデータを削除" onPress={() => setConfirmDelete(true)} />
-        )}
+        <Confirm
+          message="記録・設定・閉じたお知らせをすべて消します。元に戻せません。"
+          label="すべて削除する"
+          onConfirm={k.deleteAll}
+          trigger={(ask) => <Button kind="danger" label="すべてのデータを削除" onPress={ask} />}
+        />
       </Section>
     </ScrollView>
   );
@@ -416,7 +392,16 @@ function Stepper({
   const colors = useColors();
   const step = (delta: number) => onChange(Math.min(max, Math.max(min, value + delta)));
   return (
-    <View style={styles.row}>
+    // 読み上げでは1つのまとまりにして、今の値を読み、上下のスワイプで増減する
+    <View
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ text: `${value}${unit}` }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={({ nativeEvent }) => step(nativeEvent.actionName === 'increment' ? 1 : -1)}
+      style={styles.row}
+    >
       <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
       <View style={styles.stepper}>
         <Pressable
@@ -480,27 +465,24 @@ function KeywordList({
       <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
       <View style={styles.chips}>
         {words.map((word) => (
-          <Pressable
+          <Chip
             key={word}
-            accessibilityRole="button"
+            soft
+            label={`${word} ×`}
             accessibilityLabel={`「${word}」を${label}から外す`}
             onPress={() => onChange({ ...keywords, [level]: words.filter((existing) => existing !== word) })}
-            style={[styles.chip, { backgroundColor: colors.pinkSoft }]}
-          >
-            <Text style={[styles.chipText, { color: colors.pinkText }]}>{word} ×</Text>
-          </Pressable>
+          />
         ))}
       </View>
       <View style={styles.addRow}>
-        <TextInput
+        <Input
           accessibilityLabel={`${label}に言葉を追加`}
           value={draft}
           onChangeText={setDraft}
           onSubmitEditing={add}
           placeholder="言葉を追加"
-          placeholderTextColor={colors.muted}
           returnKeyType="done"
-          style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
+          style={styles.addInput}
         />
         <Pressable accessibilityRole="button" accessibilityLabel={`${label}に追加`} onPress={add} hitSlop={8}>
           <Text style={[styles.addLabel, { color: colors.pinkText }]}>追加</Text>
@@ -523,20 +505,8 @@ const styles = StyleSheet.create({
   stepText: { fontSize: 20, fontWeight: '700' },
   stepValue: { fontSize: 15, minWidth: 48, textAlign: 'center' },
   keywordBlock: { gap: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  choice: { borderWidth: 1 },
-  chip: { borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
-  chipText: { fontSize: 13 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flexShrink: 1 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    fontFamily: fonts.regular,
-  },
+  addInput: { flex: 1 },
   addLabel: { fontSize: 15, fontWeight: '600' },
-  confirm: { gap: 8 },
 });

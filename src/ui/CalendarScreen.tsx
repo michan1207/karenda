@@ -23,7 +23,7 @@ import {
   ZoneDay,
 } from '../engine';
 import { DayCell, Legend } from './DayCell';
-import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
+import { AlertMark, Button, Card, Confirm, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { DigestCard } from './DigestCard';
 import { dayTitle, gradeLabel, predictionLines, timeRange, titleOf, WEEKDAYS, zoneLabel } from './format';
 import { ManualEventForm } from './ManualEventForm';
@@ -235,7 +235,12 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                 </View>
                 {timeRange(event) && <Text style={[styles.detailText, { color: colors.muted }]}>{timeRange(event)}</Text>}
                 {event.manual && (
-                  <Button kind="danger" label={`「${event.title}」を消す`} onPress={() => k.removeManualEvent(event.id)} />
+                  <Confirm
+                    message={`「${event.title}」を消します。元に戻せません。`}
+                    label="予定を消す"
+                    onConfirm={() => k.removeManualEvent(event.id)}
+                    trigger={(ask) => <Button kind="danger" label={`「${event.title}」を消す`} onPress={ask} />}
+                  />
                 )}
                 {note ? (
                   <Text style={[styles.detailText, { color: colors.text }]}>{note}</Text>
@@ -256,7 +261,13 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           onAdd={(event) => k.addManualEvent({ ...event, date: selected })}
         />
         {hidden ? null : isRecorded ? (
-          <Button kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
+          <Confirm
+            key={selected}
+            message={`${dayTitle(selected)}の記録を消します。予測も変わります。`}
+            label="記録を消す"
+            onConfirm={() => k.removeStart(selected)}
+            trigger={(ask) => <Button kind="secondary" label="この日の記録を消す" onPress={ask} />}
+          />
         ) : selected <= today ? (
           <Button label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
         ) : null}
@@ -302,8 +313,8 @@ const styles = StyleSheet.create({
   detailText: { fontSize: 14, lineHeight: 21 },
   zoneBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 3 },
   eventRow: { gap: 2 },
-  eventHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  eventTitle: { fontSize: 15, fontWeight: '600' },
+  eventHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  eventTitle: { fontSize: 15, fontWeight: '600', flexShrink: 1 },
   manualLabel: { fontSize: 12 },
   eventDot: { width: 10, height: 10, borderRadius: 5 },
   footnote: { fontSize: 12, textAlign: 'center', marginTop: 8 },

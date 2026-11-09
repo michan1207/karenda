@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { ExportedData, isEncryptedBackup, OpenBackup, openBackup, readExport, RestoreMode } from '../data';
 import { DateKey } from '../engine';
-import { Button, Text } from './components';
+import { Button, Confirm, Input, Text } from './components';
 import { fullDate } from './format';
-import { fonts, radius, useColors } from './theme';
+import { useColors } from './theme';
+import { useBackButton } from './useBackButton';
 import type { Karenda } from './useKarenda';
 
 const MIN_LENGTH = 8;
@@ -39,6 +40,11 @@ export function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
     setData(null);
     setMessage(next);
   };
+
+  // 暗号化や読み込みの途中は閉じない
+  useBackButton(step !== 'idle', () => {
+    if (!busy) reset();
+  });
 
   const length = Array.from(passphrase).length;
   const problem =
@@ -153,7 +159,12 @@ export function BackupPanel({ k, today }: { k: Karenda; today: DateKey }) {
           <Button label="記録を足す（設定は今のまま）" onPress={() => restore('keepMine')} disabled={busy} />
           <Button kind="secondary" label="記録を足す（設定はファイルのもの）" onPress={() => restore('preferFile')} disabled={busy} />
           <Text style={[styles.help, { color: colors.muted }]}>置き換えると、今の記録は消えてファイルの内容だけになります。</Text>
-          <Button kind="danger" label="ファイルの内容に置き換える" onPress={() => restore('replace')} disabled={busy} />
+          <Confirm
+            message="今の記録を消して置き換えます。元に戻せません。"
+            label="置き換える"
+            onConfirm={() => restore('replace')}
+            trigger={(ask) => <Button kind="danger" label="ファイルの内容に置き換える" onPress={ask} disabled={busy} />}
+          />
           <Button kind="secondary" label="やめる" onPress={() => reset()} />
         </>
       )}
@@ -186,12 +197,10 @@ function Passphrase({
   onSubmit?: () => void;
   isNew?: boolean;
 }) {
-  const colors = useColors();
   return (
-    <TextInput
+    <Input
       accessibilityLabel={label}
       placeholder={label}
-      placeholderTextColor={colors.muted}
       value={value}
       onChangeText={onChange}
       onSubmitEditing={onSubmit}
@@ -199,7 +208,6 @@ function Passphrase({
       autoCapitalize="none"
       autoCorrect={false}
       textContentType={isNew ? 'newPassword' : 'password'}
-      style={[styles.input, { color: colors.text, borderColor: colors.line, backgroundColor: colors.background }]}
     />
   );
 }
@@ -209,12 +217,4 @@ const styles = StyleSheet.create({
   help: { fontSize: 13, lineHeight: 19 },
   summary: { fontSize: 15, fontWeight: '600' },
   busy: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  input: {
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    fontFamily: fonts.regular,
-  },
 });
