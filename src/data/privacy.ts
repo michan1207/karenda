@@ -12,7 +12,7 @@ export const PRIVACY_FACTS: { label: string; value: string; note: string }[] = [
  * settings は気をつける時期の日数・ロック・隠すモード・通知だけが入る）
  */
 export const STORED_DATA: { table: string; what: string; why: string; backup: boolean }[] = [
-  { table: 'period_starts', what: '生理開始日と終わりの日', why: '次の生理と、気をつける時期を予測するため', backup: true },
+  { table: 'period_starts', what: '生理開始日と終わりの日、薬で時期をずらした印', why: '次の生理と、気をつける時期を予測するため', backup: true },
   { table: 'settings', what: '設定（気をつける時期の日数、通知、ロック、隠すモードなど）', why: 'アプリの動きをあなたに合わせるため', backup: true },
   { table: 'keywords', what: '予定の重さを決める言葉', why: '予定が重いかを判定するため', backup: true },
   { table: 'conflict_states', what: 'お知らせを確認・対応したか（予定のIDと日付）', why: '同じお知らせをくり返さないため', backup: false },

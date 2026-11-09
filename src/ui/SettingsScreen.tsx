@@ -6,6 +6,7 @@ import {
   DateKey,
   DAY_REMINDER_AT,
   DEFAULT_PMS,
+  ExcludedInterval,
   LEAD_DAYS,
   LEARN_AFTER,
   MAX_PER_ALERT,
@@ -31,8 +32,9 @@ export function SettingsScreen({ k, today }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const learned = k.titleWeights.filter((entry) => entry.weight);
   const { n, meanAbsErrorDays: mean, within1DayRate: rate, latest } = k.accuracy;
-  const excluded = predictCycle(k.starts)?.excluded ?? [];
-  const reasonName = (reason: 'tooShort' | 'tooLong') => (reason === 'tooShort' ? '間隔が短すぎる' : '間隔が長すぎる');
+  const excluded = predictCycle(k.starts, k.notes)?.excluded ?? [];
+  const reasonName = (reason: ExcludedInterval['reason']) =>
+    ({ tooShort: '間隔が短すぎる', tooLong: '間隔が長すぎる', shifted: '薬で時期をずらした' })[reason];
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [lockFailed, setLockFailed] = useState(false);
 
@@ -257,7 +259,7 @@ export function SettingsScreen({ k, today }: Props) {
         <Section title="予測に使っていない間隔">
           <Text style={[styles.help, { color: colors.muted }]}>
             {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
-            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。記録は消えていません。
+            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理までの間隔も使っていません。記録は消えていません。
           </Text>
           {excluded.map((gap) => (
             <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>

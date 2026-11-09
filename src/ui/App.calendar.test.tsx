@@ -147,6 +147,17 @@ describe('calendar', () => {
     expect((await loadState(db)).ends).toEqual(new Map());
   });
 
+  it('marks a recorded start as shifted with medicine, and takes the mark off', async () => {
+    const { db } = await setup({ starts: [...REGULAR, '2026-10-19'] });
+    await fireEvent.press(await screen.findByLabelText(/^10月19日（月）/));
+    await fireEvent.press(screen.getByText('薬（ピルなど）で時期をずらした生理にする'));
+    expect(await screen.findByText(/薬で時期をずらした生理です/)).toBeTruthy();
+    expect((await loadState(db)).notes.shifted).toEqual(new Set(['2026-10-19']));
+    await fireEvent.press(screen.getByText('ずらした印を外す'));
+    expect(await screen.findByText('薬（ピルなど）で時期をずらした生理にする')).toBeTruthy();
+    expect((await loadState(db)).notes.shifted).toEqual(new Set());
+  });
+
   it('asks about yesterday once when opened, with symptoms to pick, and stops asking after an answer', async () => {
     const { db } = await setup();
     expect(await screen.findByText('昨日（10月23日（金））の体調は？')).toBeTruthy();

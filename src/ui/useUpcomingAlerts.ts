@@ -15,7 +15,7 @@ export function useUpcomingAlerts(k: Karenda, today: DateKey): UpcomingAlerts {
   const events = useEvents(k.calendar, k.access, range.from, range.until, k.manualEvents, k.resumed);
 
   return useMemo(() => {
-    const guard = computeGuard({ starts: k.starts, ends: k.ends, settings: k.settings, keywords: k.keywords, events, range, today });
+    const guard = computeGuard({ starts: k.starts, ends: k.ends, notes: k.notes, settings: k.settings, keywords: k.keywords, events, range, today });
     return { alerts: guard.alerts.filter((alert) => alert.date >= today && alert.date <= last), actionsOf: guard.actionsOf };
-  }, [k.starts, k.ends, k.settings, k.keywords, events, range, today, last]);
+  }, [k.starts, k.ends, k.notes, k.settings, k.keywords, events, range, today, last]);
 }

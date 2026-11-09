@@ -23,6 +23,7 @@
 - お知らせへの答え（確認した／対応した／今日は決めない）は通知のボタンも画面のボタンも `applyDecision`（store.ts）1つで残す: 今の状態を読んでから1トランザクションで `advanceStatus`・`saveConflictStatus`・`deferAlert` を通す。途中で失敗したら何も残らない。状態を進めた予定があれば true（画面の「確認した」はこの時だけ数える）（2026-11-02 B6）
 - 生理の終わりの日（版11、`period_starts.end_date`、NULL＝設定の日数）: `setPeriodEnd`／`listPeriodEnds`、`loadState().ends`（開始日→終わりの日）。開始日を消すと一緒に消える。バックアップは書き出しの形の版2の `periodEnds`（版1までのファイルは空、keepMine はこの端末の終わりの日を変えない）（2026-11-08）
 - その日の体調（版12の `daily_checks(date PK, answer, symptoms, answered_at)`、answer NULL＝答えない、symptoms は `SYMPTOMS` の鍵をカンマでつなぐ）: `saveDailyCheck`（同じ日は書き換え）／`listDailyChecks`、`loadState().checks`（日付→記録）。全削除で消える。バックアップは書き出しの形の版3の `dailyChecks`（keepMine はこの端末の記録を変えない）（2026-11-08）
+- 薬でずらした生理の印（版13、`period_starts.shifted` 0/1）: `setShifted`（つけた時はその日と比べた予測の成績を比べる前に戻す）／`listShiftedStarts`、`loadState().notes.shifted`。画面・通知・ふりかえりは `notes` を `computeGuard`・`consultReasons`・`predictCycle` に渡す。バックアップは書き出しの形の版4の `shiftedStarts`（開始日にある日だけ。戻す時は足すだけ）（2026-11-09）
 - 表の変更は `migrations.ts` の `MIGRATIONS` 配列に関数を足すだけ。既存の要素は書き換えない。版は `PRAGMA user_version`
 - 読み書きは `store.ts` の関数に集める（export/全削除もここ）
 - トランザクションは `oneTransactionAtATime`（`database.ts`）で1つずつ順番に行う（expo-sqlite の withTransactionAsync は割り込まれ、重なると片方の ROLLBACK がもう片方を消すため）。`open.ts` と `testDatabase.ts` の両方で包む。入れ子にしない（待ち続ける）。テスト用DBも BEGIN を try の中に置き、本物と同じ壊れ方にしてある（2026-10-31）

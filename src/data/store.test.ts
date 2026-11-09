@@ -40,6 +40,8 @@ import {
   saveTitleWeight,
   setKeywords,
   setPeriodEnd,
+  setShifted,
+  listShiftedStarts,
 } from './store';
 import {
   dismissConsult,
@@ -540,6 +542,32 @@ describe('prediction records', () => {
     await deleteAllData(db);
     expect(await listPredictionRecords(db)).toEqual([]);
   });
+
+  it('takes a period shifted with medicine out of the results, and out of the next prediction', async () => {
+    await regular();
+    await recordPeriodStart(db, '2026-11-05');
+    await setShifted(db, '2026-11-05', true);
+    expect(await listShiftedStarts(db)).toEqual(new Set(['2026-11-05']));
+    const state = await loadState(db, new Date(2026, 10, 5, 12));
+    expect(state.notes.shifted).toEqual(new Set(['2026-11-05']));
+    expect(state.accuracy.n).toBe(0);
+    // 28日ごとの3回だけで予測し、次は 11-05 の28日後
+    expect((await listPredictionRecords(db)).at(-1)).toMatchObject({ basedOn: '2026-11-05', predictedStart: '2026-12-03' });
+    await setShifted(db, '2026-11-05', false);
+    expect(await listShiftedStarts(db)).toEqual(new Set());
+  });
+
+  it('keeps the shifted mark through a backup, adding it even with keepMine', async () => {
+    await regular();
+    await setShifted(db, '2026-09-28', true);
+    const data = await exportData(db);
+    expect(data.shiftedStarts).toEqual(['2026-09-28']);
+    await setShifted(db, '2026-09-28', false);
+    await restoreData(db, data, 'keepMine');
+    expect(await listShiftedStarts(db)).toEqual(new Set(['2026-09-28']));
+    await restoreData(db, { ...data, shiftedStarts: [] }, 'replace');
+    expect(await listShiftedStarts(db)).toEqual(new Set());
+  });
 });
 
 describe('loadState', () => {
@@ -646,6 +674,7 @@ describe('export and delete', () => {
       exportedAt: '2026-10-24T00:00:00.000Z',
       periodStarts: ['2026-10-01'],
       periodEnds: [],
+      shiftedStarts: [],
       zoneSettings: DEFAULT_ZONE_SETTINGS,
       keywords: DEFAULT_KEYWORDS,
       manualEvents: [],
@@ -834,6 +863,7 @@ describe('reading an exported file back', () => {
     schemaVersion: SCHEMA_VERSION,
     periodStarts: ['2026-10-01'],
     periodEnds: [{ start: '2026-10-01', end: '2026-10-06' }],
+    shiftedStarts: ['2026-10-01'],
     zoneSettings: DEFAULT_ZONE_SETTINGS,
     keywords: DEFAULT_KEYWORDS,
     manualEvents: [{ id: 'manual:1', title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange', startMinutes: null, durationMinutes: null }],
@@ -864,6 +894,7 @@ describe('reading an exported file back', () => {
     ['an event with an unknown color', JSON.stringify({ ...full, manualEvents: [{ ...full.manualEvents[0], color: 'pink' }] }), 'broken'],
     ['an end day for a start that is not in the file', JSON.stringify({ ...full, periodStarts: [] }), 'broken'],
     ['an end day too far from its start', JSON.stringify({ ...full, periodEnds: [{ start: '2026-10-01', end: '2026-11-15' }] }), 'broken'],
+    ['a shifted mark on a day that is not a start', JSON.stringify({ ...full, shiftedStarts: ['2026-10-02'] }), 'broken'],
     [
       'an end day on the next start',
       JSON.stringify({ ...full, periodStarts: ['2026-10-01', '2026-10-29'], periodEnds: [{ start: '2026-10-01', end: '2026-10-29' }] }),

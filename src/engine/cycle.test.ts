@@ -70,6 +70,15 @@ describe('predictCycle', () => {
     ]);
     expect(p).toMatchObject({ averageLength: 28, cyclesUsed: 3 });
   });
+
+  it('leaves out the gap up to a period shifted with medicine, but counts the next one', () => {
+    // 28, 28, 38 (delayed with medicine), 28, 28 days
+    const starts = ['2026-01-01', '2026-01-29', '2026-02-26', '2026-04-05', '2026-05-03', '2026-05-31'];
+    const p = predictCycle(starts, { shifted: new Set(['2026-04-05']) })!;
+    expect(p.excluded).toEqual([{ from: '2026-02-26', to: '2026-04-05', days: 38, reason: 'shifted' }]);
+    expect(p).toMatchObject({ averageLength: 28, spread: 1, cyclesUsed: 4, lastStart: '2026-05-31' });
+    expect(predictCycle(starts)).toMatchObject({ averageLength: 30, cyclesUsed: 5 });
+  });
 });
 
 describe('predictedPeriod', () => {

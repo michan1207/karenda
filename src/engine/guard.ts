@@ -1,6 +1,6 @@
 import { Action, planActions, searchRange } from './actions';
 import { CalendarEvent, ConflictAlert, detectConflicts } from './conflicts';
-import { CyclePrediction, predictCycle } from './cycle';
+import { CycleNotes, CyclePrediction, predictCycle } from './cycle';
 import { DateKey } from './date';
 import { RiskKeywords } from './risk';
 import { buildZones, DateRange, ZoneMap, ZoneSettings } from './zones';
@@ -9,6 +9,8 @@ export type GuardInput = {
   starts: DateKey[];
   /** 記録した終わりの日（開始日→終わりの日） */
   ends?: ReadonlyMap<DateKey, DateKey>;
+  /** 薬でずらした生理など、予測の平均から外す開始日 */
+  notes?: CycleNotes;
   settings: ZoneSettings;
   keywords: RiskKeywords;
   events: CalendarEvent[];
@@ -26,8 +28,8 @@ export type Guard = {
 };
 
 /** 記録・設定・予定から、表示する期間のゾーンと警告、その対処をまとめて出す。画面と通知はここだけを入り口にする */
-export function computeGuard({ starts, ends, settings, keywords, events, range, today }: GuardInput): Guard {
-  const prediction = predictCycle(starts);
+export function computeGuard({ starts, ends, notes, settings, keywords, events, range, today }: GuardInput): Guard {
+  const prediction = predictCycle(starts, notes);
   const zones: ZoneMap = prediction ? buildZones(prediction, range, settings, starts, today, ends) : new Map();
   const made = new Map<ConflictAlert, Action[]>();
   const actionsOf = (alert: ConflictAlert): Action[] => {

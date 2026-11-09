@@ -3,7 +3,13 @@ import { addDays, DateKey, diffDays } from './date';
 export type Confidence = 'high' | 'medium' | 'low';
 
 /** 記録漏れなどとみなして、予測の計算から外した間隔。記録そのものは消さない */
-export type ExcludedInterval = { from: DateKey; to: DateKey; days: number; reason: 'tooShort' | 'tooLong' };
+export type ExcludedInterval = { from: DateKey; to: DateKey; days: number; reason: 'tooShort' | 'tooLong' | 'shifted' };
+
+/** 開始日についての補足。shifted は薬（ピルなど）で時期をずらした生理の開始日で、そこまでの間隔はふだんの周期として数えない */
+export type CycleNotes = { shifted?: ReadonlySet<DateKey> };
+
+/** 予測や受診の目安に使ってよい間隔か。ずらした生理まで（to が shifted）の間隔は使わない */
+export const countsAsCycle = (to: DateKey, notes: CycleNotes) => !notes.shifted?.has(to);
 
 export type CyclePrediction = {
   /** 記録されている最後の生理開始日 */
@@ -34,17 +40,19 @@ function confidenceOf(cyclesUsed: number, spreadDays: number): Confidence {
   return 'low';
 }
 
-export function predictCycle(starts: DateKey[]): CyclePrediction | null {
+export function predictCycle(starts: DateKey[], notes: CycleNotes = {}): CyclePrediction | null {
   const sorted = [...new Set(starts)].sort();
   if (sorted.length === 0) return null;
 
   const gaps = sorted.slice(1).map((to, i) => ({ from: sorted[i], to, days: diffDays(sorted[i], to) }));
   const excluded = gaps.flatMap(({ from, to, days }): ExcludedInterval[] => {
+    if (!countsAsCycle(to, notes)) return [{ from, to, days, reason: 'shifted' }];
     if (days < MIN_PLAUSIBLE) return [{ from, to, days, reason: 'tooShort' }];
     if (days > MAX_PLAUSIBLE) return [{ from, to, days, reason: 'tooLong' }];
     return [];
   });
   const lengths = gaps
+    .filter(({ to }) => countsAsCycle(to, notes))
     .map(({ days }) => days)
     .filter((days) => days >= MIN_PLAUSIBLE && days <= MAX_PLAUSIBLE)
     .slice(-RECENT_CYCLES);

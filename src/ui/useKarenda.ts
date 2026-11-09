@@ -27,6 +27,7 @@ import {
   removePeriodStart,
   saveDailyCheck,
   setPeriodEnd as savePeriodEnd,
+  setShifted as saveShifted,
   removeTitleWeight,
   saveTitleWeight,
   restoreData,
@@ -101,6 +102,8 @@ export type Karenda = StoredState & {
   removeStart(day: DateKey): Promise<void>;
   /** 生理の終わりの日を残す。null で消す */
   setPeriodEnd(start: DateKey, end: DateKey | null): Promise<void>;
+  /** 薬（ピルなど）で時期をずらした生理の印をつける・外す */
+  setShifted(start: DateKey, shifted: boolean): Promise<void>;
   /** このアプリの中だけに予定を入れる（iPhone のカレンダーには書かない） */
   addManualEvent(event: ManualEventInput): Promise<void>;
   removeManualEvent(eventId: string): Promise<void>;
@@ -156,6 +159,7 @@ const INITIAL_STATE: StoredState = {
   resolutions: [],
   starts: [],
   ends: new Map(),
+  notes: { shifted: new Set() },
   settings: DEFAULT_ZONE_SETTINGS,
   pms: DEFAULT_PMS,
   accuracy: buildReport([]),
@@ -362,6 +366,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
       }),
     removeStart: (day) => withDb((opened) => removePeriodStart(opened, day)),
     setPeriodEnd: (start, end) => withDb((opened) => savePeriodEnd(opened, start, end)),
+    setShifted: (start, shifted) => withDb((opened) => saveShifted(opened, start, shifted)),
     addManualEvent: (event) => withDb((opened) => saveManualEvent(opened, event)),
     removeManualEvent: (eventId) => withDb((opened) => deleteManualEvent(opened, eventId)),
     setSettings: (patch) => withDb(async (opened) => saveZoneSettings(opened, { ...(await getZoneSettings(opened)), ...patch })),

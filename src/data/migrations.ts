@@ -169,6 +169,10 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       );
     `);
   },
+  // 2026-11-09: 薬（ピルなど）で時期をずらした生理か。1 ならその開始日までの間隔を予測・受診の目安・PMS の推定に使わない
+  async (db) => {
+    await db.execAsync('ALTER TABLE period_starts ADD COLUMN shifted INTEGER NOT NULL DEFAULT 0');
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

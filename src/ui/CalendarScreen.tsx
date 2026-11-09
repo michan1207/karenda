@@ -58,6 +58,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
       computeGuard({
         starts: k.starts,
         ends: k.ends,
+        notes: k.notes,
         settings: k.settings,
         keywords: k.keywords,
         events,
@@ -65,11 +66,11 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         range: { from: addDays(grid.from, -AFTER_PERIOD_DAYS), until: grid.until },
         today,
       }),
-    [k.starts, k.ends, k.settings, k.keywords, events, grid, today],
+    [k.starts, k.ends, k.notes, k.settings, k.keywords, events, grid, today],
   );
   const hidden = k.hideMode;
   const guard = hidden ? HIDDEN : computed;
-  const consult = useMemo(() => consultReasons(k.starts), [k.starts]);
+  const consult = useMemo(() => consultReasons(k.starts, k.notes), [k.starts, k.notes]);
   const thisMonth = today.slice(0, 7);
 
   const dayAlerts = useMemo(() => alertsByDay(guard.alerts), [guard.alerts]);
@@ -264,7 +265,19 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           onAdd={(event) => k.addManualEvent({ ...event, date: selected })}
         />
         {hidden ? null : isRecorded ? (
-          <Button kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
+          <>
+            <Button kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
+            {k.notes.shifted.has(selected) ? (
+              <>
+                <Text style={[styles.detailText, { color: colors.muted }]}>
+                  薬で時期をずらした生理です。前の生理からの日数は、予測に使っていません。
+                </Text>
+                <Button kind="secondary" label="ずらした印を外す" onPress={() => k.setShifted(selected, false)} />
+              </>
+            ) : (
+              <Button kind="secondary" label="薬（ピルなど）で時期をずらした生理にする" onPress={() => k.setShifted(selected, true)} />
+            )}
+          </>
         ) : selected <= today ? (
           <Button label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
         ) : null}
