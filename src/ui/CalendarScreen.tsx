@@ -23,6 +23,8 @@ import {
   ReviewTarget,
   shiftMonth,
   takingPill,
+  afterShiftMedicine,
+  takingShiftMedicine,
   ZoneDay,
 } from '../engine';
 import { DailyCheckCard, DayCheck } from './DailyCheckCard';
@@ -172,6 +174,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         <Notice text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
       )}
       {!hidden && takingPill(k.notes) && <Notice text="ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
+      {!hidden && takingShiftMedicine(k.notes) && <Notice text="月経移動の薬を飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
       {guard.prediction?.provisional && (
         <Notice text="記録がまだ少ないため、28日周期を仮定した仮の予測です。" />
       )}
@@ -269,7 +272,11 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         {hidden ? null : isRecorded ? (
           <>
             <Button kind="secondary" label="この日の記録を消す" onPress={() => k.removeStart(selected)} />
-            {k.notes.shifted.has(selected) ? (
+            {afterShiftMedicine(selected, k.notes) ? (
+              <Text style={[styles.detailText, { color: colors.muted }]}>
+                月経移動の薬のあとの生理です。前の生理からの日数は、予測に使っていません。
+              </Text>
+            ) : k.notes.shifted.has(selected) ? (
               <>
                 <Text style={[styles.detailText, { color: colors.muted }]}>
                   薬で時期をずらした生理です。前の生理からの日数は、予測に使っていません。

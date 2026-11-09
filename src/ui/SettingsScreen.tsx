@@ -266,11 +266,15 @@ export function SettingsScreen({ k, today }: Props) {
         <PillPanel k={k} today={today} />
       </Section>
 
+      <Section title="月経移動">
+        <PillPanel k={k} today={today} kind="shift" />
+      </Section>
+
       {excluded.length > 0 && (
         <Section title="予測に使っていない間隔">
           <Text style={[styles.help, { color: colors.muted }]}>
             {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
-            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
+            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理（月経移動の薬のあとの生理も）までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
           </Text>
           {excluded.map((gap) => (
             <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>

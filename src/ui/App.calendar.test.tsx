@@ -1,7 +1,7 @@
 import { fakeCalendar, REGULAR, setup } from './testApp';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Linking } from 'react-native';
-import { dismissConsult, isHideMode, listDailyChecks, listPeriodStarts, loadState } from '../data';
+import { dismissConsult, endPill, isHideMode, listDailyChecks, listPeriodStarts, loadState, startPill } from '../data';
 import { MASCOT_LINES } from './mascotLines';
 
 describe('calendar', () => {
@@ -156,6 +156,19 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByText('ずらした印を外す'));
     expect(await screen.findByText('薬（ピルなど）で時期をずらした生理にする')).toBeTruthy();
     expect((await loadState(db)).notes.shifted).toEqual(new Set());
+  });
+
+  it('says a period after the shift medicine is left out, without a mark to set', async () => {
+    await setup({
+      starts: [...REGULAR, '2026-10-19'],
+      prepare: async (db) => {
+        await startPill(db, '2026-10-01', 'shift');
+        await endPill(db, '2026-10-01', '2026-10-15', 'shift');
+      },
+    });
+    await fireEvent.press(await screen.findByLabelText(/^10月19日（月）/));
+    expect(await screen.findByText(/月経移動の薬のあとの生理です/)).toBeTruthy();
+    expect(screen.queryByText('薬（ピルなど）で時期をずらした生理にする')).toBeNull();
   });
 
   it('asks about yesterday once when opened, with symptoms to pick, and stops asking after an answer', async () => {

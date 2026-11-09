@@ -1,4 +1,4 @@
-import { nearestPeriod, predictCycle, predictedPeriod } from './cycle';
+import { afterShiftMedicine, nearestPeriod, predictCycle, predictedPeriod } from './cycle';
 import { diffDays } from './date';
 
 describe('predictCycle', () => {
@@ -81,6 +81,18 @@ describe('predictCycle', () => {
     const stopped = predictCycle(starts, { pill: [{ start: '2026-04-10', end: '2026-06-30' }] })!;
     expect(stopped).toMatchObject({ averageLength: 30, cyclesUsed: 3 });
     expect(stopped.excluded.map((gap) => gap.reason)).toEqual(['pill', 'pill', 'pill']);
+  });
+
+  it('treats a period that starts after the shift medicine as shifted, without a mark', () => {
+    // 28, 28, 38 (medicine 03-20..04-01, period 04-05), 28, 28 days
+    const starts = ['2026-01-01', '2026-01-29', '2026-02-26', '2026-04-05', '2026-05-03', '2026-05-31'];
+    const p = predictCycle(starts, { shift: [{ start: '2026-03-20', end: '2026-04-01' }] })!;
+    expect(p.excluded).toEqual([{ from: '2026-02-26', to: '2026-04-05', days: 38, reason: 'shifted' }]);
+    // やめた日の SHIFT_AFTER_DAYS 日後まで。次の生理（05-03）は、ふだんの周期
+    expect(afterShiftMedicine('2026-04-11', { shift: [{ start: '2026-03-20', end: '2026-04-01' }] })).toBe(true);
+    expect(afterShiftMedicine('2026-04-12', { shift: [{ start: '2026-03-20', end: '2026-04-01' }] })).toBe(false);
+    expect(afterShiftMedicine('2026-03-19', { shift: [{ start: '2026-03-20', end: null }] })).toBe(false);
+    expect(afterShiftMedicine('2026-12-01', { shift: [{ start: '2026-03-20', end: null }] })).toBe(true);
   });
 
   it('leaves out the gap up to a period shifted with medicine, but counts the next one', () => {

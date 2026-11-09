@@ -177,6 +177,10 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
   async (db) => {
     await db.execAsync('CREATE TABLE pill_periods (start TEXT PRIMARY KEY NOT NULL, end_date TEXT)');
   },
+  // 2026-11-09: 月経移動の薬を飲んだ期間。end_date が NULL なら今も飲んでいる
+  async (db) => {
+    await db.execAsync('CREATE TABLE shift_periods (start TEXT PRIMARY KEY NOT NULL, end_date TEXT)');
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

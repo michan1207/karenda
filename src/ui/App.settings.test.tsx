@@ -129,7 +129,8 @@ describe('settings', () => {
 
   it('records when the pill was started and stopped, notes it on the calendar, and forgets a period', async () => {
     const { db } = await openSettings();
-    await fireEvent.changeText(screen.getByLabelText('飲みはじめた日'), '2026-10-01');
+    // ピルの欄が先、月経移動の欄が後
+    await fireEvent.changeText(screen.getAllByLabelText('飲みはじめた日')[0], '2026-10-01');
     await fireEvent.press(screen.getByText('この日からピルを飲んでいる'));
     expect(await screen.findByText('2026年10月1日から飲んでいます')).toBeTruthy();
     expect((await loadState(db)).notes.pill).toEqual([{ start: '2026-10-01', end: null }]);
@@ -145,6 +146,17 @@ describe('settings', () => {
     await fireEvent.press(await screen.findByText('この日からピルを飲んでいる'));
     await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
     expect(await screen.findByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
+  });
+
+  it('records the shift medicine apart from the pill and notes it on the calendar', async () => {
+    const { db } = await openSettings();
+    await fireEvent.changeText(screen.getAllByLabelText('飲みはじめた日')[1], '2026-10-20');
+    await fireEvent.press(screen.getByText('この日から月経移動の薬を飲んでいる'));
+    await waitFor(async () => expect((await loadState(db)).notes.shift).toEqual([{ start: '2026-10-20', end: null }]));
+    expect((await loadState(db)).notes.pill).toEqual([]);
+    await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
+    expect(await screen.findByText('月経移動の薬を飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
+    expect(screen.queryByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeNull();
   });
 
   it('lists records newest first and removes one', async () => {

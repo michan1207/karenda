@@ -25,6 +25,7 @@
 - その日の体調（版12の `daily_checks(date PK, answer, symptoms, answered_at)`、answer NULL＝答えない、symptoms は `SYMPTOMS` の鍵をカンマでつなぐ）: `saveDailyCheck`（同じ日は書き換え）／`listDailyChecks`、`loadState().checks`（日付→記録）。全削除で消える。バックアップは書き出しの形の版3の `dailyChecks`（keepMine はこの端末の記録を変えない）（2026-11-08）
 - 薬でずらした生理の印（版13、`period_starts.shifted` 0/1）: `setShifted`（つけた時はその日と比べた予測の成績を比べる前に戻す）／`listShiftedStarts`、`loadState().notes.shifted`。画面・通知・ふりかえりは `notes` を `computeGuard`・`consultReasons`・`predictCycle` に渡す。バックアップは書き出しの形の版4の `shiftedStarts`（開始日にある日だけ。戻す時は足すだけ）（2026-11-09）
 - ピルを飲んでいた期間（版14の `pill_periods(start PK, end_date)`、end_date NULL＝今も飲んでいる）: `startPill`（前の期間が終わった次の日から。重なると例外）／`endPill`／`removePill`／`listPillPeriods`、`loadState().notes.pill`。画面は設定の「ピル」（`PillPanel`、日付は `DateField`）。バックアップは書き出しの形の版5の `pillPeriods`（keepMine は同じ開始日ならこの端末のもの）（2026-11-09）
+- 月経移動の薬を飲んだ期間（版15の `shift_periods`、形は pill_periods と同じ）: 同じ関数に `kind: 'shift'`（`MedicineKind`）を渡す。`loadState().notes.shift`。画面は設定の「月経移動」（`PillPanel kind="shift"`）。バックアップは書き出しの版6の `shiftPeriods`（2026-11-09）
 - 表の変更は `migrations.ts` の `MIGRATIONS` 配列に関数を足すだけ。既存の要素は書き換えない。版は `PRAGMA user_version`
 - 読み書きは `store.ts` の関数に集める（export/全削除もここ）
 - トランザクションは `oneTransactionAtATime`（`database.ts`）で1つずつ順番に行う（expo-sqlite の withTransactionAsync は割り込まれ、重なると片方の ROLLBACK がもう片方を消すため）。`open.ts` と `testDatabase.ts` の両方で包む。入れ子にしない（待ち続ける）。テスト用DBも BEGIN を try の中に置き、本物と同じ壊れ方にしてある（2026-10-31）

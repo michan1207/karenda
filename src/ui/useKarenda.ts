@@ -19,6 +19,7 @@ import {
   listPeriodStarts,
   loadState,
   ManualEventInput,
+  MedicineKind,
   Notifier,
   MetricProps,
   recordMetric,
@@ -107,10 +108,10 @@ export type Karenda = StoredState & {
   setPeriodEnd(start: DateKey, end: DateKey | null): Promise<void>;
   /** 薬（ピルなど）で時期をずらした生理の印をつける・外す */
   setShifted(start: DateKey, shifted: boolean): Promise<void>;
-  /** ピルを飲みはじめた日・やめた日を残す。消すと期間ごと消える */
-  startPill(start: DateKey): Promise<void>;
-  endPill(start: DateKey, end: DateKey | null): Promise<void>;
-  removePill(start: DateKey): Promise<void>;
+  /** ピル（kind 'shift' なら月経移動の薬）を飲みはじめた日・やめた日を残す。消すと期間ごと消える */
+  startPill(start: DateKey, kind?: MedicineKind): Promise<void>;
+  endPill(start: DateKey, end: DateKey | null, kind?: MedicineKind): Promise<void>;
+  removePill(start: DateKey, kind?: MedicineKind): Promise<void>;
   /** このアプリの中だけに予定を入れる（iPhone のカレンダーには書かない） */
   addManualEvent(event: ManualEventInput): Promise<void>;
   removeManualEvent(eventId: string): Promise<void>;
@@ -166,7 +167,7 @@ const INITIAL_STATE: StoredState = {
   resolutions: [],
   starts: [],
   ends: new Map(),
-  notes: { shifted: new Set(), pill: [] },
+  notes: { shifted: new Set(), pill: [], shift: [] },
   settings: DEFAULT_ZONE_SETTINGS,
   pms: DEFAULT_PMS,
   accuracy: buildReport([]),
@@ -374,9 +375,9 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     removeStart: (day) => withDb((opened) => removePeriodStart(opened, day)),
     setPeriodEnd: (start, end) => withDb((opened) => savePeriodEnd(opened, start, end)),
     setShifted: (start, shifted) => withDb((opened) => saveShifted(opened, start, shifted)),
-    startPill: (start) => withDb((opened) => saveStartPill(opened, start)),
-    endPill: (start, end) => withDb((opened) => saveEndPill(opened, start, end)),
-    removePill: (start) => withDb((opened) => deletePill(opened, start)),
+    startPill: (start, kind) => withDb((opened) => saveStartPill(opened, start, kind)),
+    endPill: (start, end, kind) => withDb((opened) => saveEndPill(opened, start, end, kind)),
+    removePill: (start, kind) => withDb((opened) => deletePill(opened, start, kind)),
     addManualEvent: (event) => withDb((opened) => saveManualEvent(opened, event)),
     removeManualEvent: (eventId) => withDb((opened) => deleteManualEvent(opened, eventId)),
     setSettings: (patch) => withDb(async (opened) => saveZoneSettings(opened, { ...(await getZoneSettings(opened)), ...patch })),

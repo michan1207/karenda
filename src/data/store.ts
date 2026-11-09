@@ -1,6 +1,6 @@
 import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snapshotPrediction } from '../engine/accuracy';
 import { advanceStatus, ConflictState, ConflictStatus, Resolution, statusOf } from '../engine/conflictState';
-import { PillPeriod, predictCycle } from '../engine/cycle';
+import { isShifted, PillPeriod, predictCycle } from '../engine/cycle';
 import { DailyCheck, Symptom, SYMPTOMS } from '../engine/dailyCheck';
 import { DateKey, diffDays, fromDateKey, toDateKey } from '../engine/date';
 import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
@@ -65,31 +65,37 @@ export async function setShifted(db: Database, start: DateKey, shifted: boolean)
   });
 }
 
-/** ピルを飲んでいた（いる）期間。古い順 */
-export async function listPillPeriods(db: Database): Promise<PillPeriod[]> {
-  const rows = await db.getAllAsync<{ start: string; end_date: string | null }>('SELECT start, end_date FROM pill_periods ORDER BY start');
+/** pill: ピルを飲んでいた期間 / shift: 月経移動の薬を飲んだ期間。同じ形の別の表に残す */
+export type MedicineKind = 'pill' | 'shift';
+const MEDICINE_TABLE: Record<MedicineKind, string> = { pill: 'pill_periods', shift: 'shift_periods' };
+
+/** 薬を飲んでいた（いる）期間。古い順 */
+export async function listPillPeriods(db: Database, kind: MedicineKind = 'pill'): Promise<PillPeriod[]> {
+  const rows = await db.getAllAsync<{ start: string; end_date: string | null }>(
+    `SELECT start, end_date FROM ${MEDICINE_TABLE[kind]} ORDER BY start`,
+  );
   return rows.map((row) => ({ start: row.start, end: row.end_date }));
 }
 
-/** ピルを飲みはじめた日を残す。前の期間が終わったあとの日だけ（飲んでいる途中や、前の期間に重なる日は受け付けない） */
-export async function startPill(db: Database, start: DateKey): Promise<void> {
+/** 薬を飲みはじめた日を残す。前の期間が終わったあとの日だけ（飲んでいる途中や、前の期間に重なる日は受け付けない） */
+export async function startPill(db: Database, start: DateKey, kind: MedicineKind = 'pill'): Promise<void> {
   fromDateKey(start);
-  const overlaps = (await listPillPeriods(db)).some(({ end }) => end === null || end >= start);
-  if (overlaps) throw new Error(`pill period overlaps: ${start}`);
-  await db.runAsync('INSERT INTO pill_periods (start, end_date) VALUES (?, NULL)', start);
+  const overlaps = (await listPillPeriods(db, kind)).some(({ end }) => end === null || end >= start);
+  if (overlaps) throw new Error(`${kind} period overlaps: ${start}`);
+  await db.runAsync(`INSERT INTO ${MEDICINE_TABLE[kind]} (start, end_date) VALUES (?, NULL)`, start);
 }
 
-/** ピルをやめた日を残す（null で「今も飲んでいる」に戻す）。飲みはじめた日より前の日は受け付けない */
-export async function endPill(db: Database, start: DateKey, end: DateKey | null): Promise<void> {
+/** 薬をやめた日を残す（null で「今も飲んでいる」に戻す）。飲みはじめた日より前の日は受け付けない */
+export async function endPill(db: Database, start: DateKey, end: DateKey | null, kind: MedicineKind = 'pill'): Promise<void> {
   if (end !== null) {
     fromDateKey(end);
-    if (end < start) throw new Error(`pill end before start: ${start}..${end}`);
+    if (end < start) throw new Error(`${kind} end before start: ${start}..${end}`);
   }
-  await db.runAsync('UPDATE pill_periods SET end_date = ? WHERE start = ?', end, start);
+  await db.runAsync(`UPDATE ${MEDICINE_TABLE[kind]} SET end_date = ? WHERE start = ?`, end, start);
 }
 
-export async function removePill(db: Database, start: DateKey): Promise<void> {
-  await db.runAsync('DELETE FROM pill_periods WHERE start = ?', start);
+export async function removePill(db: Database, start: DateKey, kind: MedicineKind = 'pill'): Promise<void> {
+  await db.runAsync(`DELETE FROM ${MEDICINE_TABLE[kind]} WHERE start = ?`, start);
 }
 
 /** 記録した終わりの日（開始日→終わりの日） */
@@ -412,7 +418,7 @@ export type StoredState = {
   /** 記録した生理の終わりの日（開始日→終わりの日） */
   ends: Map<DateKey, DateKey>;
   /** 開始日の補足（薬でずらした生理・ピルを飲んでいた期間）。ふだんの周期と分けて予測する */
-  notes: { shifted: ReadonlySet<DateKey>; pill: PillPeriod[] };
+  notes: { shifted: ReadonlySet<DateKey>; pill: PillPeriod[]; shift: PillPeriod[] };
   /** 予測の帯に使う設定。PMS の日数は pms のもの（設定画面の手動の日数は pms.daysBefore で読む） */
   settings: ZoneSettings;
   /** PMS を生理予定日の何日前からにするかと、その根拠 */
@@ -462,12 +468,14 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
   const ends = await listPeriodEnds(db);
   const shifted = await listShiftedStarts(db);
   const pill = await listPillPeriods(db);
+  const shift = await listPillPeriods(db, 'shift');
+  const notes = { shifted, pill, shift };
   const answers = withDailyChecks(await listReviewAnswers(db), checks, { starts, ends, heavyDays: settings.heavyDays });
   // ずらした生理の前は、ふだんの PMS の時期とは限らないので推定に使わない
-  const pms = nextPmsEstimate(current, answers, starts.filter((start) => !shifted.has(start)), toDateKey(now));
+  const pms = nextPmsEstimate(current, answers, starts.filter((start) => !isShifted(start, notes)), toDateKey(now));
   if (JSON.stringify(pms) !== JSON.stringify(current)) await savePmsEstimate(db, pms);
   // まだ比べていない予測は、今の記録からの予測に合わせておく（開始日を記録した時に、直前に出していた予測と比べる）
-  const snapshot = snapshotPrediction(predictCycle(starts, { shifted, pill }), toDateKey(now));
+  const snapshot = snapshotPrediction(predictCycle(starts, notes), toDateKey(now));
   if (snapshot) await savePrediction(db, snapshot);
   return {
     onboarded,
@@ -478,10 +486,11 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     metricsEnabled,
     starts,
     ends,
-    notes: { shifted, pill },
+    notes,
     settings: pmsZoneSettings(settings, pms),
     pms,
-    accuracy: buildReport(await listPredictionRecords(db)),
+    // 月経移動の薬のあとの生理と比べた予測は、成績に入れない（手でつけた印は、つけた時に比べる前へ戻している）
+    accuracy: buildReport((await listPredictionRecords(db)).filter(({ actualStart }) => !actualStart || !isShifted(actualStart, notes))),
     consultDismissed: await getConsultDismissed(db),
     deferrals: await listDeferrals(db),
     manualEvents: await listManualEvents(db),
@@ -496,7 +505,7 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
 }
 
 /** 書き出しの形の版。表の版（SCHEMA_VERSION）とは別に、書き出しの形を変えた時だけ上げる。これを持たない前のファイルは 0 */
-export const EXPORT_VERSION = 5;
+export const EXPORT_VERSION = 6;
 
 /** このアプリだけの予定。id は、戻した時に「どうだった？」の答えを付け直すために使う */
 export type ExportedManualEvent = {
@@ -525,6 +534,8 @@ export type ExportedData = {
   shiftedStarts: DateKey[];
   /** ピルを飲んでいた期間。版4までのファイルには無い */
   pillPeriods: PillPeriod[];
+  /** 月経移動の薬を飲んだ期間。版5までのファイルには無い */
+  shiftPeriods: PillPeriod[];
   zoneSettings: ZoneSettings;
   keywords: RiskKeywords;
   manualEvents: ExportedManualEvent[];
@@ -548,6 +559,7 @@ export async function exportData(db: Database, now: Date = new Date()): Promise<
     periodEnds: [...(await listPeriodEnds(db))].map(([start, end]) => ({ start, end })),
     shiftedStarts: [...(await listShiftedStarts(db))].sort(),
     pillPeriods: await listPillPeriods(db),
+    shiftPeriods: await listPillPeriods(db, 'shift'),
     zoneSettings: await getZoneSettings(db),
     keywords: await getKeywords(db),
     manualEvents: await db.getAllAsync<ExportedManualEvent>(
@@ -652,6 +664,8 @@ export function readExport(text: string): ReadExport {
   const dailyChecks = isWhole(version, 3) ? raw.dailyChecks : [];
   const shiftedStarts = isWhole(version, 4) ? raw.shiftedStarts : [];
   const pillPeriods = isWhole(version, 5) ? raw.pillPeriods : [];
+  const shiftPeriods = isWhole(version, 6) ? raw.shiftPeriods : [];
+  const isPeriod = ({ start, end }: Record<string, unknown>) => isDay(start) && (end === null || (isDay(end) && end >= start));
   if (
     !isWhole(version) ||
     !Number.isInteger(schemaVersion) ||
@@ -667,7 +681,8 @@ export function readExport(text: string): ReadExport {
     !isListOf<DailyCheck>(dailyChecks, isDailyCheck) ||
     !Array.isArray(shiftedStarts) ||
     !shiftedStarts.every((start) => isDay(start) && periodStarts.includes(start)) ||
-    !isListOf<PillPeriod>(pillPeriods, ({ start, end }) => isDay(start) && (end === null || (isDay(end) && end >= start))) ||
+    !isListOf<PillPeriod>(pillPeriods, isPeriod) ||
+    !isListOf<PillPeriod>(shiftPeriods, isPeriod) ||
     !isListOf<{ start: DateKey; end: DateKey }>(periodEnds, (e) => isDay(e.start) && isDay(e.end) && periodStarts.includes(e.start)) ||
     !periodEnds.every(
       ({ start, end }) =>
@@ -695,6 +710,7 @@ export function readExport(text: string): ReadExport {
       periodEnds,
       shiftedStarts,
       pillPeriods,
+      shiftPeriods,
       zoneSettings: settings,
       keywords: { high: keywords.high, medium: keywords.medium },
       manualEvents: extra.manualEvents,
@@ -726,6 +742,7 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
         DELETE FROM prediction_records;
         DELETE FROM daily_checks;
         DELETE FROM pill_periods;
+        DELETE FROM shift_periods;
       `);
     }
     for (const start of data.periodStarts) await addPeriodStart(db, start);
@@ -736,8 +753,10 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
     // 印は足すだけ（keepMine でも、この端末の印は外さない）
     for (const start of data.shiftedStarts) await db.runAsync('UPDATE period_starts SET shifted = 1 WHERE start = ?', start);
     // 同じ日に始まる期間がこの端末にあれば、keepMine は今のもの、ほかはファイルのもの
-    for (const { start, end } of data.pillPeriods) {
-      await db.runAsync(`INSERT OR ${mode === 'keepMine' ? 'IGNORE' : 'REPLACE'} INTO pill_periods (start, end_date) VALUES (?, ?)`, start, end);
+    for (const [table, periods] of [['pill_periods', data.pillPeriods], ['shift_periods', data.shiftPeriods]] as const) {
+      for (const { start, end } of periods) {
+        await db.runAsync(`INSERT OR ${mode === 'keepMine' ? 'IGNORE' : 'REPLACE'} INTO ${table} (start, end_date) VALUES (?, ?)`, start, end);
+      }
     }
     // このアプリだけの予定は、戻すと ID が変わる。答えはその新しい ID に付け直す
     const movedIds = new Map<string, string>();

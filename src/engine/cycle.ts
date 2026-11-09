@@ -15,10 +15,23 @@ export type ExcludedInterval = {
 export type PillPeriod = { start: DateKey; end: DateKey | null };
 
 /**
- * 開始日についての補足。shifted は薬で時期をずらした生理の開始日、pill はピルを飲んでいた期間。
- * どちらも、ふだんの周期とは分けて扱う
+ * 開始日についての補足。shifted は薬で時期をずらした印をつけた生理の開始日、pill はピルを飲んでいた期間、
+ * shift は月経移動の薬を飲んだ期間。どれも、ふだんの周期とは分けて扱う
  */
-export type CycleNotes = { shifted?: ReadonlySet<DateKey>; pill?: readonly PillPeriod[] };
+export type CycleNotes = { shifted?: ReadonlySet<DateKey>; pill?: readonly PillPeriod[]; shift?: readonly PillPeriod[] };
+
+/** 月経移動の薬をやめた日から、この日数のうちに始まった生理を、ずらした生理とみなす */
+export const SHIFT_AFTER_DAYS = 10;
+
+/** 月経移動の薬を飲んでから（やめた日の SHIFT_AFTER_DAYS 日後まで）に始まった生理か */
+export const afterShiftMedicine = (day: DateKey, notes: CycleNotes) =>
+  notes.shift?.some(({ start, end }) => start <= day && (end === null || day <= addDays(end, SHIFT_AFTER_DAYS))) ?? false;
+
+/** ずらした生理か（印をつけたか、月経移動の薬のあとに始まった） */
+export const isShifted = (day: DateKey, notes: CycleNotes) => (notes.shifted?.has(day) ?? false) || afterShiftMedicine(day, notes);
+
+/** 今、月経移動の薬を飲んでいるか */
+export const takingShiftMedicine = (notes: CycleNotes) => notes.shift?.some(({ end }) => end === null) ?? false;
 
 export const onPill = (day: DateKey, pill: readonly PillPeriod[] = []) =>
   pill.some(({ start, end }) => start <= day && (end === null || day <= end));
@@ -28,7 +41,7 @@ export const takingPill = (notes: CycleNotes) => notes.pill?.some(({ end }) => e
 
 /** その開始日で終わる間隔の種類。ずらした生理まで / ピルを飲んでいる間に始まった生理まで / ふだんの周期 */
 export function gapKind(to: DateKey, notes: CycleNotes): 'shifted' | 'pill' | 'natural' {
-  if (notes.shifted?.has(to)) return 'shifted';
+  if (isShifted(to, notes)) return 'shifted';
   return onPill(to, notes.pill) ? 'pill' : 'natural';
 }
 

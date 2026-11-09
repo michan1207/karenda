@@ -1,3 +1,4 @@
+import { buildReport } from '../engine/accuracy';
 import { addDays } from '../engine/date';
 import { learnWeight, overrideWeight } from '../engine/learning';
 import { DEFAULT_PMS } from '../engine/pms';
@@ -657,6 +658,29 @@ describe('pill periods', () => {
   });
 });
 
+describe('shift medicine periods', () => {
+  it('keeps them apart from the pill, and leaves the next period out of the averages and the accuracy', async () => {
+    for (const start of ['2026-06-01', '2026-06-29', '2026-07-27']) await recordPeriodStart(db, start);
+    await loadState(db, new Date(2026, 7, 1, 12));
+    await startPill(db, '2026-08-10', 'shift');
+    await expect(startPill(db, '2026-08-12', 'shift')).rejects.toThrow();
+    await endPill(db, '2026-08-10', '2026-08-30', 'shift');
+    expect(await listPillPeriods(db)).toEqual([]);
+    expect(await listPillPeriods(db, 'shift')).toEqual([{ start: '2026-08-10', end: '2026-08-30' }]);
+    // 予測では 08-24 ごろ。薬のあと 09-02 に始まった
+    await recordPeriodStart(db, '2026-09-02');
+    expect((await listPredictionRecords(db)).some(({ actualStart }) => actualStart === '2026-09-02')).toBe(true);
+    const state = await loadState(db, new Date(2026, 8, 3, 12));
+    expect(state.notes.shift).toEqual([{ start: '2026-08-10', end: '2026-08-30' }]);
+    expect(state.accuracy).toEqual(buildReport([]));
+    const data = { ...(await exportData(db)) };
+    await removePill(db, '2026-08-10', 'shift');
+    expect(await listPillPeriods(db, 'shift')).toEqual([]);
+    await restoreData(db, data, 'keepMine');
+    expect(await listPillPeriods(db, 'shift')).toEqual([{ start: '2026-08-10', end: '2026-08-30' }]);
+  });
+});
+
 describe('daily checks', () => {
   it('keeps one condition per day, rewrites it, and loads it by day', async () => {
     await saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['cramps', 'tired'] });
@@ -707,6 +731,7 @@ describe('export and delete', () => {
       periodEnds: [],
       shiftedStarts: [],
       pillPeriods: [],
+      shiftPeriods: [],
       zoneSettings: DEFAULT_ZONE_SETTINGS,
       keywords: DEFAULT_KEYWORDS,
       manualEvents: [],
@@ -735,6 +760,7 @@ describe('export and delete', () => {
     await deferAlert(db, 'ev2', '2026-10-28', '2026-10-21');
     await saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['cramps'] });
     await startPill(db, '2026-10-01');
+    await startPill(db, '2026-10-01', 'shift');
     for (const { table } of STORED_DATA) {
       expect([table, (await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`))!.n > 0]).toEqual([table, true]);
     }
@@ -898,6 +924,7 @@ describe('reading an exported file back', () => {
     periodEnds: [{ start: '2026-10-01', end: '2026-10-06' }],
     shiftedStarts: ['2026-10-01'],
     pillPeriods: [{ start: '2026-09-01', end: '2026-09-20' }, { start: '2026-10-10', end: null }],
+    shiftPeriods: [{ start: '2026-08-01', end: '2026-08-10' }],
     zoneSettings: DEFAULT_ZONE_SETTINGS,
     keywords: DEFAULT_KEYWORDS,
     manualEvents: [{ id: 'manual:1', title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange', startMinutes: null, durationMinutes: null }],
@@ -928,6 +955,7 @@ describe('reading an exported file back', () => {
     ['an event with an unknown color', JSON.stringify({ ...full, manualEvents: [{ ...full.manualEvents[0], color: 'pink' }] }), 'broken'],
     ['an end day for a start that is not in the file', JSON.stringify({ ...full, periodStarts: [] }), 'broken'],
     ['an end day too far from its start', JSON.stringify({ ...full, periodEnds: [{ start: '2026-10-01', end: '2026-11-15' }] }), 'broken'],
+    ['a shift period that ends before it starts', JSON.stringify({ ...full, shiftPeriods: [{ start: '2026-08-10', end: '2026-08-01' }] }), 'broken'],
     ['a pill period that ends before it starts', JSON.stringify({ ...full, pillPeriods: [{ start: '2026-10-10', end: '2026-10-01' }] }), 'broken'],
     ['a shifted mark on a day that is not a start', JSON.stringify({ ...full, shiftedStarts: ['2026-10-02'] }), 'broken'],
     [
