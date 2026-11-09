@@ -71,6 +71,18 @@ describe('predictCycle', () => {
     expect(p).toMatchObject({ averageLength: 28, cyclesUsed: 3 });
   });
 
+  it('predicts from the cycles while on the pill apart from the usual ones', () => {
+    // 30 days three times, then the pill from 04-10: 28 days three times
+    const starts = ['2026-01-01', '2026-01-31', '2026-03-02', '2026-04-01', '2026-04-29', '2026-05-27', '2026-06-24'];
+    const onPill = predictCycle(starts, { pill: [{ start: '2026-04-10', end: null }] })!;
+    expect(onPill).toMatchObject({ averageLength: 28, cyclesUsed: 3, provisional: false });
+    expect(onPill.excluded.map((gap) => gap.reason)).toEqual(['offPill', 'offPill', 'offPill']);
+    // やめたあとは、飲んでいた間の間隔を外して、ふだんの周期で予測する
+    const stopped = predictCycle(starts, { pill: [{ start: '2026-04-10', end: '2026-06-30' }] })!;
+    expect(stopped).toMatchObject({ averageLength: 30, cyclesUsed: 3 });
+    expect(stopped.excluded.map((gap) => gap.reason)).toEqual(['pill', 'pill', 'pill']);
+  });
+
   it('leaves out the gap up to a period shifted with medicine, but counts the next one', () => {
     // 28, 28, 38 (delayed with medicine), 28, 28 days
     const starts = ['2026-01-01', '2026-01-29', '2026-02-26', '2026-04-05', '2026-05-03', '2026-05-31'];

@@ -20,6 +20,7 @@ import {
 } from '../engine';
 import { CALENDAR_NOTE, NOTIFY_HOUR, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import { BackupPanel } from './BackupPanel';
+import { PillPanel } from './PillPanel';
 import { BIOMETRIC, Button, Decorations, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
 import { fonts, radius, useColors } from './theme';
@@ -34,7 +35,13 @@ export function SettingsScreen({ k, today }: Props) {
   const { n, meanAbsErrorDays: mean, within1DayRate: rate, latest } = k.accuracy;
   const excluded = predictCycle(k.starts, k.notes)?.excluded ?? [];
   const reasonName = (reason: ExcludedInterval['reason']) =>
-    ({ tooShort: '間隔が短すぎる', tooLong: '間隔が長すぎる', shifted: '薬で時期をずらした' })[reason];
+    ({
+      tooShort: '間隔が短すぎる',
+      tooLong: '間隔が長すぎる',
+      shifted: '薬で時期をずらした',
+      pill: 'ピルを飲んでいた間',
+      offPill: 'ピルを飲む前',
+    })[reason];
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [lockFailed, setLockFailed] = useState(false);
 
@@ -255,11 +262,15 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
+      <Section title="ピル">
+        <PillPanel k={k} today={today} />
+      </Section>
+
       {excluded.length > 0 && (
         <Section title="予測に使っていない間隔">
           <Text style={[styles.help, { color: colors.muted }]}>
             {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
-            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理までの間隔も使っていません。記録は消えていません。
+            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
           </Text>
           {excluded.map((gap) => (
             <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>

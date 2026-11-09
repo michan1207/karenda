@@ -28,6 +28,11 @@ describe('consultReasons', () => {
     expect(consultReasons(fromGaps([24, 34, 28]), { shifted: new Set([fromGaps([24, 34])[2]]) })).toEqual([]);
   });
 
+  it('does not count the gaps up to periods while on the pill', () => {
+    const starts = fromGaps([28, 60, 28, 10]);
+    expect(consultReasons(starts, { pill: [{ start: starts[1], end: null }] })).toEqual([]);
+  });
+
   it('looks only at the last 6 intervals', () => {
     expect(consultReasons(fromGaps([10, 10, 28, 28, 29, 28, 27, 28]))).toEqual([]);
   });

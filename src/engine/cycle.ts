@@ -3,13 +3,34 @@ import { addDays, DateKey, diffDays } from './date';
 export type Confidence = 'high' | 'medium' | 'low';
 
 /** 記録漏れなどとみなして、予測の計算から外した間隔。記録そのものは消さない */
-export type ExcludedInterval = { from: DateKey; to: DateKey; days: number; reason: 'tooShort' | 'tooLong' | 'shifted' };
+export type ExcludedInterval = {
+  from: DateKey;
+  to: DateKey;
+  days: number;
+  /** pill: ピルを飲んでいない今は、飲んでいた間の間隔を使わない / offPill: 飲んでいる今は、飲んでいない間の間隔を使わない */
+  reason: 'tooShort' | 'tooLong' | 'shifted' | 'pill' | 'offPill';
+};
 
-/** 開始日についての補足。shifted は薬（ピルなど）で時期をずらした生理の開始日で、そこまでの間隔はふだんの周期として数えない */
-export type CycleNotes = { shifted?: ReadonlySet<DateKey> };
+/** ピルを飲んでいた（いる）期間。end が null なら今も飲んでいる */
+export type PillPeriod = { start: DateKey; end: DateKey | null };
 
-/** 予測や受診の目安に使ってよい間隔か。ずらした生理まで（to が shifted）の間隔は使わない */
-export const countsAsCycle = (to: DateKey, notes: CycleNotes) => !notes.shifted?.has(to);
+/**
+ * 開始日についての補足。shifted は薬で時期をずらした生理の開始日、pill はピルを飲んでいた期間。
+ * どちらも、ふだんの周期とは分けて扱う
+ */
+export type CycleNotes = { shifted?: ReadonlySet<DateKey>; pill?: readonly PillPeriod[] };
+
+export const onPill = (day: DateKey, pill: readonly PillPeriod[] = []) =>
+  pill.some(({ start, end }) => start <= day && (end === null || day <= end));
+
+/** 今もピルを飲んでいるか（終わりの日の無い期間がある） */
+export const takingPill = (notes: CycleNotes) => notes.pill?.some(({ end }) => end === null) ?? false;
+
+/** その開始日で終わる間隔の種類。ずらした生理まで / ピルを飲んでいる間に始まった生理まで / ふだんの周期 */
+export function gapKind(to: DateKey, notes: CycleNotes): 'shifted' | 'pill' | 'natural' {
+  if (notes.shifted?.has(to)) return 'shifted';
+  return onPill(to, notes.pill) ? 'pill' : 'natural';
+}
 
 export type CyclePrediction = {
   /** 記録されている最後の生理開始日 */
@@ -44,15 +65,18 @@ export function predictCycle(starts: DateKey[], notes: CycleNotes = {}): CyclePr
   const sorted = [...new Set(starts)].sort();
   if (sorted.length === 0) return null;
 
-  const gaps = sorted.slice(1).map((to, i) => ({ from: sorted[i], to, days: diffDays(sorted[i], to) }));
-  const excluded = gaps.flatMap(({ from, to, days }): ExcludedInterval[] => {
-    if (!countsAsCycle(to, notes)) return [{ from, to, days, reason: 'shifted' }];
+  // ピルを飲んでいる今は飲んでいる間の間隔だけ、飲んでいない今はふだんの間隔だけで予測する
+  const want = takingPill(notes) ? 'pill' : 'natural';
+  const gaps = sorted.slice(1).map((to, i) => ({ from: sorted[i], to, days: diffDays(sorted[i], to), kind: gapKind(to, notes) }));
+  const excluded = gaps.flatMap(({ from, to, days, kind }): ExcludedInterval[] => {
+    if (kind === 'shifted') return [{ from, to, days, reason: 'shifted' }];
+    if (kind !== want) return [{ from, to, days, reason: kind === 'pill' ? 'pill' : 'offPill' }];
     if (days < MIN_PLAUSIBLE) return [{ from, to, days, reason: 'tooShort' }];
     if (days > MAX_PLAUSIBLE) return [{ from, to, days, reason: 'tooLong' }];
     return [];
   });
   const lengths = gaps
-    .filter(({ to }) => countsAsCycle(to, notes))
+    .filter(({ kind }) => kind === want)
     .map(({ days }) => days)
     .filter((days) => days >= MIN_PLAUSIBLE && days <= MAX_PLAUSIBLE)
     .slice(-RECENT_CYCLES);

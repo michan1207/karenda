@@ -22,6 +22,7 @@ import {
   periodPhase,
   ReviewTarget,
   shiftMonth,
+  takingPill,
   ZoneDay,
 } from '../engine';
 import { DailyCheckCard, DayCheck } from './DailyCheckCard';
@@ -170,6 +171,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
       {k.starts.length === 0 && !hidden && (
         <Notice text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
       )}
+      {!hidden && takingPill(k.notes) && <Notice text="ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
       {guard.prediction?.provisional && (
         <Notice text="記録がまだ少ないため、28日周期を仮定した仮の予測です。" />
       )}
