@@ -154,6 +154,51 @@ const MIGRATIONS: ((db: Database) => Promise<void>)[] = [
       ALTER TABLE deferred_alerts_by_event RENAME TO deferred_alerts;
     `);
   },
+  // 2026-11-08: 生理の終わりの日（無い時は NULL＝設定の日数で見る）
+  async (db) => {
+    await db.execAsync('ALTER TABLE period_starts ADD COLUMN end_date TEXT');
+  },
+  // 2026-11-08: その日の体調。answer が NULL なら「答えない」、symptoms は症状をカンマでつないだもの
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE daily_checks (
+        date TEXT PRIMARY KEY NOT NULL,
+        answer TEXT CHECK (answer IN ('hard', 'normal', 'easy')),
+        symptoms TEXT NOT NULL,
+        answered_at TEXT NOT NULL
+      );
+    `);
+  },
+  // 2026-11-09: 薬（ピルなど）で時期をずらした生理か。1 ならその開始日までの間隔を予測・受診の目安・PMS の推定に使わない
+  async (db) => {
+    await db.execAsync('ALTER TABLE period_starts ADD COLUMN shifted INTEGER NOT NULL DEFAULT 0');
+  },
+  // 2026-11-09: ピルを飲んでいた期間。end_date が NULL なら今も飲んでいる
+  async (db) => {
+    await db.execAsync('CREATE TABLE pill_periods (start TEXT PRIMARY KEY NOT NULL, end_date TEXT)');
+  },
+  // 2026-11-09: 月経移動の薬を飲んだ期間。end_date が NULL なら今も飲んでいる
+  async (db) => {
+    await db.execAsync('CREATE TABLE shift_periods (start TEXT PRIMARY KEY NOT NULL, end_date TEXT)');
+  },
+  // 2026-11-09: このアプリに入れた予定の重さを「おまかせ」（NULL＝設定の言葉で決める）にできるようにする。SQLite は NOT NULL を外せないので作り直す
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE manual_events_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        date TEXT NOT NULL,
+        weight TEXT CHECK (weight IN ('heavy', 'normal')),
+        start_minutes INTEGER,
+        duration_minutes INTEGER,
+        color TEXT NOT NULL DEFAULT 'blue' CHECK (color IN ('blue', 'green', 'orange', 'purple', 'yellow', 'gray'))
+      );
+      INSERT INTO manual_events_new (id, title, date, weight, start_minutes, duration_minutes, color)
+        SELECT id, title, date, weight, start_minutes, duration_minutes, color FROM manual_events;
+      DROP TABLE manual_events;
+      ALTER TABLE manual_events_new RENAME TO manual_events;
+    `);
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

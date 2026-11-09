@@ -12,7 +12,9 @@ export const PRIVACY_FACTS: { label: string; value: string; note: string }[] = [
  * settings は気をつける時期の日数・ロック・隠すモード・通知だけが入る）
  */
 export const STORED_DATA: { table: string; what: string; why: string; backup: boolean }[] = [
-  { table: 'period_starts', what: '生理開始日', why: '次の生理と、気をつける時期を予測するため', backup: true },
+  { table: 'period_starts', what: '生理開始日と終わりの日、薬で時期をずらした印', why: '次の生理と、気をつける時期を予測するため', backup: true },
+  { table: 'pill_periods', what: 'ピルを飲んでいた期間', why: 'その間の生理を、ふだんの周期と分けて予測するため', backup: true },
+  { table: 'shift_periods', what: '月経移動の薬を飲んだ期間', why: 'その後の生理を、予測の平均に入れないため', backup: true },
   { table: 'settings', what: '設定（気をつける時期の日数、通知、ロック、隠すモードなど）', why: 'アプリの動きをあなたに合わせるため', backup: true },
   { table: 'keywords', what: '予定の重さを決める言葉', why: '予定が重いかを判定するため', backup: true },
   { table: 'conflict_states', what: 'お知らせを確認・対応したか（予定のIDと日付）', why: '同じお知らせをくり返さないため', backup: false },
@@ -24,6 +26,7 @@ export const STORED_DATA: { table: string; what: string; why: string; backup: bo
     why: '予定の重さと、気をつける時期の日数を推定するため',
     backup: true,
   },
+  { table: 'daily_checks', what: 'その日の体調（3つの答えと、選んだ症状）', why: 'あとから見返し、気をつける時期の日数を推定するため', backup: true },
   { table: 'prediction_records', what: '出した予測と、実際の開始日', why: '予測の当たり具合を出すため', backup: true },
   { table: 'manual_events', what: 'このアプリの中だけに入れた予定（名前・日付・重さ）', why: '生理の時期と重なる時に知らせるため', backup: true },
   { table: 'deferred_alerts', what: '通知で「今日は決めない」を押した予定（予定のIDと日付）', why: '次の日に一度だけ知らせ直すため', backup: false },

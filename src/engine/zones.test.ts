@@ -1,5 +1,5 @@
 import { predictCycle } from './cycle';
-import { buildZones, periodPhase, phaseOn } from './zones';
+import { buildZones, periodEndChoice, periodPhase, phaseOn } from './zones';
 
 const regular = predictCycle(['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28'])!; // 28 days every time
 
@@ -22,6 +22,20 @@ describe('buildZones', () => {
     expect(zones.get('2026-08-05')).toMatchObject({ zone: 'heavy', periodDay: 3, predicted: false });
     expect(zones.get('2026-09-01')).toMatchObject({ zone: 'heavy', periodDay: 2, predicted: false });
     expect(zones.get('2026-08-06')).toBeUndefined();
+  });
+
+  it('uses the recorded end day instead of the fixed days, and the fixed days where no end is recorded', () => {
+    const starts = ['2026-08-31', '2026-09-28'];
+    const zones = buildZones(regular, { from: '2026-08-25', until: '2026-10-05' }, undefined, starts, undefined, new Map([['2026-08-31', '2026-09-05']]));
+    expect(zones.get('2026-09-05')).toMatchObject({ zone: 'heavy', periodDay: 6, predicted: false });
+    expect(zones.get('2026-09-06')).toBeUndefined();
+    expect(zones.get('2026-09-30')).toMatchObject({ zone: 'heavy', periodDay: 3 });
+    expect(zones.get('2026-10-01')).toBeUndefined();
+    // a shorter period than the fixed days ends early
+    const short = buildZones(regular, { from: '2026-09-25', until: '2026-10-05' }, undefined, starts, undefined, new Map([['2026-09-28', '2026-09-29']]));
+    expect(short.get('2026-09-29')).toMatchObject({ zone: 'heavy', periodDay: 2 });
+    expect(short.get('2026-09-30')).toBeUndefined();
+    expect(phaseOn('2026-09-30', short)).toEqual({ kind: 'after', predicted: false });
   });
 
   it('predicts the next period and the PMS week before it', () => {
@@ -111,5 +125,26 @@ describe('periodPhase', () => {
     expect(periodPhase('2026-10-05', zones)).toBeUndefined();
     expect(periodPhase('2026-10-19', zones)).toBe('before');
     expect(periodPhase('2026-10-26', zones)).toBe('during');
+  });
+});
+
+describe('periodEndChoice', () => {
+  const starts = ['2026-08-31', '2026-09-28'];
+  it('offers to record the end on a day after the latest start, up to day 45, up to today', () => {
+    expect(periodEndChoice('2026-10-02', starts, new Map(), '2026-10-05')).toEqual({ start: '2026-09-28', recorded: false });
+    expect(periodEndChoice('2026-09-28', starts, new Map(), '2026-10-05')).toBeNull();
+    expect(periodEndChoice('2026-10-12', starts, new Map(), '2026-10-20')).toEqual({ start: '2026-09-28', recorded: false });
+    expect(periodEndChoice('2026-11-11', starts, new Map(), '2026-12-01')).toEqual({ start: '2026-09-28', recorded: false });
+    expect(periodEndChoice('2026-11-12', starts, new Map(), '2026-12-01')).toBeNull();
+    expect(periodEndChoice('2026-10-06', starts, new Map(), '2026-10-05')).toBeNull();
+  });
+  it('belongs to an earlier start too, but not across a later start', () => {
+    expect(periodEndChoice('2026-09-03', starts, new Map(), '2026-10-05')).toEqual({ start: '2026-08-31', recorded: false });
+    expect(periodEndChoice('2026-09-28', ['2026-09-20', '2026-09-28'], new Map(), '2026-10-05')).toBeNull();
+  });
+  it('says when the day is the recorded end', () => {
+    const ends = new Map([['2026-09-28', '2026-10-02']]);
+    expect(periodEndChoice('2026-10-02', starts, ends, '2026-10-05')).toEqual({ start: '2026-09-28', recorded: true });
+    expect(periodEndChoice('2026-10-01', starts, ends, '2026-10-05')).toEqual({ start: '2026-09-28', recorded: false });
   });
 });

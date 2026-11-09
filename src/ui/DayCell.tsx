@@ -5,12 +5,23 @@ import { AlertMark, Text } from './components';
 import { dayTitle, zoneLabel } from './format';
 import { radius, useColors } from './theme';
 
-/** カレンダーの日のマス。生理・PMSの色、重なりの印、このアプリの予定の色の点を出す */
+export type MedicineMark = 'pill' | 'shift';
+
+const MEDICINE_LABEL: Record<MedicineMark, string> = { pill: 'ピルを飲んでいた日', shift: '月経移動の薬を飲んでいた日' };
+
+/** 薬の印の色。予定の点と見分けるため、点ではなく下の線で出す */
+function useMedicineColor(): Record<MedicineMark, string> {
+  const colors = useColors();
+  return { pill: colors.accent, shift: colors.event.orange };
+}
+
+/** カレンダーの日のマス。生理・PMSの色、重なりの印、このアプリの予定の色の点、薬を飲んでいた日の線を出す */
 export function DayCell({
   day,
   zone,
   alerts,
   dots,
+  medicine,
   inMonth,
   isToday,
   isSelected,
@@ -21,18 +32,26 @@ export function DayCell({
   alerts: ConflictAlert[];
   /** このアプリに入れた予定の色 */
   dots: EventColor[];
+  /** ピル・月経移動の薬を飲んでいた日 */
+  medicine?: MedicineMark;
   inMonth: boolean;
   isToday: boolean;
   isSelected: boolean;
   onPress: () => void;
 }) {
   const colors = useColors();
+  const medicineColor = useMedicineColor();
   const red = alerts.some((alert) => alert.grade === 'A');
   // 予測の幅のはし（中心の日からずれた日）は薄くする
   const heavyColor = zone?.zone === 'heavy' && zone.predicted && !zone.periodDay ? colors.heavyEdge : colors.heavy;
   const zoneColor = zone?.zone === 'heavy' ? heavyColor : zone?.zone === 'pms' ? colors.pms : 'transparent';
   const background = isToday ? colors.pink : zoneColor;
-  const label = [dayTitle(day), zone ? zoneLabel(zone) : null, alerts.length ? '予定と重なっています' : dots.length ? 'このアプリの予定あり' : null]
+  const label = [
+    dayTitle(day),
+    zone ? zoneLabel(zone) : null,
+    medicine ? MEDICINE_LABEL[medicine] : null,
+    alerts.length ? '予定と重なっています' : dots.length ? 'このアプリの予定あり' : null,
+  ]
     .filter(Boolean)
     .join('、');
 
@@ -65,6 +84,7 @@ export function DayCell({
           </View>
         )}
       </View>
+      <View style={[styles.cellLine, medicine && { backgroundColor: medicineColor[medicine] }]} />
     </Pressable>
   );
 }
@@ -78,9 +98,10 @@ function LegendItem({ color, label, textColor }: { color: string; label: string;
   );
 }
 
-/** カレンダーの下の色の説明 */
-export function Legend() {
+/** カレンダーの下の色の説明。薬の線は、記録がある時だけ説明する */
+export function Legend({ medicine = [] }: { medicine?: MedicineMark[] }) {
   const colors = useColors();
+  const medicineColor = useMedicineColor();
   return (
     <View style={styles.legend}>
       <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
@@ -90,6 +111,12 @@ export function Legend() {
         <AlertMark strong size={12} />
         <Text style={[styles.legendText, { color: colors.muted }]}>予定と重なる日</Text>
       </View>
+      {medicine.map((kind) => (
+        <View key={kind} style={styles.legendItem}>
+          <View style={[styles.legendLine, { backgroundColor: medicineColor[kind] }]} />
+          <Text style={[styles.legendText, { color: colors.muted }]}>{MEDICINE_LABEL[kind]}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -108,6 +135,9 @@ const styles = StyleSheet.create({
   cellMark: { height: 12 },
   cellDots: { flexDirection: 'row', gap: 2 },
   cellDot: { width: 5, height: 5, borderRadius: 2.5 },
+  // 丸いマスの内側の下はし。流れに入れると次の行の日に付いて見える（Android 実機で確認）
+  cellLine: { position: 'absolute', bottom: 4, width: 16, height: 3, borderRadius: 1.5 },
+  legendLine: { width: 14, height: 3, borderRadius: 1.5 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   swatch: { width: 12, height: 12, borderRadius: radius.pill },

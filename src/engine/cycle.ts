@@ -3,7 +3,47 @@ import { addDays, DateKey, diffDays } from './date';
 export type Confidence = 'high' | 'medium' | 'low';
 
 /** 記録漏れなどとみなして、予測の計算から外した間隔。記録そのものは消さない */
-export type ExcludedInterval = { from: DateKey; to: DateKey; days: number; reason: 'tooShort' | 'tooLong' };
+export type ExcludedInterval = {
+  from: DateKey;
+  to: DateKey;
+  days: number;
+  /** pill: ピルを飲んでいない今は、飲んでいた間の間隔を使わない / offPill: 飲んでいる今は、飲んでいない間の間隔を使わない */
+  reason: 'tooShort' | 'tooLong' | 'shifted' | 'pill' | 'offPill';
+};
+
+/** ピルを飲んでいた（いる）期間。end が null なら今も飲んでいる */
+export type PillPeriod = { start: DateKey; end: DateKey | null };
+
+/**
+ * 開始日についての補足。shifted は薬で時期をずらした印をつけた生理の開始日、pill はピルを飲んでいた期間、
+ * shift は月経移動の薬を飲んだ期間。どれも、ふだんの周期とは分けて扱う
+ */
+export type CycleNotes = { shifted?: ReadonlySet<DateKey>; pill?: readonly PillPeriod[]; shift?: readonly PillPeriod[] };
+
+/** 月経移動の薬をやめた日から、この日数のうちに始まった生理を、ずらした生理とみなす */
+export const SHIFT_AFTER_DAYS = 10;
+
+/** 月経移動の薬を飲んでから（やめた日の SHIFT_AFTER_DAYS 日後まで）に始まった生理か */
+export const afterShiftMedicine = (day: DateKey, notes: CycleNotes) =>
+  notes.shift?.some(({ start, end }) => start <= day && (end === null || day <= addDays(end, SHIFT_AFTER_DAYS))) ?? false;
+
+/** ずらした生理か（印をつけたか、月経移動の薬のあとに始まった） */
+export const isShifted = (day: DateKey, notes: CycleNotes) => (notes.shifted?.has(day) ?? false) || afterShiftMedicine(day, notes);
+
+/** 今、月経移動の薬を飲んでいるか */
+export const takingShiftMedicine = (notes: CycleNotes) => notes.shift?.some(({ end }) => end === null) ?? false;
+
+export const onPill = (day: DateKey, pill: readonly PillPeriod[] = []) =>
+  pill.some(({ start, end }) => start <= day && (end === null || day <= end));
+
+/** 今もピルを飲んでいるか（終わりの日の無い期間がある） */
+export const takingPill = (notes: CycleNotes) => notes.pill?.some(({ end }) => end === null) ?? false;
+
+/** その開始日で終わる間隔の種類。ずらした生理まで / ピルを飲んでいる間に始まった生理まで / ふだんの周期 */
+export function gapKind(to: DateKey, notes: CycleNotes): 'shifted' | 'pill' | 'natural' {
+  if (isShifted(to, notes)) return 'shifted';
+  return onPill(to, notes.pill) ? 'pill' : 'natural';
+}
 
 export type CyclePrediction = {
   /** 記録されている最後の生理開始日 */
@@ -19,7 +59,7 @@ export type CyclePrediction = {
   confidence: Confidence;
 };
 
-const RECENT_CYCLES = 6;
+export const RECENT_CYCLES = 6;
 export const MIN_PLAUSIBLE = 15;
 // これより長い間隔は、途中の記録漏れとみなして計算から外す
 export const MAX_PLAUSIBLE = 45;
@@ -34,17 +74,22 @@ function confidenceOf(cyclesUsed: number, spreadDays: number): Confidence {
   return 'low';
 }
 
-export function predictCycle(starts: DateKey[]): CyclePrediction | null {
+export function predictCycle(starts: DateKey[], notes: CycleNotes = {}): CyclePrediction | null {
   const sorted = [...new Set(starts)].sort();
   if (sorted.length === 0) return null;
 
-  const gaps = sorted.slice(1).map((to, i) => ({ from: sorted[i], to, days: diffDays(sorted[i], to) }));
-  const excluded = gaps.flatMap(({ from, to, days }): ExcludedInterval[] => {
+  // ピルを飲んでいる今は飲んでいる間の間隔だけ、飲んでいない今はふだんの間隔だけで予測する
+  const want = takingPill(notes) ? 'pill' : 'natural';
+  const gaps = sorted.slice(1).map((to, i) => ({ from: sorted[i], to, days: diffDays(sorted[i], to), kind: gapKind(to, notes) }));
+  const excluded = gaps.flatMap(({ from, to, days, kind }): ExcludedInterval[] => {
+    if (kind === 'shifted') return [{ from, to, days, reason: 'shifted' }];
+    if (kind !== want) return [{ from, to, days, reason: kind === 'pill' ? 'pill' : 'offPill' }];
     if (days < MIN_PLAUSIBLE) return [{ from, to, days, reason: 'tooShort' }];
     if (days > MAX_PLAUSIBLE) return [{ from, to, days, reason: 'tooLong' }];
     return [];
   });
   const lengths = gaps
+    .filter(({ kind }) => kind === want)
     .map(({ days }) => days)
     .filter((days) => days >= MIN_PLAUSIBLE && days <= MAX_PLAUSIBLE)
     .slice(-RECENT_CYCLES);
@@ -92,4 +137,34 @@ export function predictedPeriod(prediction: CyclePrediction, n: number): Predict
 export function nearestPeriod(prediction: CyclePrediction, day: DateKey): PredictedPeriod {
   const n = Math.round(diffDays(prediction.lastStart, day) / prediction.averageLength);
   return predictedPeriod(prediction, Math.max(1, n));
+}
+
+export type CycleStats = { count: number; average: number; shortest: number; longest: number };
+
+const statsOf = (days: number[]): CycleStats | null =>
+  days.length === 0
+    ? null
+    : {
+        count: days.length,
+        average: Math.round(days.reduce((a, b) => a + b, 0) / days.length),
+        shortest: Math.min(...days),
+        longest: Math.max(...days),
+      };
+
+/**
+ * 記録全体の周期のまとめ（設定の「周期のまとめ」）。予測とちがい、最近の数回にしぼらない。
+ * どれも記録漏れとみなす長さの間隔は入れない。shifted はずらした生理までの間隔。
+ * periodDays は記録した終わりの日までの日数（開始日を1日目）
+ */
+export function cycleSummary(starts: DateKey[], notes: CycleNotes, ends: ReadonlyMap<DateKey, DateKey>) {
+  const sorted = [...new Set(starts)].sort();
+  const gaps = sorted.slice(1).map((to, i) => ({ days: diffDays(sorted[i], to), kind: gapKind(to, notes) }));
+  const plausible = (kind: string) =>
+    gaps.filter((gap) => gap.kind === kind && gap.days >= MIN_PLAUSIBLE && gap.days <= MAX_PLAUSIBLE).map(({ days }) => days);
+  return {
+    natural: statsOf(plausible('natural')),
+    pill: statsOf(plausible('pill')),
+    shifted: statsOf(plausible('shifted')),
+    periodDays: statsOf([...ends].map(([start, end]) => diffDays(start, end) + 1)),
+  };
 }

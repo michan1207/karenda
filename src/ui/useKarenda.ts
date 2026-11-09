@@ -19,12 +19,19 @@ import {
   listPeriodStarts,
   loadState,
   ManualEventInput,
+  MedicineKind,
   Notifier,
   MetricProps,
   recordMetric,
   recordPeriodStart,
   removeManualEvent as deleteManualEvent,
   removePeriodStart,
+  saveDailyCheck,
+  setPeriodEnd as savePeriodEnd,
+  setShifted as saveShifted,
+  startPill as saveStartPill,
+  endPill as saveEndPill,
+  removePill as deletePill,
   removeTitleWeight,
   saveTitleWeight,
   restoreData,
@@ -47,6 +54,7 @@ import {
   addDays,
   buildReport,
   Answer,
+  DailyCheck,
   DateKey,
   DEFAULT_KEYWORDS,
   DEFAULT_PMS,
@@ -96,6 +104,14 @@ export type Karenda = StoredState & {
   enableCalendar(): Promise<boolean>;
   addStart(day: DateKey): Promise<void>;
   removeStart(day: DateKey): Promise<void>;
+  /** 生理の終わりの日を残す。null で消す */
+  setPeriodEnd(start: DateKey, end: DateKey | null): Promise<void>;
+  /** 薬（ピルなど）で時期をずらした生理の印をつける・外す */
+  setShifted(start: DateKey, shifted: boolean): Promise<void>;
+  /** ピル（kind 'shift' なら月経移動の薬）を飲みはじめた日・やめた日を残す。消すと期間ごと消える */
+  startPill(start: DateKey, kind?: MedicineKind): Promise<void>;
+  endPill(start: DateKey, end: DateKey | null, kind?: MedicineKind): Promise<void>;
+  removePill(start: DateKey, kind?: MedicineKind): Promise<void>;
   /** このアプリの中だけに予定を入れる（iPhone のカレンダーには書かない） */
   addManualEvent(event: ManualEventInput): Promise<void>;
   removeManualEvent(eventId: string): Promise<void>;
@@ -110,6 +126,8 @@ export type Karenda = StoredState & {
   removeTitleWeight(term: string): Promise<void>;
   /** 予定のあとの「どうだった？」に答える。null は「答えない」 */
   answerReview(target: ReviewTarget, answer: Answer | null): Promise<void>;
+  /** その日の体調を残す（同じ日は書き換える）。answer が null は「答えない」 */
+  saveCheck(check: DailyCheck): Promise<void>;
   setNotify(enabled: boolean): Promise<void>;
   /** 予定の30分前にも知らせるか */
   setSoon(enabled: boolean): Promise<void>;
@@ -148,6 +166,8 @@ const INITIAL_STATE: StoredState = {
   metricsEnabled: true,
   resolutions: [],
   starts: [],
+  ends: new Map(),
+  notes: { shifted: new Set(), pill: [], shift: [] },
   settings: DEFAULT_ZONE_SETTINGS,
   pms: DEFAULT_PMS,
   accuracy: buildReport([]),
@@ -158,6 +178,7 @@ const INITIAL_STATE: StoredState = {
   keywords: DEFAULT_KEYWORDS,
   titleWeights: [],
   reviewed: new Set(),
+  checks: new Map(),
   statuses: new Map(),
 };
 
@@ -352,6 +373,11 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
         await askReview().catch(() => {});
       }),
     removeStart: (day) => withDb((opened) => removePeriodStart(opened, day)),
+    setPeriodEnd: (start, end) => withDb((opened) => savePeriodEnd(opened, start, end)),
+    setShifted: (start, shifted) => withDb((opened) => saveShifted(opened, start, shifted)),
+    startPill: (start, kind) => withDb((opened) => saveStartPill(opened, start, kind)),
+    endPill: (start, end, kind) => withDb((opened) => saveEndPill(opened, start, end, kind)),
+    removePill: (start, kind) => withDb((opened) => deletePill(opened, start, kind)),
     addManualEvent: (event) => withDb((opened) => saveManualEvent(opened, event)),
     removeManualEvent: (eventId) => withDb((opened) => deleteManualEvent(opened, eventId)),
     setSettings: (patch) => withDb(async (opened) => saveZoneSettings(opened, { ...(await getZoneSettings(opened)), ...patch })),
@@ -360,6 +386,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
     setTitleWeight: (entry, weight) => withDb((opened) => saveTitleWeight(opened, overrideWeight(entry, entry.label, weight))),
     removeTitleWeight: (term) => withDb((opened) => removeTitleWeight(opened, term)),
     answerReview: (target, answer) => withDb((opened) => saveReviewAnswer(opened, target, answer)),
+    saveCheck: (check) => withDb((opened) => saveDailyCheck(opened, check)),
     setNotify: async (enabled) => {
       await withDb((opened) => setNotifyEnabled(opened, enabled));
       if (enabled) await requestNotifyAccess();

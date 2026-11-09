@@ -1,4 +1,4 @@
-import { CyclePrediction, predictedPeriod } from './cycle';
+import { CyclePrediction, MAX_PLAUSIBLE, predictedPeriod } from './cycle';
 import { addDays, DateKey, diffDays } from './date';
 
 export type ZoneSettings = {
@@ -41,6 +41,8 @@ export function buildZones(
   recorded: DateKey[] = [prediction.lastStart],
   /** 渡すと、次の予測の幅を過ぎても記録が無い間、その後の LATE_DAYS 日も「生理かもしれない日」にする */
   today?: DateKey,
+  /** 記録した終わりの日（開始日→終わりの日）。ある周期は heavyDays の代わりに終わりの日までを濃いピンクにする */
+  ends: ReadonlyMap<DateKey, DateKey> = new Map(),
 ): ZoneMap {
   validateZoneSettings(settings);
   const { heavyDays, pmsDays, pmsBefore } = settings;
@@ -56,7 +58,11 @@ export function buildZones(
   };
 
   for (const start of recorded) {
-    for (let i = 0; i < heavyDays; i++) {
+    const end = ends.get(start);
+    const next = recorded.find((s) => s > start);
+    // 次の開始日の前日までにとどめる（バックアップを合わせた時に重なることがある）
+    const days = Math.min(end ? diffDays(start, end) + 1 : heavyDays, next ? diffDays(start, next) : Infinity);
+    for (let i = 0; i < days; i++) {
       setHeavy(addDays(start, i), { zone: 'heavy', predicted: false, periodDay: i + 1 });
     }
   }
@@ -86,6 +92,28 @@ export function buildZones(
   }
 
   return zones;
+}
+
+/**
+ * 終わりの日として記録できるのは、開始日から数えてこの日数目まで（次の開始日があればその前日まで）。
+ * 1周期とみなせるいちばん長い日数にそろえる（2026-11-09 オーナー決定「次の生理の前日まで」）
+ */
+export const MAX_PERIOD_DAYS = MAX_PLAUSIBLE;
+
+/**
+ * その日を生理の終わりの日として記録できるか。開始日の翌日〜MAX_PERIOD_DAYS 日目で、今日まで、次の開始日より前の日だけ。
+ * recorded はその日が記録した終わりの日か
+ */
+export function periodEndChoice(
+  day: DateKey,
+  starts: DateKey[],
+  ends: ReadonlyMap<DateKey, DateKey>,
+  today: DateKey,
+): { start: DateKey; recorded: boolean } | null {
+  if (day > today || starts.includes(day)) return null;
+  const start = starts.filter((s) => s < day).sort().at(-1);
+  if (!start || diffDays(start, day) >= MAX_PERIOD_DAYS) return null;
+  return { start, recorded: ends.get(start) === day };
 }
 
 /** ヘビー期の翌日から何日を「生理の終わりごろ〜直後」とみなすか */

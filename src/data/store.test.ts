@@ -1,3 +1,4 @@
+import { buildReport } from '../engine/accuracy';
 import { addDays } from '../engine/date';
 import { learnWeight, overrideWeight } from '../engine/learning';
 import { DEFAULT_PMS } from '../engine/pms';
@@ -22,6 +23,8 @@ import {
   isDismissed,
   saveConflictStatus,
   listManualEvents,
+  listDailyChecks,
+  listPeriodEnds,
   listPeriodStarts,
   listPredictionRecords,
   listDeferrals,
@@ -34,8 +37,16 @@ import {
   removePeriodStart,
   removeTitleWeight,
   restoreData,
+  saveDailyCheck,
   saveTitleWeight,
   setKeywords,
+  setPeriodEnd,
+  setShifted,
+  listShiftedStarts,
+  startPill,
+  endPill,
+  removePill,
+  listPillPeriods,
 } from './store';
 import {
   dismissConsult,
@@ -299,6 +310,10 @@ describe('events put in this app only', () => {
         durationMinutes: 90,
       },
     ]);
+    // おまかせは weight を持たない（設定の言葉・覚えた重さで決まる）
+    await addManualEvent(db, { title: 'ヨガ', date: '2026-10-28', weight: null, color: 'green' });
+    expect((await listManualEvents(db)).at(-1)).toEqual({ id: 'manual:3', title: 'ヨガ', start: '2026-10-28', end: '2026-10-28', allDay: false, manual: true, color: 'green' });
+    await removeManualEvent(db, 'manual:3');
     // カレンダーの予定のIDでは消さない
     await removeManualEvent(db, '2');
     await removeManualEvent(db, 'manual:2');
@@ -346,6 +361,7 @@ describe('dismissed alerts', () => {
   it('keeps one state and one reminder per event after updating, the furthest state and the earliest reminder', async () => {
     const old = createTestDatabase();
     await old.execAsync(`
+      CREATE TABLE period_starts (start TEXT PRIMARY KEY NOT NULL);
       CREATE TABLE conflict_states (event_id TEXT NOT NULL, date TEXT NOT NULL, state TEXT NOT NULL, resolution TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (event_id, date));
       INSERT INTO conflict_states VALUES
         ('trip', '2026-10-27', 'resolved', 'prepared', '2026-10-20T00:00:00.000Z'),
@@ -353,6 +369,8 @@ describe('dismissed alerts', () => {
         ('talk', '2026-11-02', 'acknowledged', NULL, '2026-10-21T00:00:00.000Z');
       CREATE TABLE deferred_alerts (event_id TEXT NOT NULL, date TEXT NOT NULL, remind_on TEXT NOT NULL, PRIMARY KEY (event_id, date));
       INSERT INTO deferred_alerts VALUES ('talk', '2026-11-03', '2026-10-23'), ('talk', '2026-11-02', '2026-10-22');
+      CREATE TABLE manual_events (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, date TEXT NOT NULL, weight TEXT NOT NULL CHECK (weight IN ('heavy', 'normal')), start_minutes INTEGER, duration_minutes INTEGER, color TEXT NOT NULL DEFAULT 'blue');
+      INSERT INTO manual_events (title, date, weight, color) VALUES ('ヨガ', '2026-10-30', 'normal', 'green');
       PRAGMA user_version = 9;
     `);
     await migrate(old);
@@ -363,11 +381,14 @@ describe('dismissed alerts', () => {
       ]),
     );
     expect(await listDeferrals(old)).toEqual(new Map([['talk', '2026-10-22']]));
+    // 入れた時に選んだ重さは、おまかせにできるよう表を作り直した後も残る
+    expect(await listManualEvents(old)).toMatchObject([{ id: 'manual:1', title: 'ヨガ', weight: 'normal', color: 'green' }]);
   });
 
   it('keeps alerts closed with the old "わかった" as acknowledged after updating', async () => {
     const old = createTestDatabase();
     await old.execAsync(`
+      CREATE TABLE period_starts (start TEXT PRIMARY KEY NOT NULL);
       CREATE TABLE dismissed_alerts (event_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY (event_id, date));
       INSERT INTO dismissed_alerts (event_id, date) VALUES ('ev1', '2026-10-27');
       PRAGMA user_version = 1;
@@ -534,6 +555,32 @@ describe('prediction records', () => {
     await deleteAllData(db);
     expect(await listPredictionRecords(db)).toEqual([]);
   });
+
+  it('takes a period shifted with medicine out of the results, and out of the next prediction', async () => {
+    await regular();
+    await recordPeriodStart(db, '2026-11-05');
+    await setShifted(db, '2026-11-05', true);
+    expect(await listShiftedStarts(db)).toEqual(new Set(['2026-11-05']));
+    const state = await loadState(db, new Date(2026, 10, 5, 12));
+    expect(state.notes.shifted).toEqual(new Set(['2026-11-05']));
+    expect(state.accuracy.n).toBe(0);
+    // 28日ごとの3回だけで予測し、次は 11-05 の28日後
+    expect((await listPredictionRecords(db)).at(-1)).toMatchObject({ basedOn: '2026-11-05', predictedStart: '2026-12-03' });
+    await setShifted(db, '2026-11-05', false);
+    expect(await listShiftedStarts(db)).toEqual(new Set());
+  });
+
+  it('keeps the shifted mark through a backup, adding it even with keepMine', async () => {
+    await regular();
+    await setShifted(db, '2026-09-28', true);
+    const data = await exportData(db);
+    expect(data.shiftedStarts).toEqual(['2026-09-28']);
+    await setShifted(db, '2026-09-28', false);
+    await restoreData(db, data, 'keepMine');
+    expect(await listShiftedStarts(db)).toEqual(new Set(['2026-09-28']));
+    await restoreData(db, { ...data, shiftedStarts: [] }, 'replace');
+    expect(await listShiftedStarts(db)).toEqual(new Set());
+  });
 });
 
 describe('loadState', () => {
@@ -554,6 +601,131 @@ describe('loadState', () => {
   });
 });
 
+describe('period end days', () => {
+  beforeEach(async () => {
+    for (const start of ['2026-09-01', '2026-09-29']) await addPeriodStart(db, start);
+  });
+
+  it('keeps one end day per start, changes it, and forgets it', async () => {
+    await setPeriodEnd(db, '2026-09-01', '2026-09-06');
+    await setPeriodEnd(db, '2026-09-01', '2026-09-05');
+    expect(await listPeriodEnds(db)).toEqual(new Map([['2026-09-01', '2026-09-05']]));
+    expect((await loadState(db)).ends).toEqual(new Map([['2026-09-01', '2026-09-05']]));
+    await setPeriodEnd(db, '2026-09-01', null);
+    expect(await listPeriodEnds(db)).toEqual(new Map());
+  });
+
+  it('refuses an end on the start, on or after the next start, or after day 45', async () => {
+    for (const end of ['2026-09-01', '2026-09-29', '2026-10-05']) await expect(setPeriodEnd(db, '2026-09-01', end)).rejects.toThrow();
+    await expect(setPeriodEnd(db, '2026-09-01', '2026-09-28')).resolves.toBeUndefined();
+    await expect(setPeriodEnd(db, '2026-09-29', '2026-11-13')).rejects.toThrow();
+    await expect(setPeriodEnd(db, '2026-09-29', '2026-11-12')).resolves.toBeUndefined();
+  });
+
+  it('forgets the end day together with its start', async () => {
+    await setPeriodEnd(db, '2026-09-29', '2026-10-03');
+    await removePeriodStart(db, '2026-09-29');
+    await addPeriodStart(db, '2026-09-29');
+    expect(await listPeriodEnds(db)).toEqual(new Map());
+  });
+
+  it('keeps the end day on this phone when restoring with keepMine, and takes the file one otherwise', async () => {
+    await setPeriodEnd(db, '2026-09-01', '2026-09-05');
+    const data = { ...(await exportData(db)), periodEnds: [{ start: '2026-09-01', end: '2026-09-07' }] };
+    await restoreData(db, data, 'keepMine');
+    expect(await listPeriodEnds(db)).toEqual(new Map([['2026-09-01', '2026-09-05']]));
+    await restoreData(db, data, 'preferFile');
+    expect(await listPeriodEnds(db)).toEqual(new Map([['2026-09-01', '2026-09-07']]));
+  });
+});
+
+describe('pill periods', () => {
+  it('keeps when the pill was started and stopped, one period at a time', async () => {
+    await startPill(db, '2026-09-01');
+    await expect(startPill(db, '2026-10-01')).rejects.toThrow();
+    await expect(endPill(db, '2026-09-01', '2026-08-31')).rejects.toThrow();
+    await endPill(db, '2026-09-01', '2026-09-20');
+    await expect(startPill(db, '2026-09-20')).rejects.toThrow();
+    await startPill(db, '2026-10-10');
+    expect(await listPillPeriods(db)).toEqual([
+      { start: '2026-09-01', end: '2026-09-20' },
+      { start: '2026-10-10', end: null },
+    ]);
+    expect((await loadState(db)).notes.pill).toEqual(await listPillPeriods(db));
+    await removePill(db, '2026-09-01');
+    expect(await listPillPeriods(db)).toEqual([{ start: '2026-10-10', end: null }]);
+  });
+
+  it("goes through a backup, keeping this phone's period with keepMine", async () => {
+    await startPill(db, '2026-09-01');
+    const data = { ...(await exportData(db)), pillPeriods: [{ start: '2026-09-01', end: '2026-09-30' }] };
+    await restoreData(db, data, 'keepMine');
+    expect(await listPillPeriods(db)).toEqual([{ start: '2026-09-01', end: null }]);
+    await restoreData(db, data, 'replace');
+    expect(await listPillPeriods(db)).toEqual([{ start: '2026-09-01', end: '2026-09-30' }]);
+  });
+});
+
+describe('shift medicine periods', () => {
+  it('keeps them apart from the pill, and leaves the next period out of the averages and the accuracy', async () => {
+    for (const start of ['2026-06-01', '2026-06-29', '2026-07-27']) await recordPeriodStart(db, start);
+    await loadState(db, new Date(2026, 7, 1, 12));
+    await startPill(db, '2026-08-10', 'shift');
+    await expect(startPill(db, '2026-08-12', 'shift')).rejects.toThrow();
+    await endPill(db, '2026-08-10', '2026-08-30', 'shift');
+    expect(await listPillPeriods(db)).toEqual([]);
+    expect(await listPillPeriods(db, 'shift')).toEqual([{ start: '2026-08-10', end: '2026-08-30' }]);
+    // 予測では 08-24 ごろ。薬のあと 09-02 に始まった
+    await recordPeriodStart(db, '2026-09-02');
+    expect((await listPredictionRecords(db)).some(({ actualStart }) => actualStart === '2026-09-02')).toBe(true);
+    const state = await loadState(db, new Date(2026, 8, 3, 12));
+    expect(state.notes.shift).toEqual([{ start: '2026-08-10', end: '2026-08-30' }]);
+    expect(state.accuracy).toEqual(buildReport([]));
+    const data = { ...(await exportData(db)) };
+    await removePill(db, '2026-08-10', 'shift');
+    expect(await listPillPeriods(db, 'shift')).toEqual([]);
+    await restoreData(db, data, 'keepMine');
+    expect(await listPillPeriods(db, 'shift')).toEqual([{ start: '2026-08-10', end: '2026-08-30' }]);
+  });
+});
+
+describe('daily checks', () => {
+  it('keeps one condition per day, rewrites it, and loads it by day', async () => {
+    await saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['cramps', 'tired'] });
+    await saveDailyCheck(db, { date: '2026-10-21', answer: null, symptoms: [] });
+    await saveDailyCheck(db, { date: '2026-10-20', answer: 'normal', symptoms: [] });
+    expect(await listDailyChecks(db)).toEqual([
+      { date: '2026-10-20', answer: 'normal', symptoms: [] },
+      { date: '2026-10-21', answer: null, symptoms: [] },
+    ]);
+    expect((await loadState(db)).checks.get('2026-10-21')).toEqual({ date: '2026-10-21', answer: null, symptoms: [] });
+  });
+
+  it('estimates when PMS starts from the daily conditions', async () => {
+    const starts = ['2026-05-04', '2026-06-01', '2026-06-29', '2026-07-27', '2026-08-24', '2026-09-21'];
+    for (const start of starts) {
+      await addPeriodStart(db, start);
+      for (const n of [1, 2, 3, 4, 5]) await saveDailyCheck(db, { date: addDays(start, -n), answer: 'hard', symptoms: [] });
+      await saveDailyCheck(db, { date: addDays(start, -6), answer: 'normal', symptoms: [] });
+    }
+    expect((await loadState(db, new Date(2026, 9, 1, 12))).pms).toMatchObject({ daysBefore: 5, source: 'auto', observations: 6 });
+  });
+
+  it('refuses a broken day or an unknown symptom', async () => {
+    await expect(saveDailyCheck(db, { date: '2026-02-30', answer: 'hard', symptoms: [] })).rejects.toThrow();
+    await expect(saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['fever' as never] })).rejects.toThrow();
+  });
+
+  it('keeps the condition on this phone when restoring with keepMine, and takes the file one otherwise', async () => {
+    await saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: [] });
+    const data = { ...(await exportData(db)), dailyChecks: [{ date: '2026-10-20', answer: 'easy' as const, symptoms: [] }] };
+    await restoreData(db, data, 'keepMine');
+    expect((await listDailyChecks(db))[0].answer).toBe('hard');
+    await restoreData(db, data, 'preferFile');
+    expect((await listDailyChecks(db))[0].answer).toBe('easy');
+  });
+});
+
 describe('export and delete', () => {
   it('exports records and settings as JSON-ready data', async () => {
     await addPeriodStart(db, '2026-10-01');
@@ -564,12 +736,17 @@ describe('export and delete', () => {
       schemaVersion: SCHEMA_VERSION,
       exportedAt: '2026-10-24T00:00:00.000Z',
       periodStarts: ['2026-10-01'],
+      periodEnds: [],
+      shiftedStarts: [],
+      pillPeriods: [],
+      shiftPeriods: [],
       zoneSettings: DEFAULT_ZONE_SETTINGS,
       keywords: DEFAULT_KEYWORDS,
       manualEvents: [],
       titleWeights: [],
       reviews: [],
       predictionRecords: [],
+      dailyChecks: [],
       flags: { lock: false, hide: false, notify: true, soon: true },
     });
     expect(JSON.parse(JSON.stringify(data))).toEqual(data);
@@ -578,6 +755,7 @@ describe('export and delete', () => {
   /** 名簿（STORED_DATA）のすべての表に1行以上入れる */
   async function fillEveryTable() {
     for (const start of ['2026-07-06', '2026-08-03', '2026-08-31', '2026-09-28']) await addPeriodStart(db, start);
+    await setPeriodEnd(db, '2026-09-28', '2026-10-03');
     await setZoneSettings(db, { heavyDays: 5, pmsDays: 3 });
     await setLockEnabled(db, true);
     await setKeywords(db, { high: ['ヨガ'], medium: [] });
@@ -588,6 +766,9 @@ describe('export and delete', () => {
     await loadState(db, new Date(2026, 9, 1, 12));
     await addManualEvent(db, { title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange' });
     await deferAlert(db, 'ev2', '2026-10-28', '2026-10-21');
+    await saveDailyCheck(db, { date: '2026-10-20', answer: 'hard', symptoms: ['cramps'] });
+    await startPill(db, '2026-10-01');
+    await startPill(db, '2026-10-01', 'shift');
     for (const { table } of STORED_DATA) {
       expect([table, (await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`))!.n > 0]).toEqual([table, true]);
     }
@@ -616,6 +797,7 @@ describe('export and delete', () => {
       expect([table, (await count(table)) > 0]).toEqual([table, backup]);
     }
     // settings と keywords は既定の行がいつもあるので、戻した中身で確かめる
+    expect(await listPeriodEnds(db)).toEqual(new Map([['2026-09-28', '2026-10-03']]));
     expect([await getZoneSettings(db), await isLockEnabled(db), (await getKeywords(db)).high]).toEqual([
       { heavyDays: 5, pmsDays: 3 },
       true,
@@ -653,6 +835,8 @@ describe('reading an exported file back', () => {
     await setKeywords(db, { high: ['ヨガ'], medium: ['会議'] });
     await addManualEvent(db, { title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange', startMinutes: 600, durationMinutes: 90 });
     await addManualEvent(db, { title: '通院', date: '2026-10-22', weight: 'normal', color: 'blue' });
+    // おまかせ（重さを選んでいない）も、おまかせのまま戻る
+    await addManualEvent(db, { title: 'ヨガ', date: '2026-10-25', weight: null, color: 'green' });
     const review = { eventId: 'manual:2', title: '通院', date: '2026-10-22', phase: 'pms' as const, risk: 'medium' as const };
     await answerReview(db, review, 'hard', new Date('2026-10-23T00:00:00Z'));
     await saveTitleWeight(db, overrideWeight(learnWeight(undefined, '役員会議', 'hard', 'pms'), '役員会議', 'normal'));
@@ -730,7 +914,7 @@ describe('reading an exported file back', () => {
     await setLockEnabled(db, true);
     const before = { app: 'karenda', schemaVersion: 9, periodStarts: ['2026-09-01'], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: DEFAULT_KEYWORDS };
     const read = readExport(JSON.stringify(before));
-    expect(read).toMatchObject({ ok: true, data: { exportVersion: 0, manualEvents: [], reviews: [], flags: null } });
+    expect(read).toMatchObject({ ok: true, data: { exportVersion: 0, periodEnds: [], dailyChecks: [], manualEvents: [], reviews: [], flags: null } });
     if (!read.ok) throw new Error(read.reason);
     await restoreData(db, read.data, 'replace');
     expect(await listPeriodStarts(db)).toEqual(['2026-09-01']);
@@ -746,13 +930,18 @@ describe('reading an exported file back', () => {
     app: 'karenda',
     exportVersion: EXPORT_VERSION,
     schemaVersion: SCHEMA_VERSION,
-    periodStarts: [],
+    periodStarts: ['2026-10-01'],
+    periodEnds: [{ start: '2026-10-01', end: '2026-10-06' }],
+    shiftedStarts: ['2026-10-01'],
+    pillPeriods: [{ start: '2026-09-01', end: '2026-09-20' }, { start: '2026-10-10', end: null }],
+    shiftPeriods: [{ start: '2026-08-01', end: '2026-08-10' }],
     zoneSettings: DEFAULT_ZONE_SETTINGS,
     keywords: DEFAULT_KEYWORDS,
     manualEvents: [{ id: 'manual:1', title: '発表', date: '2026-10-20', weight: 'heavy', color: 'orange', startMinutes: null, durationMinutes: null }],
     titleWeights: [],
     reviews: [{ eventId: 'manual:1', date: '2026-10-20', phase: 'pms', answer: 'hard', answeredAt: '2026-10-21T00:00:00.000Z' }],
     predictionRecords: [],
+    dailyChecks: [{ date: '2026-10-20', answer: 'hard', symptoms: ['headache', 'low'] }],
     flags: { lock: false, hide: false, notify: true, soon: true },
   };
 
@@ -774,6 +963,17 @@ describe('reading an exported file back', () => {
     ['a newer app', JSON.stringify({ app: 'karenda', schemaVersion: SCHEMA_VERSION + 1 }), 'newer'],
     ['a newer file shape', JSON.stringify({ ...full, exportVersion: EXPORT_VERSION + 1 }), 'newer'],
     ['an event with an unknown color', JSON.stringify({ ...full, manualEvents: [{ ...full.manualEvents[0], color: 'pink' }] }), 'broken'],
+    ['an end day for a start that is not in the file', JSON.stringify({ ...full, periodStarts: [] }), 'broken'],
+    ['an end day too far from its start', JSON.stringify({ ...full, periodEnds: [{ start: '2026-10-01', end: '2026-11-15' }] }), 'broken'],
+    ['a shift period that ends before it starts', JSON.stringify({ ...full, shiftPeriods: [{ start: '2026-08-10', end: '2026-08-01' }] }), 'broken'],
+    ['a pill period that ends before it starts', JSON.stringify({ ...full, pillPeriods: [{ start: '2026-10-10', end: '2026-10-01' }] }), 'broken'],
+    ['a shifted mark on a day that is not a start', JSON.stringify({ ...full, shiftedStarts: ['2026-10-02'] }), 'broken'],
+    [
+      'an end day on the next start',
+      JSON.stringify({ ...full, periodStarts: ['2026-10-01', '2026-10-29'], periodEnds: [{ start: '2026-10-01', end: '2026-10-29' }] }),
+      'broken',
+    ],
+    ['a condition with an unknown symptom', JSON.stringify({ ...full, dailyChecks: [{ date: '2026-10-20', answer: 'hard', symptoms: ['fever'] }] }), 'broken'],
     ['an answer with an unknown time of the cycle', JSON.stringify({ ...full, reviews: [{ ...full.reviews[0], phase: 'luteal' }] }), 'broken'],
     ['a new file without its settings', JSON.stringify({ ...full, flags: undefined }), 'broken'],
     ['an impossible date', JSON.stringify({ app: 'karenda', schemaVersion: 1, periodStarts: ['2026-02-30'], zoneSettings: DEFAULT_ZONE_SETTINGS, keywords: DEFAULT_KEYWORDS }), 'broken'],

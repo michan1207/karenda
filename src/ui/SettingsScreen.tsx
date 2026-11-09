@@ -3,15 +3,19 @@ import { Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-
 
 import {
   AccuracyReport,
+  cycleSummary,
+  CycleStats,
   DateKey,
   DAY_REMINDER_AT,
   DEFAULT_PMS,
+  ExcludedInterval,
   LEAD_DAYS,
   LEARN_AFTER,
   MAX_PER_ALERT,
   MAX_PLAUSIBLE,
   MIN_PLAUSIBLE,
   PMS_CYCLES,
+  RECENT_CYCLES,
   PmsEstimate,
   predictCycle,
   RiskKeywords,
@@ -19,6 +23,7 @@ import {
 } from '../engine';
 import { CALENDAR_NOTE, NOTIFY_HOUR, outboundCount, PRIVACY_FACTS, STORED_DATA } from '../data';
 import { BackupPanel } from './BackupPanel';
+import { PillPanel } from './PillPanel';
 import { BIOMETRIC, Button, Chip, Confirm, Decorations, Input, Notice, PASSCODE, Ribbon, Section, Text } from './components';
 import { dayTitle, fullDate, shortDate } from './format';
 import { radius, useColors } from './theme';
@@ -30,8 +35,28 @@ export function SettingsScreen({ k, today }: Props) {
   const colors = useColors();
   const learned = k.titleWeights.filter((entry) => entry.weight);
   const { n, meanAbsErrorDays: mean, within1DayRate: rate, latest } = k.accuracy;
-  const excluded = predictCycle(k.starts)?.excluded ?? [];
-  const reasonName = (reason: 'tooShort' | 'tooLong') => (reason === 'tooShort' ? '間隔が短すぎる' : '間隔が長すぎる');
+  const excluded = predictCycle(k.starts, k.notes)?.excluded ?? [];
+  const summary = cycleSummary(k.starts, k.notes, k.ends);
+  // ずらした生理は、ふだんの周期より何日長かった（短かった）か
+  const shiftedGap = summary.shifted && summary.natural ? summary.shifted.average - summary.natural.average : null;
+  const summaryRows: [string, CycleStats | null, string?][] = [
+    ['ふだんの周期', summary.natural],
+    ['ピルを飲んでいた間の周期', summary.pill],
+    [
+      '薬でずらした生理までの間隔',
+      summary.shifted,
+      shiftedGap ? `ふだんより平均${Math.abs(shiftedGap)}日${shiftedGap > 0 ? '長い' : '短い'}` : undefined,
+    ],
+    ['生理の日数（終わりの日を記録した回）', summary.periodDays],
+  ];
+  const reasonName = (reason: ExcludedInterval['reason']) =>
+    ({
+      tooShort: '間隔が短すぎる',
+      tooLong: '間隔が長すぎる',
+      shifted: '薬で時期をずらした',
+      pill: 'ピルを飲んでいた間',
+      offPill: 'ピルを飲む前',
+    })[reason];
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [lockFailed, setLockFailed] = useState(false);
 
@@ -241,11 +266,42 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
+      <Section title="周期のまとめ">
+        {summaryRows.every(([, stats]) => !stats) ? (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            まだありません。生理の始まりの日を2回以上記録すると、周期の日数をまとめます。
+          </Text>
+        ) : (
+          summaryRows.map(([label, stats, note]) =>
+            stats ? (
+              <View key={label} style={styles.summaryRow}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
+                <Text style={[styles.help, { color: colors.muted }]}>
+                  {`平均${stats.average}日（${stats.shortest}〜${stats.longest}日、${stats.count}回）${note ? `。${note}` : ''}`}
+                </Text>
+              </View>
+            ) : null,
+          )
+        )}
+        <Text style={[styles.help, { color: colors.muted }]}>
+          これまでの記録全部からのまとめです（予測は最近の{RECENT_CYCLES}回から）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}
+          日より長い間隔は、記録の抜けかもしれないので入れていません。薬でずらした生理には、月経移動の薬のあとの生理も入ります。
+        </Text>
+      </Section>
+
+      <Section title="ピル">
+        <PillPanel k={k} today={today} />
+      </Section>
+
+      <Section title="月経移動">
+        <PillPanel k={k} today={today} kind="shift" />
+      </Section>
+
       {excluded.length > 0 && (
         <Section title="予測に使っていない間隔">
           <Text style={[styles.help, { color: colors.muted }]}>
             {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
-            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。記録は消えていません。
+            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理（月経移動の薬のあとの生理も）までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
           </Text>
           {excluded.map((gap) => (
             <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>
@@ -496,6 +552,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
   title: { marginTop: 8, marginBottom: 4 },
   help: { fontSize: 13, lineHeight: 19 },
+  summaryRow: { gap: 2 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   rowLabel: { fontSize: 15, flexShrink: 1 },
   learnedLabel: { flex: 1 },

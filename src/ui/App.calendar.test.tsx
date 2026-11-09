@@ -1,7 +1,7 @@
-import { fakeCalendar, setup } from './testApp';
+import { fakeCalendar, REGULAR, setup } from './testApp';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Linking } from 'react-native';
-import { dismissConsult, isHideMode, listPeriodStarts, loadState } from '../data';
+import { dismissConsult, endPill, isHideMode, listDailyChecks, listPeriodStarts, loadState, startPill } from '../data';
 import { MASCOT_LINES } from './mascotLines';
 
 describe('calendar', () => {
@@ -76,6 +76,7 @@ describe('calendar', () => {
     await screen.findByText(/^そろそろPMSのころかな。/);
     await fireEvent.press(screen.getByLabelText('生理の表示をかくす'));
     expect(screen.queryAllByText(/生理|PMS|予測|ころかな/)).toEqual([]);
+    expect(screen.queryAllByText(/体調/)).toEqual([]);
     expect(await isHideMode(db)).toBe(true);
     // 予定は今までどおり見られるが、重なりの説明は出さない
     await fireEvent.press(screen.getByLabelText('10月27日（火）'));
@@ -138,6 +139,95 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByText('記録を消す'));
     expect(await screen.findByText('この日を生理開始日として記録')).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual([]);
+  });
+
+  it('records the day the period ended, colors the days up to it, and removes it', async () => {
+    const { db } = await setup({ starts: [...REGULAR, '2026-10-19'] });
+    await fireEvent.press(await screen.findByLabelText(/^10月23日（金）/));
+    await fireEvent.press(screen.getByText('この日を生理の終わりの日として記録'));
+    expect(await screen.findByLabelText(/^10月23日（金）、生理5日目/)).toBeTruthy();
+    expect((await loadState(db)).ends).toEqual(new Map([['2026-10-19', '2026-10-23']]));
+    await fireEvent.press(screen.getByText('終わりの日の記録を消す'));
+    expect(await screen.findByText('この日を生理の終わりの日として記録')).toBeTruthy();
+    expect((await loadState(db)).ends).toEqual(new Map());
+  });
+
+  it('marks a recorded start as shifted with medicine, and takes the mark off', async () => {
+    const { db } = await setup({ starts: [...REGULAR, '2026-10-19'] });
+    await fireEvent.press(await screen.findByLabelText(/^10月19日（月）/));
+    await fireEvent.press(screen.getByText('薬（ピルなど）で時期をずらした生理にする'));
+    expect(await screen.findByText(/薬で時期をずらした生理です/)).toBeTruthy();
+    expect((await loadState(db)).notes.shifted).toEqual(new Set(['2026-10-19']));
+    await fireEvent.press(screen.getByText('ずらした印を外す'));
+    expect(await screen.findByText('薬（ピルなど）で時期をずらした生理にする')).toBeTruthy();
+    expect((await loadState(db)).notes.shifted).toEqual(new Set());
+  });
+
+  it('says a period after the shift medicine is left out, without a mark to set', async () => {
+    await setup({
+      starts: [...REGULAR, '2026-10-19'],
+      prepare: async (db) => {
+        await startPill(db, '2026-10-01', 'shift');
+        await endPill(db, '2026-10-01', '2026-10-15', 'shift');
+      },
+    });
+    await fireEvent.press(await screen.findByLabelText(/^10月19日（月）/));
+    expect(await screen.findByText(/月経移動の薬のあとの生理です/)).toBeTruthy();
+    expect(screen.queryByText('薬（ピルなど）で時期をずらした生理にする')).toBeNull();
+  });
+
+  it('draws a line on the days the pill or the shift medicine was taken, up to today, and explains it', async () => {
+    await setup({
+      prepare: async (db) => {
+        await startPill(db, '2026-10-20');
+        await startPill(db, '2026-10-05', 'shift');
+        await endPill(db, '2026-10-05', '2026-10-07', 'shift');
+      },
+    });
+    expect(await screen.findByLabelText(/^10月24日（土）.*ピルを飲んでいた日/)).toBeTruthy();
+    expect(screen.getByLabelText(/^10月6日（火）.*月経移動の薬を飲んでいた日/)).toBeTruthy();
+    expect(screen.getByLabelText(/^10月8日（木）/).props.accessibilityLabel).not.toMatch(/薬/);
+    // 今日（10-24）より先は、飲んでいる途中でも線を引かない
+    expect(screen.getByLabelText(/^10月25日（日）/).props.accessibilityLabel).not.toMatch(/ピル/);
+    expect(screen.getByText('ピルを飲んでいた日')).toBeTruthy();
+    expect(screen.getByText('月経移動の薬を飲んでいた日')).toBeTruthy();
+  });
+
+  it('asks about yesterday once when opened, with symptoms to pick, and stops asking after an answer', async () => {
+    const { db } = await setup();
+    expect(await screen.findByText('昨日（10月23日（金））の体調は？')).toBeTruthy();
+    await fireEvent.press(screen.getByText('ふつう'));
+    await fireEvent.press(screen.getByText('頭痛'));
+    await fireEvent.press(screen.getByText('眠気'));
+    await fireEvent.press(screen.getByText('記録する'));
+    await waitFor(() => expect(screen.queryByText(/の体調は？/)).toBeNull());
+    expect(await listDailyChecks(db)).toEqual([{ date: '2026-10-23', answer: 'normal', symptoms: ['headache', 'sleepy'] }]);
+  });
+
+  it('stops asking about yesterday after "答えない"', async () => {
+    const { db } = await setup();
+    await fireEvent.press(await screen.findByText('答えない'));
+    await waitFor(() => expect(screen.queryByText(/の体調は？/)).toBeNull());
+    expect(await listDailyChecks(db)).toEqual([{ date: '2026-10-23', answer: null, symptoms: [] }]);
+  });
+
+  it('records and fixes the condition of a past day picked on the calendar', async () => {
+    const { db } = await setup();
+    await fireEvent.press(await screen.findByText('答えない'));
+    await fireEvent.press(await screen.findByLabelText(/^10月20日（火）/));
+    await fireEvent.press(screen.getByText('この日の体調を記録'));
+    await fireEvent.press(screen.getByText('きつかった'));
+    await fireEvent.press(screen.getByText('おなかの痛み'));
+    await fireEvent.press(screen.getByText('記録する'));
+    expect(await screen.findByText('体調：きつかった・おなかの痛み')).toBeTruthy();
+    await fireEvent.press(screen.getByText('この日の体調を直す'));
+    await fireEvent.press(screen.getByText('元気だった'));
+    await fireEvent.press(screen.getByText('おなかの痛み'));
+    await fireEvent.press(screen.getByText('記録する'));
+    expect(await screen.findByText('体調：元気だった')).toBeTruthy();
+    expect((await listDailyChecks(db)).find((c) => c.date === '2026-10-20')).toEqual({ date: '2026-10-20', answer: 'easy', symptoms: [] });
+    await fireEvent.press(screen.getByLabelText('10月30日（金）'));
+    expect(screen.queryByText('この日の体調を記録')).toBeNull();
   });
 
   it('asks for a review once, right after the third recorded start', async () => {
@@ -203,7 +293,7 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByLabelText('色をみどりにする'));
     await fireEvent.press(screen.getByText('入れる'));
     expect(await screen.findByText('このアプリだけ')).toBeTruthy();
-    expect(screen.getByText('14:00〜15:30')).toBeTruthy();
+    expect(screen.getByText('重い予定・14:00〜15:30')).toBeTruthy();
     expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
     expect(calendar.getEvents).not.toHaveBeenCalled();
     expect((await loadState(db)).manualEvents).toMatchObject([{ title: '発表', color: 'green', startMinutes: 840, durationMinutes: 90 }]);
@@ -228,6 +318,28 @@ describe('calendar', () => {
     expect((await loadState(db)).manualEvents).toEqual([]);
     await fireEvent.press(screen.getByText('この日に予定を入れる'));
     expect(screen.getByLabelText('10月14日（水）に入れる予定の名前').props.value).toBe('');
+  });
+
+  it('judges an event put in this app with the words in the settings, and follows them when they change', async () => {
+    await setup({ calendar: fakeCalendar(false) });
+    await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）'));
+    await fireEvent.press(screen.getByText('この日に予定を入れる'));
+    await fireEvent.changeText(screen.getByLabelText('10月27日（火）に入れる予定の名前'), 'ヨガ');
+    // 重さは選ばない（おまかせ）。今の言葉では重くない
+    expect(screen.getByText('設定の「予定の重さを決める言葉」で決めます。今は「軽い予定」です。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('入れる'));
+    expect(await screen.findByText('軽い予定')).toBeTruthy();
+    expect(screen.queryByText(/^お知らせ（/)).toBeNull();
+
+    await fireEvent.press(screen.getByRole('tab', { name: '設定' }));
+    await fireEvent.changeText(await screen.findByLabelText('重い予定に言葉を追加'), 'ヨガ');
+    await fireEvent.press(screen.getByLabelText('重い予定に追加'));
+    await screen.findByLabelText('「ヨガ」を重い予定から外す');
+
+    await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
+    await fireEvent.press(await screen.findByLabelText(/^10月27日（火）、生理2日目（予測）、予定と重なっています/));
+    expect(await screen.findByText('重い予定')).toBeTruthy();
+    expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
   });
 
   it('shows the color of an event put in this app on the day, and reuses it for the same name', async () => {

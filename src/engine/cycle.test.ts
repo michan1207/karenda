@@ -1,4 +1,4 @@
-import { nearestPeriod, predictCycle, predictedPeriod } from './cycle';
+import { afterShiftMedicine, cycleSummary, nearestPeriod, predictCycle, predictedPeriod } from './cycle';
 import { diffDays } from './date';
 
 describe('predictCycle', () => {
@@ -70,6 +70,39 @@ describe('predictCycle', () => {
     ]);
     expect(p).toMatchObject({ averageLength: 28, cyclesUsed: 3 });
   });
+
+  it('predicts from the cycles while on the pill apart from the usual ones', () => {
+    // 30 days three times, then the pill from 04-10: 28 days three times
+    const starts = ['2026-01-01', '2026-01-31', '2026-03-02', '2026-04-01', '2026-04-29', '2026-05-27', '2026-06-24'];
+    const onPill = predictCycle(starts, { pill: [{ start: '2026-04-10', end: null }] })!;
+    expect(onPill).toMatchObject({ averageLength: 28, cyclesUsed: 3, provisional: false });
+    expect(onPill.excluded.map((gap) => gap.reason)).toEqual(['offPill', 'offPill', 'offPill']);
+    // やめたあとは、飲んでいた間の間隔を外して、ふだんの周期で予測する
+    const stopped = predictCycle(starts, { pill: [{ start: '2026-04-10', end: '2026-06-30' }] })!;
+    expect(stopped).toMatchObject({ averageLength: 30, cyclesUsed: 3 });
+    expect(stopped.excluded.map((gap) => gap.reason)).toEqual(['pill', 'pill', 'pill']);
+  });
+
+  it('treats a period that starts after the shift medicine as shifted, without a mark', () => {
+    // 28, 28, 38 (medicine 03-20..04-01, period 04-05), 28, 28 days
+    const starts = ['2026-01-01', '2026-01-29', '2026-02-26', '2026-04-05', '2026-05-03', '2026-05-31'];
+    const p = predictCycle(starts, { shift: [{ start: '2026-03-20', end: '2026-04-01' }] })!;
+    expect(p.excluded).toEqual([{ from: '2026-02-26', to: '2026-04-05', days: 38, reason: 'shifted' }]);
+    // やめた日の SHIFT_AFTER_DAYS 日後まで。次の生理（05-03）は、ふだんの周期
+    expect(afterShiftMedicine('2026-04-11', { shift: [{ start: '2026-03-20', end: '2026-04-01' }] })).toBe(true);
+    expect(afterShiftMedicine('2026-04-12', { shift: [{ start: '2026-03-20', end: '2026-04-01' }] })).toBe(false);
+    expect(afterShiftMedicine('2026-03-19', { shift: [{ start: '2026-03-20', end: null }] })).toBe(false);
+    expect(afterShiftMedicine('2026-12-01', { shift: [{ start: '2026-03-20', end: null }] })).toBe(true);
+  });
+
+  it('leaves out the gap up to a period shifted with medicine, but counts the next one', () => {
+    // 28, 28, 38 (delayed with medicine), 28, 28 days
+    const starts = ['2026-01-01', '2026-01-29', '2026-02-26', '2026-04-05', '2026-05-03', '2026-05-31'];
+    const p = predictCycle(starts, { shifted: new Set(['2026-04-05']) })!;
+    expect(p.excluded).toEqual([{ from: '2026-02-26', to: '2026-04-05', days: 38, reason: 'shifted' }]);
+    expect(p).toMatchObject({ averageLength: 28, spread: 1, cyclesUsed: 4, lastStart: '2026-05-31' });
+    expect(predictCycle(starts)).toMatchObject({ averageLength: 30, cyclesUsed: 5 });
+  });
 });
 
 describe('predictedPeriod', () => {
@@ -91,5 +124,26 @@ describe('nearestPeriod', () => {
 
   it('never looks back before the last recorded start', () => {
     expect(nearestPeriod(p, '2026-08-25').expected).toBe('2026-09-21');
+  });
+});
+
+describe('cycleSummary', () => {
+  it('sums up the usual cycles, the ones on the pill, the shifted ones and the period days apart', () => {
+    // 28, 30, 38 (after the shift medicine), 29, 60 (missed record), 26, 26 (on the pill)
+    const starts = ['2026-01-01', '2026-01-29', '2026-02-28', '2026-04-07', '2026-05-06', '2026-07-05', '2026-07-31', '2026-08-26'];
+    const notes = { shift: [{ start: '2026-03-25', end: '2026-04-02' }], pill: [{ start: '2026-07-10', end: null }] };
+    const ends = new Map([
+      ['2026-01-01', '2026-01-05'],
+      ['2026-01-29', '2026-02-04'],
+    ]);
+    expect(cycleSummary(starts, notes, ends)).toEqual({
+      natural: { count: 3, average: 29, shortest: 28, longest: 30 },
+      pill: { count: 2, average: 26, shortest: 26, longest: 26 },
+      shifted: { count: 1, average: 38, shortest: 38, longest: 38 },
+      periodDays: { count: 2, average: 6, shortest: 5, longest: 7 },
+    });
+    expect(cycleSummary(['2026-01-01'], {}, new Map())).toEqual({ natural: null, pill: null, shifted: null, periodDays: null });
+    // ずらした生理まででも、長すぎる間隔は記録の抜けかもしれないので入れない（実機で 58日 と出た）
+    expect(cycleSummary(['2026-09-10', '2026-11-07'], { shift: [{ start: '2026-11-01', end: '2026-11-03' }] }, new Map()).shifted).toBeNull();
   });
 });

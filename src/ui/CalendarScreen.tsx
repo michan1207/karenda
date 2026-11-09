@@ -5,7 +5,9 @@ import {
   addDays,
   alertsByDay,
   AFTER_PERIOD_DAYS,
+  classifyRisk,
   computeGuard,
+  dayToCheck,
   consultReasons,
   consultText,
   DateKey,
@@ -17,15 +19,21 @@ import {
   isInMonth,
   monthGrid,
   nearestPeriod,
+  periodEndChoice,
   periodPhase,
   ReviewTarget,
   shiftMonth,
+  takingPill,
+  onPill,
+  afterShiftMedicine,
+  takingShiftMedicine,
   ZoneDay,
 } from '../engine';
-import { DayCell, Legend } from './DayCell';
+import { DailyCheckCard, DayCheck } from './DailyCheckCard';
+import { DayCell, Legend, MedicineMark } from './DayCell';
 import { AlertMark, Button, Card, Confirm, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { DigestCard } from './DigestCard';
-import { dayTitle, gradeLabel, predictionLines, timeRange, titleOf, WEEKDAYS, zoneLabel } from './format';
+import { dayTitle, gradeLabel, predictionLines, riskLabel, timeRange, titleOf, WEEKDAYS, zoneLabel } from './format';
 import { ManualEventForm } from './ManualEventForm';
 import { mascotLine } from './mascotLines';
 import { MoodNotesCard } from './MoodNotesCard';
@@ -38,6 +46,8 @@ type Props = { k: Karenda; today: DateKey; reviews: ReviewTarget[]; openAlerts: 
 
 // 隠すモードでは、生理に関わる色・言葉・印を何も出さず、予定だけのカレンダーにする
 const HIDDEN: Guard = { prediction: null, zones: new Map(), alerts: [], actionsOf: () => [] };
+
+const MEDICINES: MedicineMark[] = ['pill', 'shift'];
 
 export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
   const colors = useColors();
@@ -54,6 +64,8 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
     () =>
       computeGuard({
         starts: k.starts,
+        ends: k.ends,
+        notes: k.notes,
         settings: k.settings,
         keywords: k.keywords,
         events,
@@ -61,11 +73,14 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         range: { from: addDays(grid.from, -AFTER_PERIOD_DAYS), until: grid.until },
         today,
       }),
-    [k.starts, k.settings, k.keywords, events, grid, today],
+    [k.starts, k.ends, k.notes, k.settings, k.keywords, events, grid, today],
   );
   const hidden = k.hideMode;
   const guard = hidden ? HIDDEN : computed;
-  const consult = useMemo(() => consultReasons(k.starts), [k.starts]);
+  // 飲んでいる途中の期間も、今日より先の日には線を引かない（先の日はまだ飲んだ日ではない）
+  const medicineOn = (day: DateKey) =>
+    hidden || day > today ? undefined : MEDICINES.find((kind) => onPill(day, k.notes[kind]));
+  const consult = useMemo(() => consultReasons(k.starts, k.notes), [k.starts, k.notes]);
   const thisMonth = today.slice(0, 7);
 
   const dayAlerts = useMemo(() => alertsByDay(guard.alerts), [guard.alerts]);
@@ -83,6 +98,8 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
   const alertFor = (eventId: string) =>
     guard.alerts.find((alert) => (alert.event.memberIds ?? [alert.eventId]).includes(eventId));
   const isRecorded = k.starts.includes(selected);
+  const endChoice = periodEndChoice(selected, k.starts, k.ends, today);
+  const askDay = dayToCheck(today, k.checks);
   const phase = periodPhase(selected, guard.zones);
   const selectedZone = guard.zones.get(selected);
 
@@ -134,6 +151,8 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         />
       )}
 
+      {!hidden && askDay && <DailyCheckCard key={askDay} date={askDay} onSave={k.saveCheck} />}
+
       {!hidden && reviews.length > 0 && <ReviewCard reviews={reviews} onAnswer={k.answerReview} />}
 
       {!hidden && consult.length > 0 && k.consultDismissed !== thisMonth && (
@@ -161,6 +180,8 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
       {k.starts.length === 0 && !hidden && (
         <Notice text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
       )}
+      {!hidden && takingPill(k.notes) && <Notice text="ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
+      {!hidden && takingShiftMedicine(k.notes) && <Notice text="月経移動の薬を飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
       {guard.prediction?.provisional && (
         <Notice text="記録がまだ少ないため、28日周期を仮定した仮の予測です。" />
       )}
@@ -186,6 +207,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                 zone={guard.zones.get(day)}
                 alerts={dayAlerts.get(day) ?? []}
                 dots={dotsByDay.get(day) ?? []}
+                medicine={medicineOn(day)}
                 inMonth={isInMonth(day, year, month)}
                 isToday={day === today}
                 isSelected={day === selected}
@@ -195,7 +217,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           </View>
         ))}
 
-        {!hidden && <Legend />}
+        {!hidden && <Legend medicine={MEDICINES.filter((kind) => k.notes[kind].length > 0)} />}
       </Card>
 
       <Card>
@@ -233,7 +255,10 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                     </Text>
                   )}
                 </View>
-                {timeRange(event) && <Text style={[styles.detailText, { color: colors.muted }]}>{timeRange(event)}</Text>}
+                {/* 重なりの印と同じ判定（設定の言葉・覚えた重さ・入れた時の重さ）で、予定の重さを見せる */}
+                <Text style={[styles.detailText, { color: colors.muted }]}>
+                  {[riskLabel(classifyRisk(event, k.keywords)), timeRange(event)].filter(Boolean).join('・')}
+                </Text>
                 {event.manual && (
                   <Confirm
                     message={`「${event.title}」を消します。元に戻せません。`}
@@ -258,19 +283,42 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         <ManualEventForm
           day={selected}
           events={k.manualEvents}
+          keywords={k.keywords}
           onAdd={(event) => k.addManualEvent({ ...event, date: selected })}
         />
         {hidden ? null : isRecorded ? (
-          <Confirm
-            key={selected}
-            message={`${dayTitle(selected)}の記録を消します。予測も変わります。`}
-            label="記録を消す"
-            onConfirm={() => k.removeStart(selected)}
-            trigger={(ask) => <Button kind="secondary" label="この日の記録を消す" onPress={ask} />}
-          />
+          <>
+            <Confirm
+              key={selected}
+              message={`${dayTitle(selected)}の記録を消します。予測も変わります。`}
+              label="記録を消す"
+              onConfirm={() => k.removeStart(selected)}
+              trigger={(ask) => <Button kind="secondary" label="この日の記録を消す" onPress={ask} />}
+            />
+            {afterShiftMedicine(selected, k.notes) ? (
+              <Text style={[styles.detailText, { color: colors.muted }]}>
+                月経移動の薬のあとの生理です。前の生理からの日数は、予測に使っていません。
+              </Text>
+            ) : k.notes.shifted.has(selected) ? (
+              <>
+                <Text style={[styles.detailText, { color: colors.muted }]}>
+                  薬で時期をずらした生理です。前の生理からの日数は、予測に使っていません。
+                </Text>
+                <Button kind="secondary" label="ずらした印を外す" onPress={() => k.setShifted(selected, false)} />
+              </>
+            ) : (
+              <Button kind="secondary" label="薬（ピルなど）で時期をずらした生理にする" onPress={() => k.setShifted(selected, true)} />
+            )}
+          </>
         ) : selected <= today ? (
           <Button label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
         ) : null}
+        {hidden || !endChoice ? null : endChoice.recorded ? (
+          <Button kind="secondary" label="終わりの日の記録を消す" onPress={() => k.setPeriodEnd(endChoice.start, null)} />
+        ) : (
+          <Button kind="secondary" label="この日を生理の終わりの日として記録" onPress={() => k.setPeriodEnd(endChoice.start, selected)} />
+        )}
+        {!hidden && selected <= today && <DayCheck key={selected} date={selected} check={k.checks.get(selected)} onSave={k.saveCheck} />}
       </Card>
 
       {phase && <MoodNotesCard phase={phase} />}

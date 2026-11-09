@@ -4,6 +4,7 @@ export * from './conflicts';
 export * from './conflictState';
 export * from './consult';
 export * from './cycle';
+export * from './dailyCheck';
 export * from './date';
 export * from './digest';
 export * from './learning';

@@ -6,6 +6,7 @@ import {
   addPeriodStart,
   answerReview,
   encryptBackup,
+  endPill,
   exportData,
   getZoneSettings,
   listPeriodStarts,
@@ -15,6 +16,7 @@ import {
   loadState,
   recordPeriodStart,
   saveTitleWeight,
+  startPill,
 } from '../data';
 import { createTestDatabase } from '../data/testDatabase';
 import { addDays, learnWeight } from '../engine';
@@ -72,7 +74,7 @@ describe('settings', () => {
     expect(screen.getByText('外部のSDK')).toBeTruthy();
     expect(screen.getByText('なし')).toBeTruthy();
     expect(screen.getByText('この端末の中だけ')).toBeTruthy();
-    expect(screen.getByText('・生理開始日：次の生理と、気をつける時期を予測するため')).toBeTruthy();
+    expect(screen.getByText('・生理開始日と終わりの日、薬で時期をずらした印：次の生理と、気をつける時期を予測するため')).toBeTruthy();
   });
 
   it('says there is not enough data yet instead of showing numbers', async () => {
@@ -136,6 +138,59 @@ describe('settings', () => {
     expect((await getZoneSettings(db)).heavyDays).toBe(4);
     await fireEvent(screen.getByLabelText('生理ヘビー期'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
     expect((await getZoneSettings(db)).heavyDays).toBe(3);
+  });
+
+  it('records when the pill was started and stopped, notes it on the calendar, and forgets a period', async () => {
+    const { db } = await openSettings();
+    // ピルの欄が先、月経移動の欄が後
+    await fireEvent.changeText(screen.getAllByLabelText('飲みはじめた日')[0], '2026-10-01');
+    await fireEvent.press(screen.getByText('この日からピルを飲んでいる'));
+    expect(await screen.findByText('2026年10月1日から飲んでいます')).toBeTruthy();
+    expect((await loadState(db)).notes.pill).toEqual([{ start: '2026-10-01', end: null }]);
+    // やめた日は、選び直さなければ今日（10-24）。飲みはじめた日のままにしない
+    await fireEvent.press(screen.getByText('この日でピルをやめた'));
+    expect(await screen.findByText('2026年10月1日〜2026年10月24日')).toBeTruthy();
+    expect((await loadState(db)).notes.pill).toEqual([{ start: '2026-10-01', end: '2026-10-24' }]);
+    // 前の期間に重なる日からは始められない
+    expect(screen.getByText('2026年10月24日より後の日を選んでください。')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('2026年10月1日からのピルの記録を消す'));
+    await waitFor(async () => expect((await loadState(db)).notes.pill).toEqual([]));
+
+    await fireEvent.press(await screen.findByText('この日からピルを飲んでいる'));
+    await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
+    expect(await screen.findByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
+  });
+
+  it('shows what to keep in mind with the pill and the shift medicine', async () => {
+    await openSettings();
+    expect(screen.getByText('・このアプリの予測は、避妊やピルを飲む日の管理には使えません。')).toBeTruthy();
+    expect(screen.getByText('・このアプリの予測は、薬を飲む日を決めるのには使えません。')).toBeTruthy();
+    expect(screen.getAllByText(/^・強い頭痛、胸の痛み/)).toHaveLength(2);
+  });
+
+  it('records the shift medicine apart from the pill and notes it on the calendar', async () => {
+    const { db } = await openSettings();
+    await fireEvent.changeText(screen.getAllByLabelText('飲みはじめた日')[1], '2026-10-20');
+    await fireEvent.press(screen.getByText('この日から月経移動の薬を飲んでいる'));
+    await waitFor(async () => expect((await loadState(db)).notes.shift).toEqual([{ start: '2026-10-20', end: null }]));
+    expect((await loadState(db)).notes.pill).toEqual([]);
+    await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
+    expect(await screen.findByText('月経移動の薬を飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
+    expect(screen.queryByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeNull();
+  });
+
+  it('sums up the usual cycles and the ones shifted with the medicine', async () => {
+    await openSettings({
+      starts: [...REGULAR, '2026-11-03'],
+      prepare: async (db) => {
+        await startPill(db, '2026-10-20', 'shift');
+        await endPill(db, '2026-10-20', '2026-10-31', 'shift');
+      },
+    });
+    expect(screen.getByText('ふだんの周期')).toBeTruthy();
+    expect(screen.getByText('平均28日（28〜28日、3回）')).toBeTruthy();
+    expect(screen.getByText('平均36日（36〜36日、1回）。ふだんより平均8日長い')).toBeTruthy();
+    expect(screen.queryByText('ピルを飲んでいた間の周期')).toBeNull();
   });
 
   it('lists records newest first and removes one', async () => {

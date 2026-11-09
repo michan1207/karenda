@@ -1,13 +1,14 @@
 import { AccuracyReport, buildReport, evaluatePrediction, PredictionRecord, snapshotPrediction } from '../engine/accuracy';
 import { advanceStatus, ConflictState, ConflictStatus, Resolution, statusOf } from '../engine/conflictState';
-import { predictCycle } from '../engine/cycle';
-import { DateKey, fromDateKey, toDateKey } from '../engine/date';
+import { isShifted, PillPeriod, predictCycle } from '../engine/cycle';
+import { DailyCheck, Symptom, SYMPTOMS } from '../engine/dailyCheck';
+import { DateKey, diffDays, fromDateKey, toDateKey } from '../engine/date';
 import { CalendarEvent, EVENT_COLORS, EventColor } from '../engine/conflicts';
 import { Answer, learnWeight, ReviewPhase, ReviewTarget, TitleWeight, Weight } from '../engine/learning';
-import { nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer } from '../engine/pms';
+import { nextPmsEstimate, PmsEstimate, pmsZoneSettings, ReviewAnswer, withDailyChecks } from '../engine/pms';
 import { termOf } from '../engine/risk';
 import type { RiskKeywords } from '../engine/risk';
-import { validateZoneSettings, ZoneSettings } from '../engine/zones';
+import { MAX_PERIOD_DAYS, validateZoneSettings, ZoneSettings } from '../engine/zones';
 import type { Database } from './database';
 import { SCHEMA_VERSION, seedDefaults } from './migrations';
 import { STORED_DATA } from './privacy';
@@ -48,6 +49,69 @@ export async function removePeriodStart(db: Database, start: DateKey): Promise<v
     await db.runAsync('DELETE FROM prediction_records WHERE based_on = ?', start);
     await db.runAsync('UPDATE prediction_records SET actual_start = NULL, abs_error_days = NULL WHERE actual_start = ?', start);
   });
+}
+
+/** 薬（ピルなど）で時期をずらした生理の開始日 */
+export async function listShiftedStarts(db: Database): Promise<Set<DateKey>> {
+  const rows = await db.getAllAsync<{ start: string }>('SELECT start FROM period_starts WHERE shifted = 1');
+  return new Set(rows.map((row) => row.start));
+}
+
+/** ずらした生理の印をつける・外す。つけた時は、その日と比べた予測の当たり外れを比べる前に戻す（成績に入れない） */
+export async function setShifted(db: Database, start: DateKey, shifted: boolean): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('UPDATE period_starts SET shifted = ? WHERE start = ?', shifted ? 1 : 0, start);
+    if (shifted) await db.runAsync('UPDATE prediction_records SET actual_start = NULL, abs_error_days = NULL WHERE actual_start = ?', start);
+  });
+}
+
+/** pill: ピルを飲んでいた期間 / shift: 月経移動の薬を飲んだ期間。同じ形の別の表に残す */
+export type MedicineKind = 'pill' | 'shift';
+const MEDICINE_TABLE: Record<MedicineKind, string> = { pill: 'pill_periods', shift: 'shift_periods' };
+
+/** 薬を飲んでいた（いる）期間。古い順 */
+export async function listPillPeriods(db: Database, kind: MedicineKind = 'pill'): Promise<PillPeriod[]> {
+  const rows = await db.getAllAsync<{ start: string; end_date: string | null }>(
+    `SELECT start, end_date FROM ${MEDICINE_TABLE[kind]} ORDER BY start`,
+  );
+  return rows.map((row) => ({ start: row.start, end: row.end_date }));
+}
+
+/** 薬を飲みはじめた日を残す。前の期間が終わったあとの日だけ（飲んでいる途中や、前の期間に重なる日は受け付けない） */
+export async function startPill(db: Database, start: DateKey, kind: MedicineKind = 'pill'): Promise<void> {
+  fromDateKey(start);
+  const overlaps = (await listPillPeriods(db, kind)).some(({ end }) => end === null || end >= start);
+  if (overlaps) throw new Error(`${kind} period overlaps: ${start}`);
+  await db.runAsync(`INSERT INTO ${MEDICINE_TABLE[kind]} (start, end_date) VALUES (?, NULL)`, start);
+}
+
+/** 薬をやめた日を残す（null で「今も飲んでいる」に戻す）。飲みはじめた日より前の日は受け付けない */
+export async function endPill(db: Database, start: DateKey, end: DateKey | null, kind: MedicineKind = 'pill'): Promise<void> {
+  if (end !== null) {
+    fromDateKey(end);
+    if (end < start) throw new Error(`${kind} end before start: ${start}..${end}`);
+  }
+  await db.runAsync(`UPDATE ${MEDICINE_TABLE[kind]} SET end_date = ? WHERE start = ?`, end, start);
+}
+
+export async function removePill(db: Database, start: DateKey, kind: MedicineKind = 'pill'): Promise<void> {
+  await db.runAsync(`DELETE FROM ${MEDICINE_TABLE[kind]} WHERE start = ?`, start);
+}
+
+/** 記録した終わりの日（開始日→終わりの日） */
+export async function listPeriodEnds(db: Database): Promise<Map<DateKey, DateKey>> {
+  const rows = await db.getAllAsync<{ start: string; end_date: string }>('SELECT start, end_date FROM period_starts WHERE end_date IS NOT NULL');
+  return new Map(rows.map((row) => [row.start, row.end_date]));
+}
+
+/** 生理の終わりの日を残す（null で消す）。開始日の翌日から MAX_PERIOD_DAYS 日目まで、次の開始日より前の日だけ */
+export async function setPeriodEnd(db: Database, start: DateKey, end: DateKey | null): Promise<void> {
+  if (end !== null) {
+    const days = diffDays(start, end);
+    const next = (await listPeriodStarts(db)).find((s) => s > start);
+    if (days < 1 || days >= MAX_PERIOD_DAYS || (next && end >= next)) throw new Error(`period end out of range: ${start}..${end}`);
+  }
+  await db.runAsync('UPDATE period_starts SET end_date = ? WHERE start = ?', end, start);
 }
 
 /** 画面から生理開始日を記録する。いちばん新しい開始日なら、前の開始日から出していた予測と比べる（同じ日をもう一度記録しても比べ直さない） */
@@ -149,6 +213,26 @@ export async function removeTitleWeight(db: Database, term: string): Promise<voi
   await db.runAsync('DELETE FROM title_weights WHERE term = ?', term);
 }
 
+/** その日の体調を残す（同じ日は書き換える）。answer が null は「答えない」 */
+export async function saveDailyCheck(db: Database, check: DailyCheck, now: Date = new Date()): Promise<void> {
+  fromDateKey(check.date);
+  if (!isDailyCheck(check)) throw new Error(`broken daily check: ${JSON.stringify(check)}`);
+  await db.runAsync(
+    'INSERT OR REPLACE INTO daily_checks (date, answer, symptoms, answered_at) VALUES (?, ?, ?, ?)',
+    check.date,
+    check.answer,
+    check.symptoms.join(','),
+    now.toISOString(),
+  );
+}
+
+export async function listDailyChecks(db: Database): Promise<DailyCheck[]> {
+  const rows = await db.getAllAsync<{ date: string; answer: DailyCheck['answer']; symptoms: string }>(
+    'SELECT date, answer, symptoms FROM daily_checks ORDER BY date',
+  );
+  return rows.map((row) => ({ date: row.date, answer: row.answer, symptoms: row.symptoms ? (row.symptoms.split(',') as Symptom[]) : [] }));
+}
+
 /** 答えた（答えないを選んだ）予定のID */
 export async function listReviewed(db: Database): Promise<Set<string>> {
   const rows = await db.getAllAsync<{ event_id: string; date: string }>('SELECT event_id, date FROM event_reviews');
@@ -188,7 +272,7 @@ export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
     id: number;
     title: string;
     date: string;
-    weight: Weight;
+    weight: Weight | null;
     color: EventColor;
     start_minutes: number | null;
     duration_minutes: number | null;
@@ -200,7 +284,7 @@ export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
     end: row.date,
     allDay: false,
     manual: true,
-    weight: row.weight,
+    ...(row.weight ? { weight: row.weight } : {}),
     color: row.color,
     ...(row.start_minutes === null ? {} : { startMinutes: row.start_minutes }),
     ...(row.duration_minutes === null ? {} : { durationMinutes: row.duration_minutes }),
@@ -210,7 +294,8 @@ export async function listManualEvents(db: Database): Promise<CalendarEvent[]> {
 export type ManualEventInput = {
   title: string;
   date: DateKey;
-  weight: Weight;
+  /** null は「おまかせ」。設定の言葉・覚えた重さで決める */
+  weight: Weight | null;
   color: EventColor;
   /** 時刻を入れる時だけ。0時からの分 */
   startMinutes?: number;
@@ -331,6 +416,10 @@ export type StoredState = {
   /** お知らせで何をしたかと、その日時（今月のふりかえり用） */
   resolutions: { resolution: Resolution; at: string }[];
   starts: DateKey[];
+  /** 記録した生理の終わりの日（開始日→終わりの日） */
+  ends: Map<DateKey, DateKey>;
+  /** 開始日の補足（薬でずらした生理・ピルを飲んでいた期間）。ふだんの周期と分けて予測する */
+  notes: { shifted: ReadonlySet<DateKey>; pill: PillPeriod[]; shift: PillPeriod[] };
   /** 予測の帯に使う設定。PMS の日数は pms のもの（設定画面の手動の日数は pms.daysBefore で読む） */
   settings: ZoneSettings;
   /** PMS を生理予定日の何日前からにするかと、その根拠 */
@@ -351,6 +440,8 @@ export type StoredState = {
   titleWeights: TitleWeight[];
   /** 「どうだった？」に答えた予定のID */
   reviewed: Set<string>;
+  /** その日の体調（日付→記録） */
+  checks: Map<DateKey, DailyCheck>;
   /** お知らせの状態（`statusOf` で読む） */
   statuses: Map<string, ConflictStatus>;
 };
@@ -374,10 +465,18 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
   const learned = new Map(titleWeights.flatMap(({ term, weight }) => (weight ? [[term, weight] as const] : [])));
   const keywords = { ...words, learned };
   const current = await getPmsEstimate(db);
-  const pms = nextPmsEstimate(current, await listReviewAnswers(db), starts, toDateKey(now));
+  const checks = await listDailyChecks(db);
+  const ends = await listPeriodEnds(db);
+  const shifted = await listShiftedStarts(db);
+  const pill = await listPillPeriods(db);
+  const shift = await listPillPeriods(db, 'shift');
+  const notes = { shifted, pill, shift };
+  const answers = withDailyChecks(await listReviewAnswers(db), checks, { starts, ends, heavyDays: settings.heavyDays });
+  // ずらした生理の前は、ふだんの PMS の時期とは限らないので推定に使わない
+  const pms = nextPmsEstimate(current, answers, starts.filter((start) => !isShifted(start, notes)), toDateKey(now));
   if (JSON.stringify(pms) !== JSON.stringify(current)) await savePmsEstimate(db, pms);
   // まだ比べていない予測は、今の記録からの予測に合わせておく（開始日を記録した時に、直前に出していた予測と比べる）
-  const snapshot = snapshotPrediction(predictCycle(starts), toDateKey(now));
+  const snapshot = snapshotPrediction(predictCycle(starts, notes), toDateKey(now));
   if (snapshot) await savePrediction(db, snapshot);
   return {
     onboarded,
@@ -387,9 +486,12 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     lockEnabled,
     metricsEnabled,
     starts,
+    ends,
+    notes,
     settings: pmsZoneSettings(settings, pms),
     pms,
-    accuracy: buildReport(await listPredictionRecords(db)),
+    // 月経移動の薬のあとの生理と比べた予測は、成績に入れない（手でつけた印は、つけた時に比べる前へ戻している）
+    accuracy: buildReport((await listPredictionRecords(db)).filter(({ actualStart }) => !actualStart || !isShifted(actualStart, notes))),
     consultDismissed: await getConsultDismissed(db),
     deferrals: await listDeferrals(db),
     manualEvents: await listManualEvents(db),
@@ -397,20 +499,21 @@ export async function loadState(db: Database, now: Date = new Date()): Promise<S
     keywords,
     titleWeights,
     reviewed,
+    checks: new Map(checks.map((check) => [check.date, check])),
     statuses,
     resolutions,
   };
 }
 
 /** 書き出しの形の版。表の版（SCHEMA_VERSION）とは別に、書き出しの形を変えた時だけ上げる。これを持たない前のファイルは 0 */
-export const EXPORT_VERSION = 1;
+export const EXPORT_VERSION = 7;
 
 /** このアプリだけの予定。id は、戻した時に「どうだった？」の答えを付け直すために使う */
 export type ExportedManualEvent = {
   id: string;
   title: string;
   date: DateKey;
-  weight: Weight;
+  weight: Weight | null;
   color: EventColor;
   startMinutes: number | null;
   durationMinutes: number | null;
@@ -426,12 +529,22 @@ export type ExportedData = {
   schemaVersion: number;
   exportedAt: string;
   periodStarts: DateKey[];
+  /** 生理の終わりの日。版1までのファイルには無い */
+  periodEnds: { start: DateKey; end: DateKey }[];
+  /** 薬でずらした生理の開始日。版3までのファイルには無い */
+  shiftedStarts: DateKey[];
+  /** ピルを飲んでいた期間。版4までのファイルには無い */
+  pillPeriods: PillPeriod[];
+  /** 月経移動の薬を飲んだ期間。版5までのファイルには無い */
+  shiftPeriods: PillPeriod[];
   zoneSettings: ZoneSettings;
   keywords: RiskKeywords;
   manualEvents: ExportedManualEvent[];
   titleWeights: TitleWeight[];
   reviews: ExportedReview[];
   predictionRecords: PredictionRecord[];
+  /** その日の体調。版2までのファイルには無い */
+  dailyChecks: DailyCheck[];
   /** 前のファイルには無い（戻しても今の設定のまま） */
   flags: ExportedFlags | null;
 };
@@ -444,6 +557,10 @@ export async function exportData(db: Database, now: Date = new Date()): Promise<
     schemaVersion: SCHEMA_VERSION,
     exportedAt: now.toISOString(),
     periodStarts: await listPeriodStarts(db),
+    periodEnds: [...(await listPeriodEnds(db))].map(([start, end]) => ({ start, end })),
+    shiftedStarts: [...(await listShiftedStarts(db))].sort(),
+    pillPeriods: await listPillPeriods(db),
+    shiftPeriods: await listPillPeriods(db, 'shift'),
     zoneSettings: await getZoneSettings(db),
     keywords: await getKeywords(db),
     manualEvents: await db.getAllAsync<ExportedManualEvent>(
@@ -455,6 +572,7 @@ export async function exportData(db: Database, now: Date = new Date()): Promise<
       'SELECT event_id AS eventId, date, phase, answer, answered_at AS answeredAt FROM event_reviews ORDER BY date, event_id',
     ),
     predictionRecords: await listPredictionRecords(db),
+    dailyChecks: await listDailyChecks(db),
     flags: { lock: await isLockEnabled(db), hide: await isHideMode(db), notify: await isNotifyEnabled(db), soon: await isSoonEnabled(db) },
   };
 }
@@ -483,7 +601,7 @@ const isManualEvent = (event: Record<string, unknown>) =>
   typeof event.title === 'string' &&
   event.title.trim() !== '' &&
   isDay(event.date) &&
-  isOneOf(['heavy', 'normal'], event.weight) &&
+  (event.weight === null || isOneOf(['heavy', 'normal'], event.weight)) &&
   isOneOf(EVENT_COLORS, event.color) &&
   (event.startMinutes === null || isWhole(event.startMinutes, 0, 24 * 60 - 1)) &&
   (event.durationMinutes === null || isWhole(event.durationMinutes, 1, 24 * 60));
@@ -513,6 +631,13 @@ const isPrediction = (record: Record<string, unknown>) =>
   (record.actualStart === null || isDay(record.actualStart)) &&
   (record.absErrorDays === null || isWhole(record.absErrorDays));
 
+const isDailyCheck = (check: Record<string, unknown>) =>
+  isDay(check.date) &&
+  (check.answer === null || isOneOf(['hard', 'normal', 'easy'], check.answer)) &&
+  Array.isArray(check.symptoms) &&
+  check.symptoms.every((symptom) => isOneOf(SYMPTOMS, symptom)) &&
+  new Set(check.symptoms).size === check.symptoms.length;
+
 const isFlags = (flags: unknown): flags is ExportedFlags =>
   isRecord(flags) &&
   typeof flags.lock === 'boolean' &&
@@ -536,6 +661,12 @@ export function readExport(text: string): ReadExport {
   if (version === 0 && typeof schemaVersion === 'number' && schemaVersion > SCHEMA_VERSION) return { ok: false, reason: 'newer' };
   const old = version === 0;
   const extra: Record<string, unknown> = old ? { manualEvents: [], titleWeights: [], reviews: [], predictionRecords: [] } : raw;
+  const periodEnds = isWhole(version, 2) ? raw.periodEnds : [];
+  const dailyChecks = isWhole(version, 3) ? raw.dailyChecks : [];
+  const shiftedStarts = isWhole(version, 4) ? raw.shiftedStarts : [];
+  const pillPeriods = isWhole(version, 5) ? raw.pillPeriods : [];
+  const shiftPeriods = isWhole(version, 6) ? raw.shiftPeriods : [];
+  const isPeriod = ({ start, end }: Record<string, unknown>) => isDay(start) && (end === null || (isDay(end) && end >= start));
   if (
     !isWhole(version) ||
     !Number.isInteger(schemaVersion) ||
@@ -548,6 +679,16 @@ export function readExport(text: string): ReadExport {
     !isListOf<TitleWeight>(extra.titleWeights, isTitleWeight) ||
     !isListOf<ExportedReview>(extra.reviews, isReview) ||
     !isListOf<PredictionRecord>(extra.predictionRecords, isPrediction) ||
+    !isListOf<DailyCheck>(dailyChecks, isDailyCheck) ||
+    !Array.isArray(shiftedStarts) ||
+    !shiftedStarts.every((start) => isDay(start) && periodStarts.includes(start)) ||
+    !isListOf<PillPeriod>(pillPeriods, isPeriod) ||
+    !isListOf<PillPeriod>(shiftPeriods, isPeriod) ||
+    !isListOf<{ start: DateKey; end: DateKey }>(periodEnds, (e) => isDay(e.start) && isDay(e.end) && periodStarts.includes(e.start)) ||
+    !periodEnds.every(
+      ({ start, end }) =>
+        diffDays(start, end) >= 1 && diffDays(start, end) < MAX_PERIOD_DAYS && !periodStarts.some((s) => s > start && s <= end),
+    ) ||
     !(old || isFlags(raw.flags))
   ) {
     return { ok: false, reason: 'broken' };
@@ -567,12 +708,17 @@ export function readExport(text: string): ReadExport {
       schemaVersion: schemaVersion as number,
       exportedAt: typeof exportedAt === 'string' ? exportedAt : '',
       periodStarts,
+      periodEnds,
+      shiftedStarts,
+      pillPeriods,
+      shiftPeriods,
       zoneSettings: settings,
       keywords: { high: keywords.high, medium: keywords.medium },
       manualEvents: extra.manualEvents,
       titleWeights: extra.titleWeights,
       reviews: extra.reviews,
       predictionRecords: extra.predictionRecords,
+      dailyChecks,
       flags: old ? null : (raw.flags as ExportedFlags),
     },
   };
@@ -595,9 +741,24 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
         DELETE FROM title_weights;
         DELETE FROM event_reviews;
         DELETE FROM prediction_records;
+        DELETE FROM daily_checks;
+        DELETE FROM pill_periods;
+        DELETE FROM shift_periods;
       `);
     }
     for (const start of data.periodStarts) await addPeriodStart(db, start);
+    for (const { start, end } of data.periodEnds) {
+      // keepMine は、この端末に終わりの日がもうあれば変えない
+      await db.runAsync('UPDATE period_starts SET end_date = ? WHERE start = ? AND (? OR end_date IS NULL)', end, start, mode !== 'keepMine');
+    }
+    // 印は足すだけ（keepMine でも、この端末の印は外さない）
+    for (const start of data.shiftedStarts) await db.runAsync('UPDATE period_starts SET shifted = 1 WHERE start = ?', start);
+    // 同じ日に始まる期間がこの端末にあれば、keepMine は今のもの、ほかはファイルのもの
+    for (const [table, periods] of [['pill_periods', data.pillPeriods], ['shift_periods', data.shiftPeriods]] as const) {
+      for (const { start, end } of periods) {
+        await db.runAsync(`INSERT OR ${mode === 'keepMine' ? 'IGNORE' : 'REPLACE'} INTO ${table} (start, end_date) VALUES (?, ?)`, start, end);
+      }
+    }
     // このアプリだけの予定は、戻すと ID が変わる。答えはその新しい ID に付け直す
     const movedIds = new Map<string, string>();
     for (const event of data.manualEvents) movedIds.set(event.id, await restoreManualEvent(db, event));
@@ -612,6 +773,15 @@ export async function restoreData(db: Database, data: ExportedData, mode: Restor
       );
     }
     for (const record of data.predictionRecords) await savePrediction(db, record);
+    for (const check of data.dailyChecks) {
+      await db.runAsync(
+        `INSERT OR ${mode === 'keepMine' ? 'IGNORE' : 'REPLACE'} INTO daily_checks (date, answer, symptoms, answered_at) VALUES (?, ?, ?, ?)`,
+        check.date,
+        check.answer,
+        check.symptoms.join(','),
+        data.exportedAt,
+      );
+    }
     for (const entry of data.titleWeights) {
       await db.runAsync(
         `INSERT OR ${mode === 'keepMine' ? 'IGNORE' : 'REPLACE'} INTO title_weights (term, label, weight, source, observations, lean, updated_at)

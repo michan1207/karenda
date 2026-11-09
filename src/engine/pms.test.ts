@@ -1,6 +1,6 @@
 import { addDays } from './date';
 import type { Answer } from './learning';
-import { DEFAULT_PMS, estimatePmsDays, nextPmsEstimate, pmsZoneSettings, ReviewAnswer } from './pms';
+import { DEFAULT_PMS, estimatePmsDays, nextPmsEstimate, pmsZoneSettings, ReviewAnswer, withDailyChecks } from './pms';
 
 const STARTS = ['2026-05-04', '2026-06-01', '2026-06-29', '2026-07-27', '2026-08-24', '2026-09-21'];
 
@@ -94,5 +94,39 @@ describe('pmsZoneSettings', () => {
       pmsBefore: { until: '2026-10-01', days: 7 },
     });
     expect(pmsZoneSettings({ heavyDays: 4, pmsDays: 7 }, DEFAULT_PMS)).toEqual({ heavyDays: 4, pmsDays: 7 });
+  });
+});
+
+describe('withDailyChecks', () => {
+  const periods = { starts: STARTS, ends: new Map([[STARTS[0], addDays(STARTS[0], 5)]]), heavyDays: 3 };
+
+  it('lets daily conditions alone teach when PMS starts', () => {
+    const checks = STARTS.flatMap((start) => [
+      ...[1, 2, 3, 4, 5, 6].map((n) => ({ date: addDays(start, -n), answer: 'hard' as const, symptoms: [] })),
+      { date: addDays(start, -7), answer: 'easy' as const, symptoms: [] },
+    ]);
+    expect(estimatePmsDays(withDailyChecks([], checks, periods), STARTS)).toEqual({ daysBefore: 6, observations: 6 });
+  });
+
+  it('prefers the condition of the whole day over an event answer on that day, and leaves out skipped days', () => {
+    const day = addDays(STARTS[1], -3);
+    const answers: ReviewAnswer[] = [
+      { date: day, answer: 'hard', phase: 'pms' },
+      { date: addDays(day, -1), answer: 'hard', phase: 'pms' },
+    ];
+    const checks = [
+      { date: day, answer: 'easy' as const, symptoms: [] },
+      { date: addDays(day, -1), answer: null, symptoms: [] },
+    ];
+    expect(withDailyChecks(answers, checks, periods)).toEqual([
+      { date: addDays(day, -1), answer: 'hard', phase: 'pms' },
+      { date: day, answer: 'easy', phase: 'other' },
+    ]);
+  });
+
+  it('marks days inside a recorded period, up to its end day or the fixed days', () => {
+    const check = (date: string) => ({ date, answer: 'hard' as const, symptoms: [] });
+    const phases = withDailyChecks([], [check(addDays(STARTS[0], 5)), check(addDays(STARTS[0], 6)), check(addDays(STARTS[1], 2)), check(addDays(STARTS[1], 3))], periods).map((a) => a.phase);
+    expect(phases).toEqual(['period', 'other', 'period', 'other']);
   });
 });
