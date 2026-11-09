@@ -171,6 +171,23 @@ describe('calendar', () => {
     expect(screen.queryByText('薬（ピルなど）で時期をずらした生理にする')).toBeNull();
   });
 
+  it('draws a line on the days the pill or the shift medicine was taken, up to today, and explains it', async () => {
+    await setup({
+      prepare: async (db) => {
+        await startPill(db, '2026-10-20');
+        await startPill(db, '2026-10-05', 'shift');
+        await endPill(db, '2026-10-05', '2026-10-07', 'shift');
+      },
+    });
+    expect(await screen.findByLabelText(/^10月24日（土）.*ピルを飲んでいた日/)).toBeTruthy();
+    expect(screen.getByLabelText(/^10月6日（火）.*月経移動の薬を飲んでいた日/)).toBeTruthy();
+    expect(screen.getByLabelText(/^10月8日（木）/).props.accessibilityLabel).not.toMatch(/薬/);
+    // 今日（10-24）より先は、飲んでいる途中でも線を引かない
+    expect(screen.getByLabelText(/^10月25日（日）/).props.accessibilityLabel).not.toMatch(/ピル/);
+    expect(screen.getByText('ピルを飲んでいた日')).toBeTruthy();
+    expect(screen.getByText('月経移動の薬を飲んでいた日')).toBeTruthy();
+  });
+
   it('asks about yesterday once when opened, with symptoms to pick, and stops asking after an answer', async () => {
     const { db } = await setup();
     expect(await screen.findByText('昨日（10月23日（金））の体調は？')).toBeTruthy();

@@ -23,12 +23,13 @@ import {
   ReviewTarget,
   shiftMonth,
   takingPill,
+  onPill,
   afterShiftMedicine,
   takingShiftMedicine,
   ZoneDay,
 } from '../engine';
 import { DailyCheckCard, DayCheck } from './DailyCheckCard';
-import { DayCell, Legend } from './DayCell';
+import { DayCell, Legend, MedicineMark } from './DayCell';
 import { AlertMark, Button, Card, Decorations, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { DigestCard } from './DigestCard';
 import { dayTitle, gradeLabel, predictionLines, timeRange, titleOf, WEEKDAYS, zoneLabel } from './format';
@@ -44,6 +45,8 @@ type Props = { k: Karenda; today: DateKey; reviews: ReviewTarget[]; openAlerts: 
 
 // 隠すモードでは、生理に関わる色・言葉・印を何も出さず、予定だけのカレンダーにする
 const HIDDEN: Guard = { prediction: null, zones: new Map(), alerts: [], actionsOf: () => [] };
+
+const MEDICINES: MedicineMark[] = ['pill', 'shift'];
 
 export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
   const colors = useColors();
@@ -73,6 +76,9 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
   );
   const hidden = k.hideMode;
   const guard = hidden ? HIDDEN : computed;
+  // 飲んでいる途中の期間も、今日より先の日には線を引かない（先の日はまだ飲んだ日ではない）
+  const medicineOn = (day: DateKey) =>
+    hidden || day > today ? undefined : MEDICINES.find((kind) => onPill(day, k.notes[kind]));
   const consult = useMemo(() => consultReasons(k.starts, k.notes), [k.starts, k.notes]);
   const thisMonth = today.slice(0, 7);
 
@@ -200,6 +206,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                 zone={guard.zones.get(day)}
                 alerts={dayAlerts.get(day) ?? []}
                 dots={dotsByDay.get(day) ?? []}
+                medicine={medicineOn(day)}
                 inMonth={isInMonth(day, year, month)}
                 isToday={day === today}
                 isSelected={day === selected}
@@ -209,7 +216,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           </View>
         ))}
 
-        {!hidden && <Legend />}
+        {!hidden && <Legend medicine={MEDICINES.filter((kind) => k.notes[kind].length > 0)} />}
       </Card>
 
       <Card>
