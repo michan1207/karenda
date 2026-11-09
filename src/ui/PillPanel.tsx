@@ -6,21 +6,36 @@ import { DateKey, SHIFT_AFTER_DAYS } from '../engine';
 import { DateField } from './DateField';
 import { Button, Text } from './components';
 import { fullDate } from './format';
-import { useColors } from './theme';
+import { radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 
-const TEXT: Record<MedicineKind, { help: string; start: string; end: string; name: string }> = {
+// 飲み方は医師・薬剤師の説明が先。アプリは記録と予測の目安だけで、避妊や服薬の管理には使えないことをはっきり書く
+const SYMPTOMS =
+  '強い頭痛、胸の痛み、息苦しさ、ふくらはぎの痛みやはれ、見え方の変化などがある時は、早めに医療機関に相談してください。';
+
+const TEXT: Record<MedicineKind, { help: string; start: string; end: string; name: string; cautions: string[] }> = {
   pill: {
     help: 'ピルを飲んでいる間の生理は、ふだんの周期と分けて予測します。飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。',
     start: 'この日からピルを飲んでいる',
     end: 'この日でピルをやめた',
     name: 'ピル',
+    cautions: [
+      '飲み方や、飲み忘れた時のことは、処方した医師や薬剤師の説明に従ってください。',
+      'このアプリの予測は、避妊やピルを飲む日の管理には使えません。',
+      SYMPTOMS,
+    ],
   },
   shift: {
     help: `月経移動（薬で生理の時期をずらすこと）の薬を飲んだ日を記録します。飲みはじめてから、やめた日の${SHIFT_AFTER_DAYS}日後までに始まった生理は、ずらした生理として、予測の平均に入れません。`,
     start: 'この日から月経移動の薬を飲んでいる',
     end: 'この日で月経移動の薬をやめた',
     name: '月経移動',
+    cautions: [
+      '月経移動の薬は、医師に相談して、処方と説明のとおりに飲んでください。予定の日が決まったら、早めに相談すると安心です。',
+      '薬をやめてから生理が来るまでの日数は、人によってちがいます。予定の前後は、ナプキンなどの用意があると安心です。',
+      'このアプリの予測は、薬を飲む日を決めるのには使えません。',
+      SYMPTOMS,
+    ],
   },
 };
 
@@ -43,6 +58,12 @@ export function PillPanel({ k, today, kind = 'pill' }: { k: Karenda; today: Date
       <Text style={[styles.help, { color: colors.muted }]}>
         {text.help}
       </Text>
+      <View style={[styles.caution, { borderColor: colors.line }]}>
+        <Text style={[styles.cautionTitle, { color: colors.text }]}>注意</Text>
+        {text.cautions.map((line) => (
+          <Text key={line} style={[styles.help, { color: colors.text }]}>{`・${line}`}</Text>
+        ))}
+      </View>
       {current ? (
         <>
           <Text style={[styles.status, { color: colors.text }]}>{`${fullDate(current.start)}から飲んでいます`}</Text>
@@ -79,6 +100,8 @@ export function PillPanel({ k, today, kind = 'pill' }: { k: Karenda; today: Date
 const styles = StyleSheet.create({
   box: { gap: 8 },
   help: { fontSize: 13, lineHeight: 19 },
+  caution: { borderWidth: 1, borderRadius: radius.md, padding: 12, gap: 4 },
+  cautionTitle: { fontSize: 14, fontWeight: '700' },
   status: { fontSize: 15, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44 },
   rowLabel: { fontSize: 15, flexShrink: 1 },

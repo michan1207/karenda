@@ -150,6 +150,13 @@ describe('settings', () => {
     expect(await screen.findByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
   });
 
+  it('shows what to keep in mind with the pill and the shift medicine', async () => {
+    await openSettings();
+    expect(screen.getByText('・このアプリの予測は、避妊やピルを飲む日の管理には使えません。')).toBeTruthy();
+    expect(screen.getByText('・このアプリの予測は、薬を飲む日を決めるのには使えません。')).toBeTruthy();
+    expect(screen.getAllByText(/^・強い頭痛、胸の痛み/)).toHaveLength(2);
+  });
+
   it('records the shift medicine apart from the pill and notes it on the calendar', async () => {
     const { db } = await openSettings();
     await fireEvent.changeText(screen.getAllByLabelText('飲みはじめた日')[1], '2026-10-20');
