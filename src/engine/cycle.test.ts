@@ -1,4 +1,4 @@
-import { afterShiftMedicine, nearestPeriod, predictCycle, predictedPeriod } from './cycle';
+import { afterShiftMedicine, cycleSummary, nearestPeriod, predictCycle, predictedPeriod } from './cycle';
 import { diffDays } from './date';
 
 describe('predictCycle', () => {
@@ -124,5 +124,24 @@ describe('nearestPeriod', () => {
 
   it('never looks back before the last recorded start', () => {
     expect(nearestPeriod(p, '2026-08-25').expected).toBe('2026-09-21');
+  });
+});
+
+describe('cycleSummary', () => {
+  it('sums up the usual cycles, the ones on the pill, the shifted ones and the period days apart', () => {
+    // 28, 30, 38 (after the shift medicine), 29, 60 (missed record), 26, 26 (on the pill)
+    const starts = ['2026-01-01', '2026-01-29', '2026-02-28', '2026-04-07', '2026-05-06', '2026-07-05', '2026-07-31', '2026-08-26'];
+    const notes = { shift: [{ start: '2026-03-25', end: '2026-04-02' }], pill: [{ start: '2026-07-10', end: null }] };
+    const ends = new Map([
+      ['2026-01-01', '2026-01-05'],
+      ['2026-01-29', '2026-02-04'],
+    ]);
+    expect(cycleSummary(starts, notes, ends)).toEqual({
+      natural: { count: 3, average: 29, shortest: 28, longest: 30 },
+      pill: { count: 2, average: 26, shortest: 26, longest: 26 },
+      shifted: { count: 1, average: 38, shortest: 38, longest: 38 },
+      periodDays: { count: 2, average: 6, shortest: 5, longest: 7 },
+    });
+    expect(cycleSummary(['2026-01-01'], {}, new Map())).toEqual({ natural: null, pill: null, shifted: null, periodDays: null });
   });
 });

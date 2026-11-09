@@ -59,7 +59,7 @@ export type CyclePrediction = {
   confidence: Confidence;
 };
 
-const RECENT_CYCLES = 6;
+export const RECENT_CYCLES = 6;
 export const MIN_PLAUSIBLE = 15;
 // これより長い間隔は、途中の記録漏れとみなして計算から外す
 export const MAX_PLAUSIBLE = 45;
@@ -137,4 +137,34 @@ export function predictedPeriod(prediction: CyclePrediction, n: number): Predict
 export function nearestPeriod(prediction: CyclePrediction, day: DateKey): PredictedPeriod {
   const n = Math.round(diffDays(prediction.lastStart, day) / prediction.averageLength);
   return predictedPeriod(prediction, Math.max(1, n));
+}
+
+export type CycleStats = { count: number; average: number; shortest: number; longest: number };
+
+const statsOf = (days: number[]): CycleStats | null =>
+  days.length === 0
+    ? null
+    : {
+        count: days.length,
+        average: Math.round(days.reduce((a, b) => a + b, 0) / days.length),
+        shortest: Math.min(...days),
+        longest: Math.max(...days),
+      };
+
+/**
+ * 記録全体の周期のまとめ（設定の「周期のまとめ」）。予測とちがい、最近の数回にしぼらない。
+ * natural・pill は記録漏れとみなす長さの間隔を入れない。shifted はずらした生理までの間隔（長さで外さない）。
+ * periodDays は記録した終わりの日までの日数（開始日を1日目）
+ */
+export function cycleSummary(starts: DateKey[], notes: CycleNotes, ends: ReadonlyMap<DateKey, DateKey>) {
+  const sorted = [...new Set(starts)].sort();
+  const gaps = sorted.slice(1).map((to, i) => ({ days: diffDays(sorted[i], to), kind: gapKind(to, notes) }));
+  const plausible = (kind: string) =>
+    gaps.filter((gap) => gap.kind === kind && gap.days >= MIN_PLAUSIBLE && gap.days <= MAX_PLAUSIBLE).map(({ days }) => days);
+  return {
+    natural: statsOf(plausible('natural')),
+    pill: statsOf(plausible('pill')),
+    shifted: statsOf(gaps.filter(({ kind }) => kind === 'shifted').map(({ days }) => days)),
+    periodDays: statsOf([...ends].map(([start, end]) => diffDays(start, end) + 1)),
+  };
 }

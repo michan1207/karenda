@@ -6,6 +6,7 @@ import {
   addPeriodStart,
   answerReview,
   encryptBackup,
+  endPill,
   exportData,
   getZoneSettings,
   listPeriodStarts,
@@ -15,6 +16,7 @@ import {
   loadState,
   recordPeriodStart,
   saveTitleWeight,
+  startPill,
 } from '../data';
 import { createTestDatabase } from '../data/testDatabase';
 import { addDays, learnWeight } from '../engine';
@@ -157,6 +159,20 @@ describe('settings', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
     expect(await screen.findByText('月経移動の薬を飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
     expect(screen.queryByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeNull();
+  });
+
+  it('sums up the usual cycles and the ones shifted with the medicine', async () => {
+    await openSettings({
+      starts: [...REGULAR, '2026-11-03'],
+      prepare: async (db) => {
+        await startPill(db, '2026-10-20', 'shift');
+        await endPill(db, '2026-10-20', '2026-10-31', 'shift');
+      },
+    });
+    expect(screen.getByText('ふだんの周期')).toBeTruthy();
+    expect(screen.getByText('平均28日（28〜28日、3回）')).toBeTruthy();
+    expect(screen.getByText('平均36日（36〜36日、1回）。ふだんより平均8日長い')).toBeTruthy();
+    expect(screen.queryByText('ピルを飲んでいた間の周期')).toBeNull();
   });
 
   it('lists records newest first and removes one', async () => {
