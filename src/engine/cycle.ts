@@ -153,7 +153,7 @@ const statsOf = (days: number[]): CycleStats | null =>
 
 /**
  * 記録全体の周期のまとめ（設定の「周期のまとめ」）。予測とちがい、最近の数回にしぼらない。
- * natural・pill は記録漏れとみなす長さの間隔を入れない。shifted はずらした生理までの間隔（長さで外さない）。
+ * どれも記録漏れとみなす長さの間隔は入れない。shifted はずらした生理までの間隔。
  * periodDays は記録した終わりの日までの日数（開始日を1日目）
  */
 export function cycleSummary(starts: DateKey[], notes: CycleNotes, ends: ReadonlyMap<DateKey, DateKey>) {
@@ -164,7 +164,7 @@ export function cycleSummary(starts: DateKey[], notes: CycleNotes, ends: Readonl
   return {
     natural: statsOf(plausible('natural')),
     pill: statsOf(plausible('pill')),
-    shifted: statsOf(gaps.filter(({ kind }) => kind === 'shifted').map(({ days }) => days)),
+    shifted: statsOf(plausible('shifted')),
     periodDays: statsOf([...ends].map(([start, end]) => diffDays(start, end) + 1)),
   };
 }

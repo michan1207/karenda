@@ -143,5 +143,7 @@ describe('cycleSummary', () => {
       periodDays: { count: 2, average: 6, shortest: 5, longest: 7 },
     });
     expect(cycleSummary(['2026-01-01'], {}, new Map())).toEqual({ natural: null, pill: null, shifted: null, periodDays: null });
+    // ずらした生理まででも、長すぎる間隔は記録の抜けかもしれないので入れない（実機で 58日 と出た）
+    expect(cycleSummary(['2026-09-10', '2026-11-07'], { shift: [{ start: '2026-11-01', end: '2026-11-03' }] }, new Map()).shifted).toBeNull();
   });
 });
