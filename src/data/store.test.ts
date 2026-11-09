@@ -574,9 +574,11 @@ describe('period end days', () => {
     expect(await listPeriodEnds(db)).toEqual(new Map());
   });
 
-  it('refuses an end on the start, two weeks or more after it, or on the next start', async () => {
-    for (const end of ['2026-09-01', '2026-09-15', '2026-09-29']) await expect(setPeriodEnd(db, '2026-09-01', end)).rejects.toThrow();
-    await expect(setPeriodEnd(db, '2026-09-29', '2026-10-12')).resolves.toBeUndefined();
+  it('refuses an end on the start, on or after the next start, or after day 45', async () => {
+    for (const end of ['2026-09-01', '2026-09-29', '2026-10-05']) await expect(setPeriodEnd(db, '2026-09-01', end)).rejects.toThrow();
+    await expect(setPeriodEnd(db, '2026-09-01', '2026-09-28')).resolves.toBeUndefined();
+    await expect(setPeriodEnd(db, '2026-09-29', '2026-11-13')).rejects.toThrow();
+    await expect(setPeriodEnd(db, '2026-09-29', '2026-11-12')).resolves.toBeUndefined();
   });
 
   it('forgets the end day together with its start', async () => {
@@ -861,7 +863,12 @@ describe('reading an exported file back', () => {
     ['a newer file shape', JSON.stringify({ ...full, exportVersion: EXPORT_VERSION + 1 }), 'newer'],
     ['an event with an unknown color', JSON.stringify({ ...full, manualEvents: [{ ...full.manualEvents[0], color: 'pink' }] }), 'broken'],
     ['an end day for a start that is not in the file', JSON.stringify({ ...full, periodStarts: [] }), 'broken'],
-    ['an end day too far from its start', JSON.stringify({ ...full, periodEnds: [{ start: '2026-10-01', end: '2026-10-20' }] }), 'broken'],
+    ['an end day too far from its start', JSON.stringify({ ...full, periodEnds: [{ start: '2026-10-01', end: '2026-11-15' }] }), 'broken'],
+    [
+      'an end day on the next start',
+      JSON.stringify({ ...full, periodStarts: ['2026-10-01', '2026-10-29'], periodEnds: [{ start: '2026-10-01', end: '2026-10-29' }] }),
+      'broken',
+    ],
     ['a condition with an unknown symptom', JSON.stringify({ ...full, dailyChecks: [{ date: '2026-10-20', answer: 'hard', symptoms: ['fever'] }] }), 'broken'],
     ['an answer with an unknown time of the cycle', JSON.stringify({ ...full, reviews: [{ ...full.reviews[0], phase: 'luteal' }] }), 'broken'],
     ['a new file without its settings', JSON.stringify({ ...full, flags: undefined }), 'broken'],

@@ -611,7 +611,10 @@ export function readExport(text: string): ReadExport {
     !isListOf<PredictionRecord>(extra.predictionRecords, isPrediction) ||
     !isListOf<DailyCheck>(dailyChecks, isDailyCheck) ||
     !isListOf<{ start: DateKey; end: DateKey }>(periodEnds, (e) => isDay(e.start) && isDay(e.end) && periodStarts.includes(e.start)) ||
-    !periodEnds.every(({ start, end }) => diffDays(start, end) >= 1 && diffDays(start, end) < MAX_PERIOD_DAYS) ||
+    !periodEnds.every(
+      ({ start, end }) =>
+        diffDays(start, end) >= 1 && diffDays(start, end) < MAX_PERIOD_DAYS && !periodStarts.some((s) => s > start && s <= end),
+    ) ||
     !(old || isFlags(raw.flags))
   ) {
     return { ok: false, reason: 'broken' };

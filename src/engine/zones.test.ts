@@ -130,10 +130,12 @@ describe('periodPhase', () => {
 
 describe('periodEndChoice', () => {
   const starts = ['2026-08-31', '2026-09-28'];
-  it('offers to record the end on a day after the latest start, within two weeks, up to today', () => {
+  it('offers to record the end on a day after the latest start, up to day 45, up to today', () => {
     expect(periodEndChoice('2026-10-02', starts, new Map(), '2026-10-05')).toEqual({ start: '2026-09-28', recorded: false });
     expect(periodEndChoice('2026-09-28', starts, new Map(), '2026-10-05')).toBeNull();
-    expect(periodEndChoice('2026-10-12', starts, new Map(), '2026-10-20')).toBeNull();
+    expect(periodEndChoice('2026-10-12', starts, new Map(), '2026-10-20')).toEqual({ start: '2026-09-28', recorded: false });
+    expect(periodEndChoice('2026-11-11', starts, new Map(), '2026-12-01')).toEqual({ start: '2026-09-28', recorded: false });
+    expect(periodEndChoice('2026-11-12', starts, new Map(), '2026-12-01')).toBeNull();
     expect(periodEndChoice('2026-10-06', starts, new Map(), '2026-10-05')).toBeNull();
   });
   it('belongs to an earlier start too, but not across a later start', () => {

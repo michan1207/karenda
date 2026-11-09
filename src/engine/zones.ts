@@ -1,4 +1,4 @@
-import { CyclePrediction, predictedPeriod } from './cycle';
+import { CyclePrediction, MAX_PLAUSIBLE, predictedPeriod } from './cycle';
 import { addDays, DateKey, diffDays } from './date';
 
 export type ZoneSettings = {
@@ -94,8 +94,11 @@ export function buildZones(
   return zones;
 }
 
-/** 終わりの日として記録できるのは、開始日から数えてこの日数目まで */
-export const MAX_PERIOD_DAYS = 14;
+/**
+ * 終わりの日として記録できるのは、開始日から数えてこの日数目まで（次の開始日があればその前日まで）。
+ * 1周期とみなせるいちばん長い日数にそろえる（2026-11-09 オーナー決定「次の生理の前日まで」）
+ */
+export const MAX_PERIOD_DAYS = MAX_PLAUSIBLE;
 
 /**
  * その日を生理の終わりの日として記録できるか。開始日の翌日〜MAX_PERIOD_DAYS 日目で、今日まで、次の開始日より前の日だけ。
