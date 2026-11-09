@@ -35,16 +35,19 @@ jest.mock('@react-native-community/datetimepicker', () => {
     accessibilityLabel,
     mode,
     onChange,
+    onValueChange,
   }: {
     accessibilityLabel: string;
     mode: 'date' | 'time';
-    onChange: (event: unknown, date?: Date) => void;
+    onChange?: (event: unknown, date?: Date) => void;
+    onValueChange?: (event: unknown, date: Date) => void;
   }) =>
     createElement(TextInput, {
       accessibilityLabel,
       onChangeText: (text: string) => {
         const [a, b, c] = text.split(/[-:]/).map(Number);
-        onChange({}, mode === 'date' ? new Date(a, b - 1, c) : new Date(2000, 0, 1, a, b));
+        const date = mode === 'date' ? new Date(a, b - 1, c) : new Date(2000, 0, 1, a, b);
+        (onValueChange ?? onChange)?.({}, date);
       },
     });
   return { __esModule: true, default: Picker, DateTimePickerAndroid: { open: jest.fn() } };

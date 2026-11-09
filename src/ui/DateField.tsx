@@ -23,17 +23,17 @@ export function DateField({
   const colors = useColors();
   const value = fromDateKey(day);
   const limits = { minimumDate: min ? fromDateKey(min) : undefined, maximumDate: max ? fromDateKey(max) : undefined };
-  const pick = (date?: Date) => date && onChange(toDateKey(date));
+  const pick = (_: unknown, date: Date) => onChange(toDateKey(date));
   return (
     <View style={styles.row}>
       <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
       {Platform.OS === 'ios' ? (
-        <DateTimePicker accessibilityLabel={label} mode="date" display="compact" value={value} {...limits} onChange={(_, date) => pick(date)} />
+        <DateTimePicker accessibilityLabel={label} mode="date" display="compact" value={value} {...limits} onValueChange={pick} />
       ) : (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${label} ${fullDate(day)}`}
-          onPress={() => DateTimePickerAndroid.open({ mode: 'date', value, ...limits, onChange: (_, date) => pick(date) })}
+          onPress={() => DateTimePickerAndroid.open({ mode: 'date', value, ...limits, onValueChange: pick })}
           style={[styles.android, { borderColor: colors.line }]}
         >
           <Text style={[styles.label, { color: colors.text }]}>{fullDate(day)}</Text>

@@ -133,21 +133,18 @@ describe('settings', () => {
     await fireEvent.press(screen.getByText('この日からピルを飲んでいる'));
     expect(await screen.findByText('2026年10月1日から飲んでいます')).toBeTruthy();
     expect((await loadState(db)).notes.pill).toEqual([{ start: '2026-10-01', end: null }]);
-
-    await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
-    expect(await screen.findByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
-
-    await fireEvent.press(screen.getByRole('tab', { name: '設定' }));
-    await fireEvent.changeText(await screen.findByLabelText('やめた日'), '2026-10-20');
+    // やめた日は、選び直さなければ今日（10-24）。飲みはじめた日のままにしない
     await fireEvent.press(screen.getByText('この日でピルをやめた'));
-    expect(await screen.findByText('2026年10月1日〜2026年10月20日')).toBeTruthy();
-    expect((await loadState(db)).notes.pill).toEqual([{ start: '2026-10-01', end: '2026-10-20' }]);
+    expect(await screen.findByText('2026年10月1日〜2026年10月24日')).toBeTruthy();
+    expect((await loadState(db)).notes.pill).toEqual([{ start: '2026-10-01', end: '2026-10-24' }]);
     // 前の期間に重なる日からは始められない
-    await fireEvent.changeText(screen.getByLabelText('飲みはじめた日'), '2026-10-20');
-    expect(screen.getByText('2026年10月20日より後の日を選んでください。')).toBeTruthy();
-
+    expect(screen.getByText('2026年10月24日より後の日を選んでください。')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('2026年10月1日からのピルの記録を消す'));
     await waitFor(async () => expect((await loadState(db)).notes.pill).toEqual([]));
+
+    await fireEvent.press(await screen.findByText('この日からピルを飲んでいる'));
+    await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
+    expect(await screen.findByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
   });
 
   it('lists records newest first and removes one', async () => {

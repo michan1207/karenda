@@ -18,6 +18,8 @@ export function PillPanel({ k, today }: { k: Karenda; today: DateKey }) {
   // 新しく飲みはじめた日は、前の期間が終わった次の日から
   const lastEnd = past[0]?.end ?? null;
   const tooEarly = current ? day < current.start : lastEnd !== null && day <= lastEnd;
+  // 記録したあとは、次に選ぶ日（やめた日・次に飲みはじめた日）を今日に戻す
+  const record = (save: Promise<void>) => save.then(() => setDay(today));
 
   return (
     <View style={styles.box}>
@@ -28,13 +30,13 @@ export function PillPanel({ k, today }: { k: Karenda; today: DateKey }) {
         <>
           <Text style={[styles.status, { color: colors.text }]}>{`${fullDate(current.start)}から飲んでいます`}</Text>
           <DateField label="やめた日" day={day} min={current.start} max={today} onChange={setDay} />
-          <Button label="この日でピルをやめた" disabled={tooEarly} onPress={() => k.endPill(current.start, day)} />
+          <Button label="この日でピルをやめた" disabled={tooEarly} onPress={() => record(k.endPill(current.start, day))} />
           <Button kind="secondary" label="この記録を消す" onPress={() => k.removePill(current.start)} />
         </>
       ) : (
         <>
           <DateField label="飲みはじめた日" day={day} max={today} onChange={setDay} />
-          <Button label="この日からピルを飲んでいる" disabled={tooEarly} onPress={() => k.startPill(day)} />
+          <Button label="この日からピルを飲んでいる" disabled={tooEarly} onPress={() => record(k.startPill(day))} />
           {tooEarly && lastEnd && (
             <Text style={[styles.help, { color: colors.muted }]}>{`${fullDate(lastEnd)}より後の日を選んでください。`}</Text>
           )}
@@ -61,7 +63,7 @@ const styles = StyleSheet.create({
   box: { gap: 8 },
   help: { fontSize: 13, lineHeight: 19 },
   status: { fontSize: 15, fontWeight: '700' },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
-  rowLabel: { fontSize: 15 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44 },
+  rowLabel: { fontSize: 15, flexShrink: 1 },
   remove: { fontSize: 14 },
 });
