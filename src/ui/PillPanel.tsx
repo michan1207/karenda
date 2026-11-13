@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { MedicineKind } from '../data';
 import { DateKey, SHIFT_AFTER_DAYS } from '../engine';
 import { DateField } from './DateField';
-import { Button, Text } from './components';
+import { Button, Confirm, Text } from './components';
 import { fullDate } from './format';
 import { radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
@@ -69,7 +69,12 @@ export function PillPanel({ k, today, kind = 'pill' }: { k: Karenda; today: Date
           <Text style={[styles.status, { color: colors.text }]}>{`${fullDate(current.start)}から飲んでいます`}</Text>
           <DateField label="やめた日" day={day} min={current.start} max={today} onChange={setDay} />
           <Button label={text.end} disabled={tooEarly} onPress={() => record(k.endPill(current.start, day, kind))} />
-          <Button kind="secondary" label="この記録を消す" onPress={() => k.removePill(current.start, kind)} />
+          <Confirm
+            message={`${fullDate(current.start)}からの${text.name}の記録を消します。予測も変わります。`}
+            label="記録を消す"
+            onConfirm={() => k.removePill(current.start, kind)}
+            trigger={(ask) => <Button kind="secondary" label="この記録を消す" onPress={ask} />}
+          />
         </>
       ) : (
         <>
@@ -81,17 +86,20 @@ export function PillPanel({ k, today, kind = 'pill' }: { k: Karenda; today: Date
         </>
       )}
       {past.map(({ start, end }) => (
-        <View key={start} style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>{`${fullDate(start)}〜${fullDate(end!)}`}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${fullDate(start)}からの${text.name}の記録を消す`}
-            onPress={() => k.removePill(start, kind)}
-            hitSlop={8}
-          >
-            <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
-          </Pressable>
-        </View>
+        <Confirm
+          key={start}
+          message={`${fullDate(start)}〜${fullDate(end!)}の${text.name}の記録を消します。予測も変わります。`}
+          label="記録を消す"
+          onConfirm={() => k.removePill(start, kind)}
+          trigger={(ask) => (
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{`${fullDate(start)}〜${fullDate(end!)}`}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`${fullDate(start)}からの${text.name}の記録を消す`} onPress={ask} hitSlop={8}>
+                <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
+              </Pressable>
+            </View>
+          )}
+        />
       ))}
     </View>
   );
