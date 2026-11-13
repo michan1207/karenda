@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Answer, DailyCheck, DateKey, Symptom, SYMPTOMS } from '../engine';
-import { Button, Card, Text } from './components';
+import { Button, Card, Chip, Text } from './components';
 import { dayTitle } from './format';
-import { radius, useColors } from './theme';
+import { useColors } from './theme';
 
 const ANSWERS: [Answer, string][] = [
   ['hard', 'きつかった'],
@@ -28,21 +28,6 @@ const checkText = ({ answer, symptoms }: DailyCheck) =>
   answer === null
     ? '答えなかった日'
     : [ANSWERS.find(([a]) => a === answer)![1], symptoms.map((s) => SYMPTOM_LABELS[s]).join('、')].filter(Boolean).join('・');
-
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const colors = useColors();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      hitSlop={4}
-      style={[styles.chip, { borderColor: colors.pink, backgroundColor: selected ? colors.pinkSoft : colors.surface }]}
-    >
-      <Text style={[styles.chipText, { color: selected ? colors.pinkText : colors.text }, selected && styles.chipSelected]}>{label}</Text>
-    </Pressable>
-  );
-}
 
 /** 3つから1つと、症状（いくつでも・選ばなくてもよい）を選んで「記録する」 */
 function CheckForm({
@@ -126,7 +111,4 @@ const styles = StyleSheet.create({
   detail: { fontSize: 14, lineHeight: 21 },
   form: { gap: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1.5, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 6 },
-  chipText: { fontSize: 13 },
-  chipSelected: { fontWeight: '700' },
 });
