@@ -1,4 +1,4 @@
-import { alertsByDay, CalendarEvent, detectConflicts, gradeOf } from './conflicts';
+import { alertsByDay, CalendarEvent, detectConflicts, gradeOf, riskOnDay } from './conflicts';
 import { predictCycle } from './cycle';
 import { buildZones } from './zones';
 
@@ -37,6 +37,14 @@ describe('detectConflicts', () => {
     expect(vacation).toMatchObject({ date: '2026-10-26', grade: 'A' });
     // PMS や予測の端の日は、お休みとして軽いまま
     expect(vacation.series!.days.filter((day) => day.score >= 40).map((day) => day.date)).toEqual(['2026-10-26', '2026-10-27']);
+  });
+
+  it('gives the day-by-day weight the calendar shows, the same one the marks use', () => {
+    const dayOff = ev('1', '有給', '2026-09-29', { allDay: true });
+    expect(riskOnDay(dayOff, '2026-09-29', zones)).toBe('high');
+    expect(riskOnDay(dayOff, '2026-10-20', zones)).toBe('low');
+    expect(riskOnDay(ev('2', '休み', '2026-09-29'), '2026-09-29', zones)).toBe('low');
+    expect(riskOnDay(ev('3', '会議', '2026-09-29'), '2026-09-29', zones)).toBe('medium');
   });
 
   it('leaves an ordinary meeting on a calm day out, as grade C', () => {
