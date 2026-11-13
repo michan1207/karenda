@@ -153,7 +153,13 @@ describe('settings', () => {
     expect((await loadState(db)).notes.pill).toEqual([{ start: '2026-10-01', end: '2026-10-24' }]);
     // 前の期間に重なる日からは始められない
     expect(screen.getByText('2026年10月24日より後の日を選んでください。')).toBeTruthy();
+    // 消す前にもう一度聞く。「やめる」なら残る
     await fireEvent.press(screen.getByLabelText('2026年10月1日からのピルの記録を消す'));
+    expect(screen.getByText('2026年10月1日〜2026年10月24日のピルの記録を消します。予測も変わります。')).toBeTruthy();
+    await fireEvent.press(screen.getAllByText('やめる').at(-1)!);
+    expect((await loadState(db)).notes.pill).toHaveLength(1);
+    await fireEvent.press(screen.getByLabelText('2026年10月1日からのピルの記録を消す'));
+    await fireEvent.press(screen.getByText('記録を消す'));
     await waitFor(async () => expect((await loadState(db)).notes.pill).toEqual([]));
 
     await fireEvent.press(await screen.findByText('この日からピルを飲んでいる'));
@@ -177,6 +183,12 @@ describe('settings', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'カレンダー' }));
     expect(await screen.findByText('月経移動の薬を飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeTruthy();
     expect(screen.queryByText('ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。')).toBeNull();
+    // 飲んでいる最中の記録も、消す前にもう一度聞く
+    await fireEvent.press(screen.getByRole('tab', { name: '設定' }));
+    await fireEvent.press(await screen.findByText('この記録を消す'));
+    expect(screen.getByText('2026年10月20日からの月経移動の記録を消します。予測も変わります。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('記録を消す'));
+    await waitFor(async () => expect((await loadState(db)).notes.shift).toEqual([]));
   });
 
   it('sums up the usual cycles and the ones shifted with the medicine', async () => {
