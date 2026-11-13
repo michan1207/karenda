@@ -1,7 +1,7 @@
 import type { CyclePrediction } from './cycle';
 import type { Weight } from './learning';
 import { addDays, DateKey, diffDays, fromDateKey } from './date';
-import { classifyRisk, DEFAULT_KEYWORDS, isDayOff, Risk, RiskKeywords, traitsOf } from './risk';
+import { classifyRisk, DEFAULT_KEYWORDS, isDayOff, Risk, RiskInput, RiskKeywords, traitsOf } from './risk';
 import { groupSeries } from './series';
 import { Phase, phaseOn, ZoneMap } from './zones';
 
@@ -229,6 +229,15 @@ function judgeDay(
 }
 
 /**
+ * その日の予定の重さ。重なりの印もカレンダーの表示も、これを使う。
+ * 終日のお休みは、生理ヘビー期（濃いピンクの日）と重なる日だけ重い予定として見る（2026-11-01 オーナー決定）
+ */
+export function riskOnDay(event: RiskInput, day: DateKey, zones: ZoneMap, keywords: RiskKeywords = DEFAULT_KEYWORDS): Risk {
+  const risk = classifyRisk(event, keywords);
+  return risk === 'low' && isDayOff(event) && phaseOn(day, zones).kind === 'mostSevere' ? 'high' : risk;
+}
+
+/**
  * 予定ごとに、体調の時期と重なる日の点数を出し、A/B のものを返す。
  * 同じ名前で続く予定はまとめ、何日も続く予定は、いちばん重い日を1件だけにして日ごとのきつさを添える
  */
@@ -240,11 +249,8 @@ export function detectConflicts(
 ): ConflictAlert[] {
   const alerts: ConflictAlert[] = [];
   for (const event of groupSeries(events)) {
-    const risk = classifyRisk(event, keywords);
-    // 終日のお休みは、生理ヘビー期（濃いピンクの日）と重なる日だけ重い予定として見る（2026-11-01 オーナー決定）
-    const dayOff = risk === 'low' && isDayOff(event);
-    if (risk === 'low' && !dayOff) continue;
-    const riskOn = (day: DateKey): Risk => (dayOff && phaseOn(day, zones).kind === 'mostSevere' ? 'high' : risk);
+    if (classifyRisk(event, keywords) === 'low' && !isDayOff(event)) continue;
+    const riskOn = (day: DateKey) => riskOnDay(event, day, zones, keywords);
     let peak: { day: DateKey; raw: number } | null = null;
     const days: SeriesDay[] = [];
     for (let day = event.start; day <= event.end; day = addDays(day, 1)) {

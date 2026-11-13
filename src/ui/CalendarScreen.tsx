@@ -5,7 +5,7 @@ import {
   addDays,
   alertsByDay,
   AFTER_PERIOD_DAYS,
-  classifyRisk,
+  riskOnDay,
   computeGuard,
   dayToCheck,
   consultReasons,
@@ -255,9 +255,9 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                     </Text>
                   )}
                 </View>
-                {/* 重なりの印と同じ判定（設定の言葉・覚えた重さ・入れた時の重さ）で、予定の重さを見せる */}
+                {/* 重なりの印と同じ判定（設定の言葉・覚えた重さ・入れた時の重さ・お休みと生理ヘビー期）で、その日の予定の重さを見せる */}
                 <Text style={[styles.detailText, { color: colors.muted }]}>
-                  {[riskLabel(classifyRisk(event, k.keywords)), timeRange(event)].filter(Boolean).join('・')}
+                  {[riskLabel(riskOnDay(event, selected, guard.zones, k.keywords)), timeRange(event)].filter(Boolean).join('・')}
                 </Text>
                 {event.manual && (
                   <Confirm
