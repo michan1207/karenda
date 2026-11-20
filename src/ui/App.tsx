@@ -156,7 +156,8 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
       onPress={onPress}
       style={styles.tab}
     >
-      <View style={[styles.tabPill, active && { backgroundColor: colors.pinkSoft }]}>
+      {/* collapsable: Android flattens the uncoloured pill away, and the view re-created on select lost its borderRadius */}
+      <View collapsable={false} style={[styles.tabPill, active && { backgroundColor: colors.pinkSoft }]}>
         {active && <Heart color={colors.heart} />}
         <Text
           maxFontSizeMultiplier={1.6}
