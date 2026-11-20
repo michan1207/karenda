@@ -6,7 +6,5 @@
   // このアプリは更新の配信（Expo のサーバーとの通信）を使わないので入れない
   "ignoreDependencies": ["expo-updates"],
   // Claude Code が .claude/settings.json から呼ぶので、import されていなくても使われている
-  "ignore": [".claude/hooks/**"],
-  // app.json の plugins から呼ばれるので、import されていなくても使われている
-  "entry": ["plugins/*.js"]
+  "ignore": [".claude/hooks/**"]
 }
