@@ -57,7 +57,8 @@
       "expo-system-ui",
       "expo-font",
       "expo-asset",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withPortraitOptional"
     ],
     "backgroundColor": "#f7f6f9",
     "experiments": {
