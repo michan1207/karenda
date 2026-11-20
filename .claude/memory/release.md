@@ -10,3 +10,4 @@
 - 有料プラン（サブスク・課金）は作らない（2026-10-25 オーナー決定）。「広告なし」はサブタイトル/簡単な説明の先頭に置く
 - ストア文言の下書き `store/app-store.md`, `store/google-play.md`、スクショ `store/images/`
 - サポート/プライバシーポリシーは `docs/`（GitHub Pages: https://michan1207.github.io/karenda/）
+- 画面は縦横どちらでも使える（`app.json` の `orientation: "default"`、2026-11-20 オーナー「縦でも横でも」）。縦に固定すると Play が「縦向きの画面が必須」と注意を出す
