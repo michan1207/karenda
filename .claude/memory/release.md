@@ -10,3 +10,4 @@
 - 有料プラン（サブスク・課金）は作らない（2026-10-25 オーナー決定）。「広告なし」はサブタイトル/簡単な説明の先頭に置く
 - ストア文言の下書き `store/app-store.md`, `store/google-play.md`、スクショ `store/images/`
 - サポート/プライバシーポリシーは `docs/`（GitHub Pages: https://michan1207.github.io/karenda/）
+- Android は画面を縦向きに固定しているので、Play が「縦向きの画面が必須」とみなして注意を出す → `plugins/withPortraitOptional.js` で required=false にしている（2026-11-20、PR #129）。`android/` はリポジトリに無く、EAS が app.json から作るので、Android の設定はプラグインで変える
