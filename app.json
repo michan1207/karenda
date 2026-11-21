@@ -3,7 +3,7 @@
     "name": "Cocomia",
     "slug": "karenda",
     "owner": "cocomia",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
