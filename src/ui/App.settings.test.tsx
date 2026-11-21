@@ -69,6 +69,7 @@ describe('settings', () => {
 
   it('shows the privacy facts: nothing sent, no SDKs, and what is kept on the phone', async () => {
     await openSettings();
+    expect(screen.getByText('生理や体調の記録は大事な情報なので、どこにも送っていないことを、ここで確かめられます。')).toBeTruthy();
     expect(screen.getByText('外部への送信')).toBeTruthy();
     expect(screen.getByText('0件')).toBeTruthy();
     expect(screen.getByText('外部のSDK')).toBeTruthy();
