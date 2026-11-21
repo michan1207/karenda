@@ -377,6 +377,9 @@ export function SettingsScreen({ k, today }: Props) {
       </Section>
 
       <Section title="プライバシー">
+        <Text style={[styles.help, { color: colors.muted }]}>
+          生理や体調の記録は大事な情報なので、どこにも送っていないことを、ここで確かめられます。
+        </Text>
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>外部への送信</Text>
           <Text style={[styles.rowLabel, { color: colors.text }]}>{outboundCount()}件</Text>
