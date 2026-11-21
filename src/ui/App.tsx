@@ -141,7 +141,7 @@ export function Main({
           />
         </View>
       )}
-      {body}
+      <View style={styles.column}>{body}</View>
       <StatusBar style="auto" />
     </SafeAreaView>
   );
@@ -174,6 +174,8 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  // phone width in portrait; in landscape the calendar and text stay this size, centred
+  column: { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
   center: { flex: 1 },
   padded: { padding: 16 },
   tabs: { flexDirection: 'row', paddingVertical: 8, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
