@@ -2,6 +2,7 @@
   "enabledPlugins": {
     "diagram-design@diagram-design": false,
     "frontend-slides@frontend-slides": false,
+    "genjutsu@genjutsu": false,
     "hallmark@hallmark": false,
     "last30days@last30days-skill": false,
     "taste-skill@taste-skill": false

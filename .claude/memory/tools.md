@@ -1,7 +1,7 @@
 # tools: このアプリで使う道具と分量
 
 2026-11-05 オーナー指示。役割が被る時の全体の決まりは `~/.claude/skills/appdev-bootstrap/LEDGER.md`。ここはこのアプリだけの差分で、グローバルの K3.2 より Superpowers を広げている。
-1つの作業で起動するのは、下の表の工程スキル1本と、画面なら Impeccable だけ。表に無い場面では何も起動しない。
+起動するのは今いる場面の行の1本だけで、場面が変わったら次の行へ移る（不具合を直して PR を出すなら debugging → TDD → verification の順に1本ずつ）。画面なら加えて Impeccable。表に無い場面では何も起動しない。
 
 ## 場面で起動する
 | 場面 | 起動するもの | 分量 |
@@ -25,7 +25,12 @@
 ## 探す
 - まず Grep。`headroom sg` は起動に 10 秒以上かかり、同じ 37 件を Grep は 0 秒で返した（2026-11-05）。Grep で書けない構造の検索（部品の中の `try … finally` など）だけに使う
 
+## 起動せずに効いている
+- Ponytail: セッション開始時に自動で入る。文脈に「PONYTAIL MODE ACTIVE」が無い時だけ、最初のツールと一緒に起動する（全体の K1.3）
+- headroom: 上の「探す」の `sg` だけ。圧縮の MCP は使わない（全体の K1.4）
+- CLAUDE.md: 入口の表だけを置き、中身はこの `memory/` に分けて、場面が来た時に1本だけ読む
+
 ## このアプリでは切ってある
-- `.claude/settings.json` で切った（一覧に出ない）: Taste Skill・Hallmark（Web 用）、Frontend Slides（スライドは Artifact）、Diagram Design（図は artifact-diagramming）、Last 30 Days（調査は deep-research）。Scrapling は `/scrapling` でだけ呼べる
+- `.claude/settings.json` で切った（一覧に出ない）: Taste Skill・Hallmark（Web 用）、genjutsu（Web・Compose・SwiftUI 用で React Native は対象外。中に UI/UX Pro Max を抱えていて、全体で切ったものが戻ってしまう。11-08）、Frontend Slides（スライドは Artifact）、Diagram Design（図は artifact-diagramming）、Last 30 Days（調査は deep-research）。Scrapling は `/scrapling` でだけ呼べる
 - 全体で切ってある: UI/UX Pro Max（配色はデザインシステムで確定）、Humanizer・Stop Slop（英語用で配信は日本だけ）、Understand Anything（メモリーと Grep で足りる）
 - 名指しされたら `~/.claude/plugins/cache/` の SKILL.md を直接読んで一度だけ使う。常用に戻すなら `.claude/settings.json` の行を消す
