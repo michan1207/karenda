@@ -37,6 +37,32 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
       </Text>
       <MascotSays text={line} />
+      {k.access === 'denied' &&
+        (k.calendarSkipped ? (
+          <Notice
+            text="カレンダーは使っていません。このアプリの中だけに入れた予定との重なりを調べています。"
+            action={{ label: 'カレンダーを使う', onPress: () => void k.enableCalendar() }}
+          />
+        ) : (
+          <Notice
+            text="カレンダーへのアクセスが許可されていないため、予定との重なりを調べられません。"
+            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
+          />
+        ))}
+      {k.starts.length === 0 ? (
+        <Notice text="生理の記録がまだ無いため、お知らせはありません。カレンダーで開始日を記録してください。" />
+      ) : (
+        k.access === 'granted' &&
+        alerts.length === 0 && (
+          <Notice text="気をつけたい時期と重なる予定はありません。" />
+        )
+      )}
+
+      {alerts.map((alert) => (
+        <AlertCard key={`${alert.eventId}|${alert.date}`} alert={alert} actions={actionsOf(alert)} k={k} today={today} />
+      ))}
+
+      {/* 見本はお知らせの一覧のあと。開いてすぐ、重なる予定が目に入るように */}
       <Card>
         <PillHeading text="パートナーに送る文の見本" />
         <Chips
@@ -70,31 +96,6 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
           文は自由に書き換えられます。見本を押すと元の文に戻ります。LINEなどで送れて、予定の中身は送りません。
         </Text>
       </Card>
-
-      {k.access === 'denied' &&
-        (k.calendarSkipped ? (
-          <Notice
-            text="カレンダーは使っていません。このアプリの中だけに入れた予定との重なりを調べています。"
-            action={{ label: 'カレンダーを使う', onPress: () => void k.enableCalendar() }}
-          />
-        ) : (
-          <Notice
-            text="カレンダーへのアクセスが許可されていないため、予定との重なりを調べられません。"
-            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
-          />
-        ))}
-      {k.starts.length === 0 ? (
-        <Notice text="生理の記録がまだ無いため、お知らせはありません。カレンダーで開始日を記録してください。" />
-      ) : (
-        k.access === 'granted' &&
-        alerts.length === 0 && (
-          <Notice text="気をつけたい時期と重なる予定はありません。" />
-        )
-      )}
-
-      {alerts.map((alert) => (
-        <AlertCard key={`${alert.eventId}|${alert.date}`} alert={alert} actions={actionsOf(alert)} k={k} today={today} />
-      ))}
 
       <ReflectionCard k={k} today={today} />
     </ScrollView>
