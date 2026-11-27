@@ -9,7 +9,7 @@
 - カレンダー画面（2026-11-02 B7 で分けた）: `CalendarScreen.tsx` は画面と日の詳細だけ。日のマスと色の説明 `DayCell.tsx`、今月の要注意 `DigestCard.tsx`、「どうだった？」`ReviewCard.tsx`、このアプリだけの予定 `ManualEventForm.tsx`、心の変化 `MoodNotesCard.tsx`、ミアの一言 `mascotLines.ts`
 
 ## 色（theme.ts の `useColors()`、ライト/ダーク両対応）
-- 生理ヘビー期のセル背景 `heavy`（淡いピンク）、PMS警戒期 `pms`（淡いパープル）。予測の幅のはし（periodDay の無い予測のヘビー期）は `heavyEdge`（もっと淡いピンク、凡例「生理かもしれない日」）。凡例と設定の呼び名は「生理の重い日」（2026-11-27、前は「生理ヘビー期」）
+- 生理ヘビー期のセル背景 `heavy`（淡いピンク）、PMS警戒期 `pms`（淡いパープル）。予測の幅のはし（periodDay の無い予測のヘビー期）は `heavyEdge`（もっと淡いピンク、凡例「生理かもしれない日」）。凡例と設定の呼び名は「生理の重い日」（2026-11-27、前は「生理ヘビー期」）。「生理かもしれない日」は点線の縁 `heavyLine`（2026-11-28、塗りだけだと重い日と見分けにくかった）。凡例の丸14・文字13。2026-11-28 テスター「見やすい色に分けて」で heavy `#ffc2d6`・pms `#ddd0f7`（ダーク `#6b2f45`・`#4b3b6b`）に濃くした
 - 警告は `alertStrong`（くすみブルー）/ `alertMild`、カードの地は `alertStrongSoft` / `alertMildSoft`。削除は `danger`。強調 `accent`
 - 色を直書きせず、必ず `useColors()` のトークンを使う。部品ごとに `useColors()` で受け取り、`colors` を props で下へ回さない（`noHardcodedColors.test.ts` が見る、2026-11-02 C1）。新しい色はライトとダーク両方に足す
 - 文字は `components.tsx` の `Text` を使う（react-native の `Text` は直接使わない）。丸ゴシック Zen Maru Gothic を同梱し、太さ600/700はBold書体に切り替わる。入力欄は `Input` を使う（react-native の `TextInput` は直接使わない）
