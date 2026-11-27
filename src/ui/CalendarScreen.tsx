@@ -145,6 +145,9 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         <Notice text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
       )}
 
+      {/* ミアはカレンダーのすぐ上。小さめにして、カレンダーを押し下げすぎない */}
+      {!hidden && <MascotSays size={56} text={mascotLine(phase, k.starts.length > 0, selected)} />}
+
       <Card style={styles.grid}>
         <View style={styles.weekRow}>
           {WEEKDAYS.map((label, i) => (
@@ -309,7 +312,6 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         </Card>
       )}
 
-      {!hidden && <MascotSays text={mascotLine(phase, k.starts.length > 0, selected)} />}
 
       {k.access === 'denied' &&
         (k.calendarSkipped ? (
