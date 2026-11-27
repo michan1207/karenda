@@ -456,7 +456,7 @@ const leadDays = (grade: keyof typeof LEAD_DAYS) => LEAD_DAYS[grade].map((days) 
 function pmsBasis({ source, observations }: PmsEstimate): string {
   if (source === 'auto') return `過去${PMS_CYCLES}周期の体調評価から推定しています。変わるのはこれからの予測だけです。`;
   if (observations >= PMS_CYCLES) return `周期ごとの差が大きいので、${DEFAULT_PMS.daysBefore}日前のままにしています。`;
-  return `最近の約1年で、予定のあとの「どうだった？」から始まりが読めた周期：${observations}／${PMS_CYCLES}。そろうと、あなたに合わせた日数に変わります。`;
+  return `体調の記録や「どうだった？」の答えがたまると、あなたに合わせた日数に変わります（今は${observations}／${PMS_CYCLES}周期分）。`;
 }
 
 function Stepper({
