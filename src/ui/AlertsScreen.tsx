@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
 
-import { Action, addDays, ConflictAlert, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
+import { Action, addDays, ConflictAlert, ConflictStatus, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Chip, Decorations, Input, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, gradeLabel, shortDate, titleOf } from './format';
 import { PARTNER_TEMPLATES } from './partnerTemplates';
@@ -18,6 +18,8 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
   // null の間は見本の文のまま。書き換えたら、その文を送る
   const [edited, setEdited] = useState<string | null>(null);
   const text = edited ?? template;
+  // いちばん最近、一覧から外したお知らせ。押し間違えても「元に戻す」で戻せる
+  const [undo, setUndo] = useState<{ eventId: string; date: DateKey; before: ConflictStatus; text: string } | null>(null);
   const line =
     k.starts.length === 0
       ? '生理が始まった日を記録すると、ここでお知らせできるよ'
@@ -58,8 +60,30 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
         )
       )}
 
+      {undo && (
+        <Notice
+          text={undo.text}
+          action={{
+            label: '元に戻す',
+            onPress: () => {
+              setUndo(null);
+              void k.undoResolve(undo.eventId, undo.date, undo.before);
+            },
+          }}
+        />
+      )}
+
       {alerts.map((alert) => (
-        <AlertCard key={`${alert.eventId}|${alert.date}`} alert={alert} actions={actionsOf(alert)} k={k} today={today} />
+        <AlertCard
+          key={`${alert.eventId}|${alert.date}`}
+          alert={alert}
+          actions={actionsOf(alert)}
+          k={k}
+          today={today}
+          onResolved={(before, label) =>
+            setUndo({ eventId: alert.eventId, date: alert.date, before, text: `「${titleOf(alert.title)}」を「${label}」にして、一覧から外しました。` })
+          }
+        />
       ))}
 
       {/* 見本はお知らせの一覧のあと。開いてすぐ、重なる予定が目に入るように */}
@@ -189,12 +213,25 @@ const RESOLUTIONS: [Resolution, string][] = [
 ];
 
 /** 1件のお知らせ。なぜ・動かせるか・どうするかを出し、確認した／何をしたかを残せる */
-function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions: Action[]; k: Karenda; today: DateKey }) {
+function AlertCard({
+  alert,
+  actions,
+  k,
+  today,
+  onResolved,
+}: {
+  alert: ConflictAlert;
+  actions: Action[];
+  k: Karenda;
+  today: DateKey;
+  onResolved: (before: ConflictStatus, label: string) => void;
+}) {
   const colors = useColors();
   const strong = alert.grade === 'A';
   const tone = strong ? colors.alertStrong : colors.alertMild;
   const title = titleOf(alert.title);
-  const state = statusOf(k.statuses, alert.eventId).state;
+  const status = statusOf(k.statuses, alert.eventId);
+  const state = status.state;
   const altDates = actions.flatMap((action) => (action.kind === 'suggestAltDate' ? [action.date] : []));
   const deadline = actions.flatMap((action) => (action.kind === 'deadline' ? [action.text] : []))[0];
   const tasks = actions.flatMap((action) => (action.kind === 'prepTask' ? [action.text] : []));
@@ -251,7 +288,10 @@ function AlertCard({ alert, actions, k, today }: { alert: ConflictAlert; actions
             label={label}
             accessibilityLabel={`「${title}」は${label}`}
             tone={tone}
-            onPress={() => k.resolve(alert.eventId, alert.date, resolution)}
+            onPress={() => {
+              onResolved(status, label);
+              void k.resolve(alert.eventId, alert.date, resolution);
+            }}
           />
         ))}
       </View>

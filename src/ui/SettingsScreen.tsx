@@ -59,6 +59,7 @@ export function SettingsScreen({ k, today }: Props) {
     })[reason];
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [lockFailed, setLockFailed] = useState(false);
+  const [notifyMore, setNotifyMore] = useState(false);
 
   useEffect(() => {
     k.authenticator
@@ -79,83 +80,95 @@ export function SettingsScreen({ k, today }: Props) {
         <Ribbon text="設定" />
       </View>
 
-      <Section title="カレンダー">
-        {k.access === 'granted' ? (
-          <Text style={[styles.help, { color: colors.muted }]}>
-            カレンダーの予定を読んで、生理の時期との重なりを見ています。書き換えはしません。
-          </Text>
-        ) : k.calendarSkipped ? (
-          <>
-            <Text style={[styles.help, { color: colors.muted }]}>
-              カレンダーは使っていません。予定はカレンダー画面から、このアプリの中だけに入れられます。
-            </Text>
-            <Button kind="secondary" label="カレンダーを使う" onPress={() => void k.enableCalendar()} />
-          </>
+      <Text accessibilityRole="header" style={[styles.group, { color: colors.muted }]}>
+        記録
+      </Text>
+
+      <Section title="生理の記録">
+        {k.starts.length === 0 ? (
+          <Text style={[styles.help, { color: colors.muted }]}>まだ記録がありません。カレンダーで日付を選んで記録できます。</Text>
         ) : (
-          <Notice
-            text="端末の設定でカレンダーがオフになっています。"
-            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
-          />
+          [...k.starts].reverse().map((start) => (
+            <Confirm
+              key={start}
+              message={`${dayTitle(start)}の記録を消します。予測も変わります。`}
+              label="記録を消す"
+              onConfirm={() => k.removeStart(start)}
+              trigger={(ask) => (
+                <View style={styles.row}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>{dayTitle(start)}〜</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`${dayTitle(start)}の記録を消す`} onPress={ask} hitSlop={8}>
+                    <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
+                  </Pressable>
+                </View>
+              )}
+            />
+          ))
         )}
       </Section>
 
-      <Section title="お知らせ通知">
-        <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>通知を使う</Text>
-          <Switch
-            accessibilityLabel="通知を使う"
-            value={k.notifyEnabled}
-            onValueChange={k.setNotify}
-            trackColor={{ true: colors.pink, false: colors.line }}
-          />
-        </View>
+      <Section title="ピル">
+        <PillPanel k={k} today={today} />
+      </Section>
+
+      <Section title="月経移動">
+        <PillPanel k={k} today={today} kind="shift" />
+      </Section>
+
+      <Text accessibilityRole="header" style={[styles.group, { color: colors.muted }]}>
+        予測
+      </Text>
+
+      <Section title="周期のまとめ">
+        {summaryRows.every(([, stats]) => !stats) ? (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            まだありません。生理の始まりの日を2回以上記録すると、周期の日数をまとめます。
+          </Text>
+        ) : (
+          summaryRows.map(([label, stats, note]) =>
+            stats ? (
+              <View key={label} style={styles.summaryRow}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
+                <Text style={[styles.help, { color: colors.muted }]}>
+                  {`平均${stats.average}日（${stats.shortest}〜${stats.longest}日、${stats.count}回）${note ? `。${note}` : ''}`}
+                </Text>
+              </View>
+            ) : null,
+          )
+        )}
         <Text style={[styles.help, { color: colors.muted }]}>
-          {`重なる予定は、要注意（A）なら${leadDays('A')}、注意（B）なら${leadDays('B')}、どちらも決める目安の日にも、朝${NOTIFY_HOUR}時にこの端末から通知します。1つの予定の通知は${MAX_PER_ALERT}回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝${NOTIFY_HOUR}時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝${DAY_REMINDER_AT / 60}時（${DAY_REMINDER_AT / 60 + 1}時より前に始まる日はその1時間前）に「今日の予定」を知らせます。`}
+          これまでの記録全部からのまとめです（予測は最近の{RECENT_CYCLES}回から）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}
+          日より長い間隔は、記録の抜けかもしれないので入れていません。薬でずらした生理には、月経移動の薬のあとの生理も入ります。
         </Text>
-        {k.notifyEnabled && k.notifyAccess === 'denied' && (
-          <Notice
-            text="端末の設定で通知がオフになっています。"
-            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
-          />
-        )}
-        {k.notifyEnabled && (
+      </Section>
+
+      <Section title="予測の当たり具合">
+        {latest && <Text style={[styles.rowLabel, { color: colors.text }]}>{latestLine(latest)}</Text>}
+        {mean === null || rate === null ? (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            まだ比べられる回数が足りません（今は{n}回）。生理開始日を記録すると、その前に出していた予測と比べます。
+          </Text>
+        ) : (
           <>
             <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>{`予定の${SOON_MINUTES}分前にも知らせる`}</Text>
-              <Switch
-                accessibilityLabel={`予定の${SOON_MINUTES}分前にも知らせる`}
-                value={k.soonEnabled}
-                onValueChange={k.setSoon}
-                trackColor={{ true: colors.pink, false: colors.line }}
-              />
+              <Text style={[styles.rowLabel, { color: colors.text }]}>平均のずれ</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{mean.toFixed(1)}日</Text>
             </View>
-            <Text style={[styles.help, { color: colors.muted }]}>
-              時刻のある予定が始まる{SOON_MINUTES}分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
-              {k.soonEnabled && k.exactAlarm === false && '下の「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。'}
-            </Text>
-          </>
-        )}
-        {k.notifyEnabled && k.exactAlarm !== null && (
-          <>
             <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>時刻ちょうどに知らせる</Text>
-              <Switch
-                accessibilityLabel="時刻ちょうどに知らせる"
-                value={k.exactAlarm}
-                onValueChange={() => void k.openExactAlarm()}
-                trackColor={{ true: colors.pink, false: colors.line }}
-              />
+              <Text style={[styles.rowLabel, { color: colors.text }]}>1日以内で当たった回数</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>
+                {n}回中{Math.round(rate * n)}回
+              </Text>
             </View>
-            <Text style={[styles.help, { color: colors.muted }]}>
-              オフの時は、通知が決まった時刻より最大1時間ほど遅れて届くことがあります。切り替えると設定アプリが開くので、「アラームとリマインダー」でオンかオフを選んでください。
-            </Text>
+            <Text style={[styles.help, { color: colors.muted }]}>直近{n}回の予測と、実際の開始日を比べています。</Text>
           </>
         )}
+        <Text style={[styles.help, { color: colors.muted }]}>予測は目安です。体調の判断は医師にご相談ください。</Text>
       </Section>
 
       <Section title="気をつける時期">
         <Stepper
-          label="生理ヘビー期"
+          label="生理の重い日"
           unit="日間"
           value={k.settings.heavyDays}
           min={1}
@@ -197,7 +210,108 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section title="予定の重さを決める言葉">
+      {excluded.length > 0 && (
+        <Section title="予測から外した周期">
+          <Text style={[styles.help, { color: colors.muted }]}>
+            {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
+            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理（月経移動の薬のあとの生理も）までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
+          </Text>
+          {excluded.map((gap) => (
+            <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>
+              {fullDate(gap.from)}〜{fullDate(gap.to)}　{gap.days}日（{reasonName(gap.reason)}）
+            </Text>
+          ))}
+        </Section>
+      )}
+
+      <Text accessibilityRole="header" style={[styles.group, { color: colors.muted }]}>
+        予定とお知らせ
+      </Text>
+
+      <Section title="カレンダー">
+        {k.access === 'granted' ? (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            カレンダーの予定を読んで、生理の時期との重なりを見ています。書き換えはしません。
+          </Text>
+        ) : k.calendarSkipped ? (
+          <>
+            <Text style={[styles.help, { color: colors.muted }]}>
+              カレンダーは使っていません。予定はカレンダー画面から、このアプリの中だけに入れられます。
+            </Text>
+            <Button kind="secondary" label="カレンダーを使う" onPress={() => void k.enableCalendar()} />
+          </>
+        ) : (
+          <Notice
+            text="端末の設定でカレンダーがオフになっています。"
+            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
+          />
+        )}
+      </Section>
+
+      <Section title="お知らせ通知">
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>通知を使う</Text>
+          <Switch
+            accessibilityLabel="通知を使う"
+            value={k.notifyEnabled}
+            onValueChange={k.setNotify}
+            trackColor={{ true: colors.pink, false: colors.line }}
+          />
+        </View>
+        <Text style={[styles.help, { color: colors.muted }]}>
+          {`重なる予定がある時は、前もって朝${NOTIFY_HOUR}時にこの端末から知らせます。予定のあとに「どうだった？」と聞くこともあります。`}
+        </Text>
+        {/* 細かい決まりは長いので、知りたい人だけ開く */}
+        <Pressable accessibilityRole="button" onPress={() => setNotifyMore(!notifyMore)} hitSlop={8}>
+          <Text style={[styles.help, styles.more, { color: colors.accent }]}>{notifyMore ? 'くわしい説明を閉じる' : 'くわしく'}</Text>
+        </Pressable>
+        {notifyMore && (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            {`重なる予定は、要注意（A）なら${leadDays('A')}、注意（B）なら${leadDays('B')}、どちらも決める目安の日にも、朝${NOTIFY_HOUR}時にこの端末から通知します。1つの予定の通知は${MAX_PER_ALERT}回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝${NOTIFY_HOUR}時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝${DAY_REMINDER_AT / 60}時（${DAY_REMINDER_AT / 60 + 1}時より前に始まる日はその1時間前）に「今日の予定」を知らせます。`}
+          </Text>
+        )}
+        {k.notifyEnabled && k.notifyAccess === 'denied' && (
+          <Notice
+            text="端末の設定で通知がオフになっています。"
+            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
+          />
+        )}
+        {k.notifyEnabled && (
+          <>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{`予定の${SOON_MINUTES}分前にも知らせる`}</Text>
+              <Switch
+                accessibilityLabel={`予定の${SOON_MINUTES}分前にも知らせる`}
+                value={k.soonEnabled}
+                onValueChange={k.setSoon}
+                trackColor={{ true: colors.pink, false: colors.line }}
+              />
+            </View>
+            <Text style={[styles.help, { color: colors.muted }]}>
+              時刻のある予定が始まる{SOON_MINUTES}分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
+              {k.soonEnabled && k.exactAlarm === false && '下の「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。'}
+            </Text>
+          </>
+        )}
+        {k.notifyEnabled && k.exactAlarm !== null && (
+          <>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>時刻ちょうどに知らせる</Text>
+              <Switch
+                accessibilityLabel="時刻ちょうどに知らせる"
+                value={k.exactAlarm}
+                onValueChange={() => void k.openExactAlarm()}
+                trackColor={{ true: colors.pink, false: colors.line }}
+              />
+            </View>
+            <Text style={[styles.help, { color: colors.muted }]}>
+              オフの時は、通知が決まった時刻より最大1時間ほど遅れて届くことがあります。切り替えると設定アプリが開くので、「アラームとリマインダー」でオンかオフを選んでください。
+            </Text>
+          </>
+        )}
+      </Section>
+
+      <Section title="重い予定を見分ける言葉">
         <Text style={[styles.help, { color: colors.muted }]}>
           予定のタイトルにこの言葉が入っていると、重い予定として扱います。終日の予定は「重い」になります（有給・休暇・代休・OFF の予定と祝日は除きます）。
         </Text>
@@ -205,7 +319,7 @@ export function SettingsScreen({ k, today }: Props) {
         <KeywordList level="medium" label="ふつうの予定" keywords={k.keywords} onChange={k.setKeywords} />
       </Section>
 
-      <Section title="覚えた予定">
+      <Section title="答えから覚えた予定">
         <Text style={[styles.help, { color: colors.muted }]}>
           {`予定のあとの「どうだった？」で同じ答えが${LEARN_AFTER}回続くと、その予定の重さを覚えて、上の言葉より優先します。重さを押すと直せます。`}
         </Text>
@@ -243,97 +357,9 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section title="生理の記録">
-        {k.starts.length === 0 ? (
-          <Text style={[styles.help, { color: colors.muted }]}>まだ記録がありません。カレンダーで日付を選んで記録できます。</Text>
-        ) : (
-          [...k.starts].reverse().map((start) => (
-            <Confirm
-              key={start}
-              message={`${dayTitle(start)}の記録を消します。予測も変わります。`}
-              label="記録を消す"
-              onConfirm={() => k.removeStart(start)}
-              trigger={(ask) => (
-                <View style={styles.row}>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>{dayTitle(start)}〜</Text>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`${dayTitle(start)}の記録を消す`} onPress={ask} hitSlop={8}>
-                    <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
-                  </Pressable>
-                </View>
-              )}
-            />
-          ))
-        )}
-      </Section>
-
-      <Section title="周期のまとめ">
-        {summaryRows.every(([, stats]) => !stats) ? (
-          <Text style={[styles.help, { color: colors.muted }]}>
-            まだありません。生理の始まりの日を2回以上記録すると、周期の日数をまとめます。
-          </Text>
-        ) : (
-          summaryRows.map(([label, stats, note]) =>
-            stats ? (
-              <View key={label} style={styles.summaryRow}>
-                <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
-                <Text style={[styles.help, { color: colors.muted }]}>
-                  {`平均${stats.average}日（${stats.shortest}〜${stats.longest}日、${stats.count}回）${note ? `。${note}` : ''}`}
-                </Text>
-              </View>
-            ) : null,
-          )
-        )}
-        <Text style={[styles.help, { color: colors.muted }]}>
-          これまでの記録全部からのまとめです（予測は最近の{RECENT_CYCLES}回から）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}
-          日より長い間隔は、記録の抜けかもしれないので入れていません。薬でずらした生理には、月経移動の薬のあとの生理も入ります。
-        </Text>
-      </Section>
-
-      <Section title="ピル">
-        <PillPanel k={k} today={today} />
-      </Section>
-
-      <Section title="月経移動">
-        <PillPanel k={k} today={today} kind="shift" />
-      </Section>
-
-      {excluded.length > 0 && (
-        <Section title="予測に使っていない間隔">
-          <Text style={[styles.help, { color: colors.muted }]}>
-            {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
-            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理（月経移動の薬のあとの生理も）までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
-          </Text>
-          {excluded.map((gap) => (
-            <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>
-              {fullDate(gap.from)}〜{fullDate(gap.to)}　{gap.days}日（{reasonName(gap.reason)}）
-            </Text>
-          ))}
-        </Section>
-      )}
-
-      <Section title="予測の当たり具合">
-        {latest && <Text style={[styles.rowLabel, { color: colors.text }]}>{latestLine(latest)}</Text>}
-        {mean === null || rate === null ? (
-          <Text style={[styles.help, { color: colors.muted }]}>
-            まだ評価できるデータが足りません（n={n}）。生理開始日を記録すると、その前に出していた予測と比べます。
-          </Text>
-        ) : (
-          <>
-            <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>平均のズレ</Text>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>{mean.toFixed(1)}日</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>±1日以内</Text>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>
-                {n}回中{Math.round(rate * n)}回
-              </Text>
-            </View>
-            <Text style={[styles.help, { color: colors.muted }]}>直近{n}回（n={n}）の予測と、実際の開始日を比べています。</Text>
-          </>
-        )}
-        <Text style={[styles.help, { color: colors.muted }]}>予測は目安です。体調の判断は医師にご相談ください。</Text>
-      </Section>
+      <Text accessibilityRole="header" style={[styles.group, { color: colors.muted }]}>
+        安心とデータ
+      </Text>
 
       <Section title="アプリのロック">
         <View style={styles.row}>
@@ -361,21 +387,6 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section title="利用状況の記録">
-        <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>利用状況をこの端末に記録する</Text>
-          <Switch
-            accessibilityLabel="利用状況をこの端末に記録する"
-            value={k.metricsEnabled}
-            onValueChange={k.setMetrics}
-            trackColor={{ true: colors.pink, false: colors.line }}
-          />
-        </View>
-        <Text style={[styles.help, { color: colors.muted }]}>
-          記録した回数などを、この端末の中だけで数えます。外には送りません。オフにしても、アプリの使い方は変わりません。
-        </Text>
-      </Section>
-
       <Section title="プライバシー">
         <Text style={[styles.help, { color: colors.muted }]}>
           生理や体調の記録は大事な情報なので、どこにも送っていないことを、ここで確かめられます。
@@ -401,6 +412,21 @@ export function SettingsScreen({ k, today }: Props) {
           </Text>
         ))}
         <Text style={[styles.help, { color: colors.muted }]}>{CALENDAR_NOTE}</Text>
+      </Section>
+
+      <Section title="使い方の記録（この端末の中だけ）">
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>使い方をこの端末に記録する</Text>
+          <Switch
+            accessibilityLabel="使い方をこの端末に記録する"
+            value={k.metricsEnabled}
+            onValueChange={k.setMetrics}
+            trackColor={{ true: colors.pink, false: colors.line }}
+          />
+        </View>
+        <Text style={[styles.help, { color: colors.muted }]}>
+          記録した回数などを、この端末の中だけで数えます。外には送りません。オフにしても、アプリの使い方は変わりません。
+        </Text>
       </Section>
 
       <Section title="データ">
@@ -552,6 +578,8 @@ function KeywordList({
 }
 
 const styles = StyleSheet.create({
+  group: { fontSize: 15, fontWeight: '700', marginTop: 12, marginLeft: 4 },
+  more: { fontWeight: '700' },
   content: { padding: 16, gap: 12 },
   title: { marginTop: 8, marginBottom: 4 },
   help: { fontSize: 13, lineHeight: 19 },

@@ -28,9 +28,23 @@ describe('settings', () => {
     return result;
   }
 
+  it('groups the settings: records first, then prediction, events and notices, and data last', async () => {
+    await openSettings();
+    const page = JSON.stringify(screen.toJSON());
+    const order = ['記録', '生理の記録', '予測', '周期のまとめ', '予定とお知らせ', 'お知らせ通知', '安心とデータ', 'すべてのデータを削除'].map(
+      (text) => page.indexOf(`"${text}"`),
+    );
+    expect(order.every((at) => at > -1)).toBe(true);
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+  });
+
   // 数字は判定のしくみの値から作る。値を変えたら、この文も合わせて書き換える
   it('explains when notices come and how titles are learned, with the numbers the app uses', async () => {
     await openSettings();
+    // はじめは要点だけ。細かい決まりは「くわしく」を押すと出る
+    expect(screen.getByText('重なる予定がある時は、前もって朝9時にこの端末から知らせます。予定のあとに「どうだった？」と聞くこともあります。')).toBeTruthy();
+    expect(screen.queryByText(/^重なる予定は、要注意（A）なら/)).toBeNull();
+    await fireEvent.press(screen.getByText('くわしく'));
     expect(
       screen.getByText(
         '重なる予定は、要注意（A）なら7日前と3日前、注意（B）なら3日前、どちらも決める目安の日にも、朝9時にこの端末から通知します。1つの予定の通知は3回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝9時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝7時（8時より前に始まる日はその1時間前）に「今日の予定」を知らせます。',
@@ -80,11 +94,11 @@ describe('settings', () => {
 
   it('says there is not enough data yet instead of showing numbers', async () => {
     await openSettings();
-    expect(screen.getByText(/まだ評価できるデータが足りません（n=0）/)).toBeTruthy();
-    expect(screen.queryByText('平均のズレ')).toBeNull();
+    expect(screen.getByText(/まだ比べられる回数が足りません（今は0回）/)).toBeTruthy();
+    expect(screen.queryByText('平均のずれ')).toBeNull();
   });
 
-  it('shows how far off the last predictions were, with n', async () => {
+  it('shows how far off the last predictions were, and how many times', async () => {
     await openSettings({
       starts: [],
       prepare: async (opened) => {
@@ -96,11 +110,11 @@ describe('settings', () => {
       },
     });
     expect(screen.getByText('前回の予測は1日ズレました（予測 8/25 → 実際 8/24）。')).toBeTruthy();
-    expect(screen.getByText('平均のズレ')).toBeTruthy();
+    expect(screen.getByText('平均のずれ')).toBeTruthy();
     expect(screen.getByText('0.7日')).toBeTruthy();
-    expect(screen.getByText('±1日以内')).toBeTruthy();
+    expect(screen.getByText('1日以内で当たった回数')).toBeTruthy();
     expect(screen.getByText('3回中3回')).toBeTruthy();
-    expect(screen.getByText(/n=3/)).toBeTruthy();
+    expect(screen.getByText(/直近3回の予測と/)).toBeTruthy();
   });
 
   it('adds and removes keywords, moving a word between levels', async () => {
@@ -132,12 +146,12 @@ describe('settings', () => {
 
   it('reads a stepper as one adjustable value and stops at its limits', async () => {
     const { db } = await openSettings();
-    const stepper = screen.getByLabelText('生理ヘビー期');
+    const stepper = screen.getByLabelText('生理の重い日');
     expect(stepper.props.accessibilityRole).toBe('adjustable');
     expect(stepper.props.accessibilityValue).toEqual({ text: '3日間' });
     await fireEvent(stepper, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
     expect((await getZoneSettings(db)).heavyDays).toBe(4);
-    await fireEvent(screen.getByLabelText('生理ヘビー期'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+    await fireEvent(screen.getByLabelText('生理の重い日'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
     expect((await getZoneSettings(db)).heavyDays).toBe(3);
   });
 

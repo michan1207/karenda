@@ -82,14 +82,14 @@ describe('usage records', () => {
   it('counts a recorded period start on this phone', async () => {
     const { db } = await setup({ starts: [] });
     await fireEvent.press(await screen.findByLabelText(/^10月20日（火）/));
-    await fireEvent.press(screen.getByText('この日を生理開始日として記録'));
+    await fireEvent.press(screen.getByText('生理開始日として記録'));
     await waitFor(async () => expect((await listMetricEvents(db)).map((e) => e.name)).toContain('period_recorded'));
   });
 
   it('can be turned off in settings', async () => {
     const { db } = await setup();
     await fireEvent.press(await screen.findByText('設定'));
-    await fireEvent(screen.getByLabelText('利用状況をこの端末に記録する'), 'valueChange', false);
+    await fireEvent(screen.getByLabelText('使い方をこの端末に記録する'), 'valueChange', false);
     await waitFor(async () => expect(await isMetricsEnabled(db)).toBe(false));
   });
 });
@@ -154,7 +154,7 @@ describe('coming back to the app', () => {
     day = '2026-10-26';
     await returnToApp();
     await fireEvent.press(screen.getByLabelText('10月26日（月）、生理1日目（予測）'));
-    expect(screen.getByText('この日を生理開始日として記録')).toBeTruthy();
+    expect(screen.getByText('生理開始日として記録')).toBeTruthy();
   });
 
   it('reads the calendar again, so an event added while away is checked', async () => {

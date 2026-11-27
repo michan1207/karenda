@@ -29,7 +29,7 @@ Cocomia（ココミア）は、体調の波に合わせて予定を守るカレ�
 
 ■ できること
 ・生理が始まった日をタップで記録
-・次の「生理ヘビー期」と「PMSの時期」の目安をカレンダーに色で表示
+・次の「生理の重い日」と「PMSの時期」の目安をカレンダーに色で表示
 ・カレンダーの予定と重なる日に注意マーク
 ・重い予定（出張・プレゼン・旅行など）は7日前と3日前、少し注意の予定は3日前にお知らせ
 ・「重い予定」と判定する言葉を自分で追加・削除
@@ -98,7 +98,7 @@ Cocomia is a calendar that warns users when important events overlap with their 
 
 How to try it:
 1. Tap "はじめる" (Start) and allow calendar and notification access.
-2. On the calendar tab, select a date in the past and tap "この日を生理開始日として記録" (Record this day as a period start date).
+2. On the calendar tab, select a date in the past and tap "生理開始日として記録" (Record as a period start date).
 3. Predicted heavy days and PMS days are tinted on the calendar. Events whose titles contain words such as "出張" (business trip) or "プレゼン" (presentation), or all-day events, are marked with ⚠ when they overlap.
 4. The Alerts tab lists overlaps in the next 30 days.
 

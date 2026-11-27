@@ -12,6 +12,21 @@ describe('calendar', () => {
     expect(calendar.getEvents).toHaveBeenCalledWith('2026-09-28', '2026-11-01');
   });
 
+  it('puts the calendar and the record button above the cards', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByLabelText('10月24日（土）、PMSの時期（予測）'));
+    const page = JSON.stringify(screen.toJSON());
+    const at = (text: string) => {
+      const i = page.indexOf(text);
+      expect(i).toBeGreaterThan(-1);
+      return i;
+    };
+    // 開いてすぐカレンダー、日を押すとすぐ下に記録のボタン。今月の要注意などはそのあと
+    expect(at('10月24日（土）、PMSの時期（予測）')).toBeLessThan(at('生理開始日として記録'));
+    expect(at('生理開始日として記録')).toBeLessThan(at('この日に予定を入れる'));
+    expect(at('この日に予定を入れる')).toBeLessThan(at('の要注意'));
+  });
+
   it('shows the events and advice for a tapped day', async () => {
     await setup();
     await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています'));
@@ -128,7 +143,7 @@ describe('calendar', () => {
     const { db } = await setup({ starts: [] });
     expect(await screen.findByText(/生理が始まった日を選んで記録すると/)).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('10月20日（火）'));
-    await fireEvent.press(screen.getByText('この日を生理開始日として記録'));
+    await fireEvent.press(screen.getByText('生理開始日として記録'));
     expect(await screen.findByText(/28日周期を仮定した仮の予測/)).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual(['2026-10-20']);
     await fireEvent.press(screen.getByText('この日の記録を消す'));
@@ -137,18 +152,18 @@ describe('calendar', () => {
     expect(await listPeriodStarts(db)).toEqual(['2026-10-20']);
     await fireEvent.press(screen.getByText('この日の記録を消す'));
     await fireEvent.press(screen.getByText('記録を消す'));
-    expect(await screen.findByText('この日を生理開始日として記録')).toBeTruthy();
+    expect(await screen.findByText('生理開始日として記録')).toBeTruthy();
     expect(await listPeriodStarts(db)).toEqual([]);
   });
 
   it('records the day the period ended, colors the days up to it, and removes it', async () => {
     const { db } = await setup({ starts: [...REGULAR, '2026-10-19'] });
     await fireEvent.press(await screen.findByLabelText(/^10月23日（金）/));
-    await fireEvent.press(screen.getByText('この日を生理の終わりの日として記録'));
+    await fireEvent.press(screen.getByText('生理の終わりとして記録'));
     expect(await screen.findByLabelText(/^10月23日（金）、生理5日目/)).toBeTruthy();
     expect((await loadState(db)).ends).toEqual(new Map([['2026-10-19', '2026-10-23']]));
     await fireEvent.press(screen.getByText('終わりの日の記録を消す'));
-    expect(await screen.findByText('この日を生理の終わりの日として記録')).toBeTruthy();
+    expect(await screen.findByText('生理の終わりとして記録')).toBeTruthy();
     expect((await loadState(db)).ends).toEqual(new Map());
   });
 
@@ -233,12 +248,12 @@ describe('calendar', () => {
   it('asks for a review once, right after the third recorded start', async () => {
     const { askReview } = await setup({ starts: ['2026-08-31', '2026-09-28'] });
     await fireEvent.press(await screen.findByLabelText(/^10月20日（火）/));
-    await fireEvent.press(screen.getByText('この日を生理開始日として記録'));
+    await fireEvent.press(screen.getByText('生理開始日として記録'));
     expect(await screen.findByText('この日の記録を消す')).toBeTruthy();
     expect(askReview).toHaveBeenCalledTimes(1);
     await fireEvent.press(screen.getByText('この日の記録を消す'));
     await fireEvent.press(screen.getByText('記録を消す'));
-    await fireEvent.press(await screen.findByText('この日を生理開始日として記録'));
+    await fireEvent.press(await screen.findByText('生理開始日として記録'));
     expect(await screen.findByText('この日の記録を消す')).toBeTruthy();
     expect(askReview).toHaveBeenCalledTimes(1);
   });
@@ -246,7 +261,7 @@ describe('calendar', () => {
   it('does not offer to record a future date', async () => {
     await setup();
     await fireEvent.press(await screen.findByLabelText('10月30日（金）'));
-    expect(screen.queryByText('この日を生理開始日として記録')).toBeNull();
+    expect(screen.queryByText('生理開始日として記録')).toBeNull();
   });
 
   it('explains a denied calendar and links to Settings, still showing zones', async () => {
@@ -326,7 +341,7 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByText('この日に予定を入れる'));
     await fireEvent.changeText(screen.getByLabelText('10月27日（火）に入れる予定の名前'), 'ヨガ');
     // 重さは選ばない（おまかせ）。今の言葉では重くない
-    expect(screen.getByText('設定の「予定の重さを決める言葉」で決めます。今は「軽い予定」です。')).toBeTruthy();
+    expect(screen.getByText('設定の「重い予定を見分ける言葉」で決めます。今は「軽い予定」です。')).toBeTruthy();
     await fireEvent.press(screen.getByText('入れる'));
     expect(await screen.findByText('軽い予定')).toBeTruthy();
     expect(screen.queryByText(/^お知らせ（/)).toBeNull();
@@ -392,7 +407,7 @@ describe('records that look irregular', () => {
   it('lists the intervals left out of the prediction, while keeping the records', async () => {
     await setup({ starts: IRREGULAR });
     await fireEvent.press(await screen.findByText('設定'));
-    expect(screen.getByText('予測に使っていない間隔')).toBeTruthy();
+    expect(screen.getByText('予測から外した周期')).toBeTruthy();
     expect(screen.getByText(/2件を予測の計算から外しました（間隔が長すぎる／間隔が短すぎる）/)).toBeTruthy();
     expect(screen.getByText(/。15日より短い・45日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。/)).toBeTruthy();
     expect(screen.getByText('2026年5月29日〜2026年7月28日　60日（間隔が長すぎる）')).toBeTruthy();
@@ -403,6 +418,6 @@ describe('records that look irregular', () => {
   it('has no such section when nothing was left out', async () => {
     await setup();
     await fireEvent.press(await screen.findByText('設定'));
-    expect(screen.queryByText('予測に使っていない間隔')).toBeNull();
+    expect(screen.queryByText('予測から外した周期')).toBeNull();
   });
 });

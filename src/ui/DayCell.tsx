@@ -104,7 +104,7 @@ export function Legend({ medicine = [] }: { medicine?: MedicineMark[] }) {
   const medicineColor = useMedicineColor();
   return (
     <View style={styles.legend}>
-      <LegendItem color={colors.heavy} label="生理ヘビー期" textColor={colors.muted} />
+      <LegendItem color={colors.heavy} label="生理の重い日" textColor={colors.muted} />
       <LegendItem color={colors.heavyEdge} label="生理かもしれない日" textColor={colors.muted} />
       <LegendItem color={colors.pms} label="PMSの時期" textColor={colors.muted} />
       <View style={styles.legendItem}>

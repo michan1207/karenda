@@ -85,8 +85,8 @@ export function ManualEventForm({
       {weight === null && (
         <Text style={[styles.reviewHelp, { color: colors.muted }]}>
           {title.trim()
-            ? `設定の「予定の重さを決める言葉」で決めます。今は「${riskLabel(classifyRisk({ title, allDay: false }, keywords))}」です。`
-            : '設定の「予定の重さを決める言葉」で決めます。'}
+            ? `設定の「重い予定を見分ける言葉」で決めます。今は「${riskLabel(classifyRisk({ title, allDay: false }, keywords))}」です。`
+            : '設定の「重い予定を見分ける言葉」で決めます。'}
         </Text>
       )}
       <View style={styles.timeRow}>
