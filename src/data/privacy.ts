@@ -16,9 +16,9 @@ export const STORED_DATA: { table: string; what: string; why: string; backup: bo
   { table: 'pill_periods', what: 'ピルを飲んでいた期間', why: 'その間の生理を、ふだんの周期と分けて予測するため', backup: true },
   { table: 'shift_periods', what: '月経移動の薬を飲んだ期間', why: 'その後の生理を、予測の平均に入れないため', backup: true },
   { table: 'settings', what: '設定（気をつける時期の日数、通知、ロック、隠すモードなど）', why: 'アプリの動きをあなたに合わせるため', backup: true },
-  { table: 'keywords', what: '予定の重さを決める言葉', why: '予定が重いかを判定するため', backup: true },
+  { table: 'keywords', what: '重い予定を見分ける言葉', why: '予定が重いかを判定するため', backup: true },
   { table: 'conflict_states', what: 'お知らせを確認・対応したか（予定のIDと日付）', why: '同じお知らせをくり返さないため', backup: false },
-  { table: 'metric_events', what: '利用状況の記録（設定でオフにできます）', why: '今月のふりかえりを出すため', backup: false },
+  { table: 'metric_events', what: '使い方の記録（設定でオフにできます）', why: '今月のふりかえりを出すため', backup: false },
   { table: 'title_weights', what: '覚えた予定の名前と重さ', why: '予定の重さの判定をあなたに合わせるため', backup: true },
   {
     table: 'event_reviews',

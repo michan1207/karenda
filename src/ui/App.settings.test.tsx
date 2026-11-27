@@ -90,11 +90,11 @@ describe('settings', () => {
 
   it('says there is not enough data yet instead of showing numbers', async () => {
     await openSettings();
-    expect(screen.getByText(/まだ評価できるデータが足りません（n=0）/)).toBeTruthy();
-    expect(screen.queryByText('平均のズレ')).toBeNull();
+    expect(screen.getByText(/まだ比べられる回数が足りません（今は0回）/)).toBeTruthy();
+    expect(screen.queryByText('平均のずれ')).toBeNull();
   });
 
-  it('shows how far off the last predictions were, with n', async () => {
+  it('shows how far off the last predictions were, and how many times', async () => {
     await openSettings({
       starts: [],
       prepare: async (opened) => {
@@ -106,11 +106,11 @@ describe('settings', () => {
       },
     });
     expect(screen.getByText('前回の予測は1日ズレました（予測 8/25 → 実際 8/24）。')).toBeTruthy();
-    expect(screen.getByText('平均のズレ')).toBeTruthy();
+    expect(screen.getByText('平均のずれ')).toBeTruthy();
     expect(screen.getByText('0.7日')).toBeTruthy();
-    expect(screen.getByText('±1日以内')).toBeTruthy();
+    expect(screen.getByText('1日以内で当たった回数')).toBeTruthy();
     expect(screen.getByText('3回中3回')).toBeTruthy();
-    expect(screen.getByText(/n=3/)).toBeTruthy();
+    expect(screen.getByText(/直近3回の予測と/)).toBeTruthy();
   });
 
   it('adds and removes keywords, moving a word between levels', async () => {
@@ -142,12 +142,12 @@ describe('settings', () => {
 
   it('reads a stepper as one adjustable value and stops at its limits', async () => {
     const { db } = await openSettings();
-    const stepper = screen.getByLabelText('生理ヘビー期');
+    const stepper = screen.getByLabelText('生理の重い日');
     expect(stepper.props.accessibilityRole).toBe('adjustable');
     expect(stepper.props.accessibilityValue).toEqual({ text: '3日間' });
     await fireEvent(stepper, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
     expect((await getZoneSettings(db)).heavyDays).toBe(4);
-    await fireEvent(screen.getByLabelText('生理ヘビー期'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
+    await fireEvent(screen.getByLabelText('生理の重い日'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
     expect((await getZoneSettings(db)).heavyDays).toBe(3);
   });
 

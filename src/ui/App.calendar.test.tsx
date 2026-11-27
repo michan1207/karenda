@@ -326,7 +326,7 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByText('この日に予定を入れる'));
     await fireEvent.changeText(screen.getByLabelText('10月27日（火）に入れる予定の名前'), 'ヨガ');
     // 重さは選ばない（おまかせ）。今の言葉では重くない
-    expect(screen.getByText('設定の「予定の重さを決める言葉」で決めます。今は「軽い予定」です。')).toBeTruthy();
+    expect(screen.getByText('設定の「重い予定を見分ける言葉」で決めます。今は「軽い予定」です。')).toBeTruthy();
     await fireEvent.press(screen.getByText('入れる'));
     expect(await screen.findByText('軽い予定')).toBeTruthy();
     expect(screen.queryByText(/^お知らせ（/)).toBeNull();
@@ -392,7 +392,7 @@ describe('records that look irregular', () => {
   it('lists the intervals left out of the prediction, while keeping the records', async () => {
     await setup({ starts: IRREGULAR });
     await fireEvent.press(await screen.findByText('設定'));
-    expect(screen.getByText('予測に使っていない間隔')).toBeTruthy();
+    expect(screen.getByText('予測から外した周期')).toBeTruthy();
     expect(screen.getByText(/2件を予測の計算から外しました（間隔が長すぎる／間隔が短すぎる）/)).toBeTruthy();
     expect(screen.getByText(/。15日より短い・45日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。/)).toBeTruthy();
     expect(screen.getByText('2026年5月29日〜2026年7月28日　60日（間隔が長すぎる）')).toBeTruthy();
@@ -403,6 +403,6 @@ describe('records that look irregular', () => {
   it('has no such section when nothing was left out', async () => {
     await setup();
     await fireEvent.press(await screen.findByText('設定'));
-    expect(screen.queryByText('予測に使っていない間隔')).toBeNull();
+    expect(screen.queryByText('予測から外した周期')).toBeNull();
   });
 });
