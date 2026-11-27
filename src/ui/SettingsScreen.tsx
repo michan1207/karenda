@@ -212,9 +212,12 @@ export function SettingsScreen({ k, today }: Props) {
 
       {excluded.length > 0 && (
         <Section title="予測から外した周期">
-          <Text style={[styles.help, { color: colors.muted }]}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>
             {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
-            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理（月経移動の薬のあとの生理も）までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
+            ）。記録は消えていません。
+          </Text>
+          <Text style={[styles.help, { color: colors.muted }]}>
+            外すのは、{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔（記録の抜けや重なりかもしれません）と、薬でずらした生理までの間隔です。ピルを飲んでいる間は、分けて予測します。
           </Text>
           {excluded.map((gap) => (
             <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>

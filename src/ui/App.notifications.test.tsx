@@ -74,9 +74,9 @@ describe('notifications', () => {
     await act(async () => decide([{ eventId: 'talk', date: '2026-11-20' }], 'defer'));
     await waitFor(async () => expect([...(await loadState(db)).deferrals.keys()]).toEqual(['talk']));
 
-    expect(screen.queryByText('これから30日のお知らせ')).toBeNull();
+    expect(screen.queryByText('これからのお知らせ')).toBeNull();
     await act(async () => decide([{ eventId: 'talk', date: '2026-11-20' }], 'alternatives'));
-    expect(await screen.findByText('これから30日のお知らせ')).toBeTruthy();
+    expect(await screen.findByText('これからのお知らせ')).toBeTruthy();
   });
 
   it('schedules again at 9:00 local time after the time zone changes', async () => {

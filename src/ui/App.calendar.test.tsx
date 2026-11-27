@@ -112,7 +112,7 @@ describe('calendar', () => {
     await fireEvent.press(screen.getByLabelText('次の月'));
     expect(await screen.findByText('11月の要注意 1件')).toBeTruthy();
     await fireEvent.press(screen.getByText('お知らせで対処する'));
-    expect(await screen.findByText('これから30日のお知らせ')).toBeTruthy();
+    expect(await screen.findByText('これからのお知らせ')).toBeTruthy();
   });
 
   it('says when this month has no clashes, and offers next month', async () => {
@@ -409,7 +409,7 @@ describe('records that look irregular', () => {
     await fireEvent.press(await screen.findByText('設定'));
     expect(screen.getByText('予測から外した周期')).toBeTruthy();
     expect(screen.getByText(/2件を予測の計算から外しました（間隔が長すぎる／間隔が短すぎる）/)).toBeTruthy();
-    expect(screen.getByText(/。15日より短い・45日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。/)).toBeTruthy();
+    expect(screen.getByText(/^外すのは、15日より短い・45日より長い間隔（記録の抜けや重なりかもしれません）/)).toBeTruthy();
     expect(screen.getByText('2026年5月29日〜2026年7月28日　60日（間隔が長すぎる）')).toBeTruthy();
     expect(screen.getByText('2026年8月25日〜2026年9月4日　10日（間隔が短すぎる）')).toBeTruthy();
     expect(screen.getByText('9月4日（金）〜')).toBeTruthy();
