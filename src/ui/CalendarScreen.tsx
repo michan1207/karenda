@@ -137,7 +137,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           hitSlop={8}
           style={[styles.hideButton, { backgroundColor: colors.surface, borderColor: colors.line }]}
         >
-          <Text style={[styles.hideText, { color: colors.muted }]}>{hidden ? 'みせる' : 'かくす'}</Text>
+          <Text style={[styles.hideText, { color: colors.muted }]}>{hidden ? 'みせる' : '生理をかくす'}</Text>
         </Pressable>
       </View>
 

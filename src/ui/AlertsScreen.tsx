@@ -33,7 +33,7 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Decorations />
       <View style={styles.title}>
-        <Ribbon text={`これから${UPCOMING_DAYS}日のお知らせ`} />
+        <Ribbon text="これからのお知らせ" />
       </View>
       <Text style={[styles.sub, styles.center, { color: colors.muted }]}>
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
@@ -88,7 +88,7 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
 
       {/* 見本はお知らせの一覧のあと。開いてすぐ、重なる予定が目に入るように */}
       <Card>
-        <PillHeading text="パートナーに送る文の見本" />
+        <PillHeading text="パートナーに送る文" />
         <Chips
           options={PARTNER_TEMPLATES}
           value={template}

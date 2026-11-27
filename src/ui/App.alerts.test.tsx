@@ -26,7 +26,7 @@ describe('alerts', () => {
     await fireEvent.press(await screen.findByText('お知らせ（2）'));
     const page = JSON.stringify(screen.toJSON());
     expect(page.indexOf('福岡出張')).toBeGreaterThan(-1);
-    expect(page.indexOf('福岡出張')).toBeLessThan(page.indexOf('パートナーに送る文の見本'));
+    expect(page.indexOf('福岡出張')).toBeLessThan(page.indexOf('パートナーに送る文'));
   });
 
   it('says on each card why, whether it can move, and what to do', async () => {
