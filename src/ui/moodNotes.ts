@@ -5,7 +5,7 @@ type MoodNote = { title: string; summary: string; feelings: string[] };
 /** 時期ごとに起こりやすいと言われる心の変化。断定せず「目安」として出す。病名は診断のように読めるので載せない */
 export const MOOD_NOTES: Record<PeriodPhase, MoodNote> = {
   before: {
-    title: '生理前に起こりやすい心の変化',
+    title: '生理前の心の変化',
     summary:
       '生理が始まる3〜10日前ごろは、女性ホルモン（プロゲステロンとエストロゲン）が大きく変わり、心も体もいちばん不安定になりやすい時期と言われています。',
     feelings: [
@@ -18,7 +18,7 @@ export const MOOD_NOTES: Record<PeriodPhase, MoodNote> = {
     ],
   },
   during: {
-    title: '生理中に起こりやすい心の変化',
+    title: '生理中の心の変化',
     summary:
       '生理が始まって1〜7日目ごろは、プロスタグランジンという物質の影響で痛みが出やすく、体のつらさから気持ちも沈みやすい時期と言われています。',
     feelings: [
@@ -29,7 +29,7 @@ export const MOOD_NOTES: Record<PeriodPhase, MoodNote> = {
     ],
   },
   after: {
-    title: '生理の終わりごろ〜直後に起こりやすい心の変化',
+    title: '生理のあとの心の変化',
     summary:
       'エストロゲンが再び増えて回復に向かう時期ですが、出血のあとで体の鉄分がいちばん減りやすいタイミングと言われています。',
     feelings: [

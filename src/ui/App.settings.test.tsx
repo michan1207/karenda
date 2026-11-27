@@ -51,14 +51,14 @@ describe('settings', () => {
       ),
     ).toBeTruthy();
     expect(screen.getByText(/^予定のあとの「どうだった？」で同じ答えが2回続くと、その予定の重さを覚えて/)).toBeTruthy();
-    expect(screen.getByText('予定の30分前にも知らせる')).toBeTruthy();
-    expect(screen.getByText(/^時刻のある予定が始まる30分前に、もう一度知らせます。/)).toBeTruthy();
+    expect(screen.getByText('30分前にも知らせる')).toBeTruthy();
+    expect(screen.getByText(/^時刻のある予定の30分前に、もう一度知らせます。/)).toBeTruthy();
   });
 
   it('estimates the PMS length by default, and lets the user set it by hand', async () => {
     await openSettings();
     expect(screen.getByText('PMS は生理予定日の7日前から（記録がたまるまでの目安）')).toBeTruthy();
-    expect(screen.getByText(/始まりが読めた周期：0／6/)).toBeTruthy();
+    expect(screen.getByText(/今は0／6周期分/)).toBeTruthy();
     expect(screen.queryByText('7日前')).toBeNull();
     await fireEvent.press(screen.getByText('手動で指定'));
     expect(await screen.findByText('7日前')).toBeTruthy();

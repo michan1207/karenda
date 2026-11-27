@@ -129,7 +129,7 @@ Cocomia は、生理・PMSの周期と予定の重なりを**端末の中だけ�
 | pinkSoft / pinkText | `#ffe0ec` / `#9b2f5f` | `#3a2433` / `#f7a8c8` | カプセル見出し・選択中のタブとチップ・±（5.77 / 7.70） |
 | line | `#f7bfd2` | `#5a3a4e` | カード・吹き出し・お知らせのピンクの枠（2px） |
 | muted | `#6b5563` | `#c4b3c9` | 補足文。グラデーションの上でも 5.55 以上 |
-| heavy / pms | `#ffd6e4` / `#ece2fb` | 変更なし | 生理・PMSの日（text 10.05 / 10.58） |
+| heavy / pms | `#ffc2d6` / `#ddd0f7` | 2026-11-28 濃くした（テスター「見やすい色に分けて」） | 生理・PMSの日。予測のはしは `heavyEdge` ＋点線 `heavyLine` |
 | heart / flower / sparkle | `#f48fb1` / `#ffb3cb` / `#ffcf5c` | `#f48fb1` / `#d97aa0` / `#e8c060` | 飾りだけ（文字には使わない） |
 | shadow | `0px 4px 14px #c93a721f` | `0px 4px 14px #0b081066` | ピンク寄りのやわらかい影 |
 

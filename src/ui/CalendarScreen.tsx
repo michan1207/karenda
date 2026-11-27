@@ -213,7 +213,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                 <Button kind="secondary" label="ずらした印を外す" onPress={() => k.setShifted(selected, false)} />
               </>
             ) : (
-              <Button kind="secondary" label="薬（ピルなど）で時期をずらした生理にする" onPress={() => k.setShifted(selected, true)} />
+              <Button kind="secondary" label="薬でずらした生理にする" onPress={() => k.setShifted(selected, true)} />
             )}
           </>
         ) : selected <= today ? (
@@ -225,9 +225,10 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           <Button kind="secondary" label="生理の終わりとして記録" onPress={() => k.setPeriodEnd(endChoice.start, selected)} />
         )}
         {selectedEvents.length === 0 ? (
-          <Text style={[styles.detailText, { color: colors.muted }]}>
-            {k.access === 'granted' ? 'この日の予定はありません' : 'カレンダーは使っていません。予定はこのアプリの中だけに入れられます。'}
-          </Text>
+          // カレンダーを使っていない時は、下の「この日に予定を入れる」だけで足りる（説明は設定にある）
+          k.access === 'granted' && (
+            <Text style={[styles.detailText, { color: colors.muted }]}>この日の予定はありません</Text>
+          )
         ) : (
           selectedEvents.map((event) => {
             const found = alertFor(event.id);

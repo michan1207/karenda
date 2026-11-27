@@ -33,7 +33,7 @@ describe('notifications', () => {
       ]),
     );
     await fireEvent.press(screen.getByText('設定'));
-    await fireEvent(screen.getByLabelText('予定の30分前にも知らせる'), 'valueChange', false);
+    await fireEvent(screen.getByLabelText('30分前にも知らせる'), 'valueChange', false);
     await waitFor(() => expect(soon()).toEqual([]));
     // 朝の「今日の予定」はそのまま
     expect(last().map((plan) => plan.id)).toContain('day-2026-10-26');
@@ -42,9 +42,9 @@ describe('notifications', () => {
   it('says on Android that the 30-minute notice can be late without exact times, and hides it when notifications are off', async () => {
     await setup({ notifier: fakeNotifier(true, false) });
     await fireEvent.press(await screen.findByText('設定'));
-    expect(screen.getByText(/「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。/)).toBeTruthy();
+    expect(screen.getByText(/「時刻ちょうど」がオフだと、間に合わないことがあります。/)).toBeTruthy();
     await fireEvent(screen.getByLabelText('通知を使う'), 'valueChange', false);
-    await waitFor(() => expect(screen.queryByLabelText('予定の30分前にも知らせる')).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText('30分前にも知らせる')).toBeNull());
   });
 
   it('drops the reminder of a dismissed alert', async () => {
