@@ -21,6 +21,14 @@ describe('alerts', () => {
     await waitFor(() => expect(screen.queryByText('福岡出張')).toBeNull());
   });
 
+  it('puts the alerts above the partner message samples', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByText('お知らせ（2）'));
+    const page = JSON.stringify(screen.toJSON());
+    expect(page.indexOf('福岡出張')).toBeGreaterThan(-1);
+    expect(page.indexOf('福岡出張')).toBeLessThan(page.indexOf('パートナーに送る文の見本'));
+  });
+
   it('says on each card why, whether it can move, and what to do', async () => {
     const meeting = { id: 'meet', title: '定例会議', start: '2026-10-26', end: '2026-10-26', allDay: false };
     await setup({ calendar: fakeCalendar(true, [...EVENTS, meeting]) });

@@ -39,40 +39,6 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
         {dayTitle(today)}〜{dayTitle(addDays(today, UPCOMING_DAYS))}
       </Text>
       <MascotSays text={line} />
-      <Card>
-        <PillHeading text="パートナーに送る文の見本" />
-        <Chips
-          options={PARTNER_TEMPLATES}
-          value={template}
-          onPick={(id) => {
-            setTemplate(id);
-            setEdited(null);
-          }}
-        />
-        <Input
-          accessibilityLabel="送る文"
-          value={text}
-          onChangeText={setEdited}
-          multiline
-          style={styles.draft}
-        />
-        {/* 送る前に開けなかっただけなので、失うものは無い */}
-        <Button
-          label="パートナーに伝える"
-          disabled={!text.trim()}
-          onPress={async () => {
-            const result = await Share.share({ message: text }).catch(() => null);
-            // どの見本を使ったかだけ数える。文そのものは残さない
-            if (result?.action === Share.sharedAction) {
-              k.track('partner_message_sent', { template: edited === null ? (PARTNER_TEMPLATES.find(([body]) => body === template)?.[1] ?? '') : '書き換え' });
-            }
-          }}
-        />
-        <Text style={[styles.sub, { color: colors.muted }]}>
-          文は自由に書き換えられます。見本を押すと元の文に戻ります。LINEなどで送れて、予定の中身は送りません。
-        </Text>
-      </Card>
-
       {k.access === 'denied' &&
         (k.calendarSkipped ? (
           <Notice
@@ -119,6 +85,41 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
           }
         />
       ))}
+
+      {/* 見本はお知らせの一覧のあと。開いてすぐ、重なる予定が目に入るように */}
+      <Card>
+        <PillHeading text="パートナーに送る文の見本" />
+        <Chips
+          options={PARTNER_TEMPLATES}
+          value={template}
+          onPick={(id) => {
+            setTemplate(id);
+            setEdited(null);
+          }}
+        />
+        <Input
+          accessibilityLabel="送る文"
+          value={text}
+          onChangeText={setEdited}
+          multiline
+          style={styles.draft}
+        />
+        {/* 送る前に開けなかっただけなので、失うものは無い */}
+        <Button
+          label="パートナーに伝える"
+          disabled={!text.trim()}
+          onPress={async () => {
+            const result = await Share.share({ message: text }).catch(() => null);
+            // どの見本を使ったかだけ数える。文そのものは残さない
+            if (result?.action === Share.sharedAction) {
+              k.track('partner_message_sent', { template: edited === null ? (PARTNER_TEMPLATES.find(([body]) => body === template)?.[1] ?? '') : '書き換え' });
+            }
+          }}
+        />
+        <Text style={[styles.sub, { color: colors.muted }]}>
+          文は自由に書き換えられます。見本を押すと元の文に戻ります。LINEなどで送れて、予定の中身は送りません。
+        </Text>
+      </Card>
 
       <ReflectionCard k={k} today={today} />
     </ScrollView>
