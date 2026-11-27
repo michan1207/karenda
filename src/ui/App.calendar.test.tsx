@@ -12,6 +12,21 @@ describe('calendar', () => {
     expect(calendar.getEvents).toHaveBeenCalledWith('2026-09-28', '2026-11-01');
   });
 
+  it('puts the calendar and the record button above the cards', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByLabelText('10月24日（土）、PMSの時期（予測）'));
+    const page = JSON.stringify(screen.toJSON());
+    const at = (text: string) => {
+      const i = page.indexOf(text);
+      expect(i).toBeGreaterThan(-1);
+      return i;
+    };
+    // 開いてすぐカレンダー、日を押すとすぐ下に記録のボタン。今月の要注意などはそのあと
+    expect(at('10月24日（土）、PMSの時期（予測）')).toBeLessThan(at('この日を生理開始日として記録'));
+    expect(at('この日を生理開始日として記録')).toBeLessThan(at('この日に予定を入れる'));
+    expect(at('この日に予定を入れる')).toBeLessThan(at('の要注意'));
+  });
+
   it('shows the events and advice for a tapped day', async () => {
     await setup();
     await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています'));

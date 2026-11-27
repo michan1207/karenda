@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Linking, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, View } from 'react-native';
 
 import {
   addDays,
@@ -102,9 +102,10 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
   const askDay = dayToCheck(today, k.checks);
   const phase = periodPhase(selected, guard.zones);
   const selectedZone = guard.zones.get(selected);
+  const scroll = useRef<ScrollViewInstance>(null);
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView ref={scroll} contentContainerStyle={styles.content}>
       <Decorations />
       <View style={styles.header}>
         <Pressable
@@ -140,50 +141,8 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
         </Pressable>
       </View>
 
-      {!hidden && k.starts.length > 0 && k.access === 'granted' && (
-        <DigestCard
-          digest={monthlyDigest(guard.alerts, `${year}-${String(month).padStart(2, '0')}`, k.statuses)}
-          isThisMonth={today.startsWith(`${year}-${String(month).padStart(2, '0')}-`)}
-          month={month}
-          onPick={setSelected}
-          openAlerts={openAlerts}
-          nextMonth={() => goMonth(1)}
-        />
-      )}
-
-      {!hidden && askDay && <DailyCheckCard key={askDay} date={askDay} onSave={k.saveCheck} />}
-
-      {!hidden && reviews.length > 0 && <ReviewCard reviews={reviews} onAnswer={k.answerReview} />}
-
-      {!hidden && consult.length > 0 && k.consultDismissed !== thisMonth && (
-        <Card>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>周期の記録について</Text>
-          <Text style={[styles.detailText, { color: colors.text }]}>{consultText(consult)}</Text>
-          <Button kind="secondary" label="今月はもう出さない" onPress={() => k.dismissConsult(thisMonth)} />
-        </Card>
-      )}
-
-      {!hidden && <MascotSays text={mascotLine(phase, k.starts.length > 0, selected)} />}
-
-      {k.access === 'denied' &&
-        (k.calendarSkipped ? (
-          <Notice
-            text="カレンダーは使っていません。日付を選んで「この日に予定を入れる」から、このアプリの中だけに予定を入れられます。"
-            action={{ label: 'カレンダーを使う', onPress: () => void k.enableCalendar() }}
-          />
-        ) : (
-          <Notice
-            text="カレンダーへのアクセスが許可されていないため、予定との重なりは表示できません。予定はこの端末の中で読むだけで、外には送りません。"
-            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
-          />
-        ))}
       {k.starts.length === 0 && !hidden && (
         <Notice text="生理が始まった日を選んで記録すると、気をつけたい時期がカレンダーに色で表示されます。" />
-      )}
-      {!hidden && takingPill(k.notes) && <Notice text="ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
-      {!hidden && takingShiftMedicine(k.notes) && <Notice text="月経移動の薬を飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
-      {guard.prediction?.provisional && (
-        <Notice text="記録がまだ少ないため、28日周期を仮定した仮の予測です。" />
       )}
 
       <Card style={styles.grid}>
@@ -230,6 +189,38 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
               {line}
             </Text>
           ))}
+        {hidden ? null : isRecorded ? (
+          <>
+            <Confirm
+              key={selected}
+              message={`${dayTitle(selected)}の記録を消します。予測も変わります。`}
+              label="記録を消す"
+              onConfirm={() => k.removeStart(selected)}
+              trigger={(ask) => <Button kind="secondary" label="この日の記録を消す" onPress={ask} />}
+            />
+            {afterShiftMedicine(selected, k.notes) ? (
+              <Text style={[styles.detailText, { color: colors.muted }]}>
+                月経移動の薬のあとの生理です。前の生理からの日数は、予測に使っていません。
+              </Text>
+            ) : k.notes.shifted.has(selected) ? (
+              <>
+                <Text style={[styles.detailText, { color: colors.muted }]}>
+                  薬で時期をずらした生理です。前の生理からの日数は、予測に使っていません。
+                </Text>
+                <Button kind="secondary" label="ずらした印を外す" onPress={() => k.setShifted(selected, false)} />
+              </>
+            ) : (
+              <Button kind="secondary" label="薬（ピルなど）で時期をずらした生理にする" onPress={() => k.setShifted(selected, true)} />
+            )}
+          </>
+        ) : selected <= today ? (
+          <Button label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
+        ) : null}
+        {hidden || !endChoice ? null : endChoice.recorded ? (
+          <Button kind="secondary" label="終わりの日の記録を消す" onPress={() => k.setPeriodEnd(endChoice.start, null)} />
+        ) : (
+          <Button kind="secondary" label="この日を生理の終わりの日として記録" onPress={() => k.setPeriodEnd(endChoice.start, selected)} />
+        )}
         {selectedEvents.length === 0 ? (
           <Text style={[styles.detailText, { color: colors.muted }]}>
             {k.access === 'granted' ? 'この日の予定はありません' : 'カレンダーは使っていません。予定はこのアプリの中だけに入れられます。'}
@@ -286,42 +277,58 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
           keywords={k.keywords}
           onAdd={(event) => k.addManualEvent({ ...event, date: selected })}
         />
-        {hidden ? null : isRecorded ? (
-          <>
-            <Confirm
-              key={selected}
-              message={`${dayTitle(selected)}の記録を消します。予測も変わります。`}
-              label="記録を消す"
-              onConfirm={() => k.removeStart(selected)}
-              trigger={(ask) => <Button kind="secondary" label="この日の記録を消す" onPress={ask} />}
-            />
-            {afterShiftMedicine(selected, k.notes) ? (
-              <Text style={[styles.detailText, { color: colors.muted }]}>
-                月経移動の薬のあとの生理です。前の生理からの日数は、予測に使っていません。
-              </Text>
-            ) : k.notes.shifted.has(selected) ? (
-              <>
-                <Text style={[styles.detailText, { color: colors.muted }]}>
-                  薬で時期をずらした生理です。前の生理からの日数は、予測に使っていません。
-                </Text>
-                <Button kind="secondary" label="ずらした印を外す" onPress={() => k.setShifted(selected, false)} />
-              </>
-            ) : (
-              <Button kind="secondary" label="薬（ピルなど）で時期をずらした生理にする" onPress={() => k.setShifted(selected, true)} />
-            )}
-          </>
-        ) : selected <= today ? (
-          <Button label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
-        ) : null}
-        {hidden || !endChoice ? null : endChoice.recorded ? (
-          <Button kind="secondary" label="終わりの日の記録を消す" onPress={() => k.setPeriodEnd(endChoice.start, null)} />
-        ) : (
-          <Button kind="secondary" label="この日を生理の終わりの日として記録" onPress={() => k.setPeriodEnd(endChoice.start, selected)} />
-        )}
         {!hidden && selected <= today && <DayCheck key={selected} date={selected} check={k.checks.get(selected)} onSave={k.saveCheck} />}
       </Card>
 
       {phase && <MoodNotesCard phase={phase} />}
+
+      {!hidden && k.starts.length > 0 && k.access === 'granted' && (
+        <DigestCard
+          digest={monthlyDigest(guard.alerts, `${year}-${String(month).padStart(2, '0')}`, k.statuses)}
+          isThisMonth={today.startsWith(`${year}-${String(month).padStart(2, '0')}-`)}
+          month={month}
+          onPick={(day) => {
+            setSelected(day);
+            // 日の詳細はカレンダーのすぐ下にあるので、そこまで戻す
+            scroll.current?.scrollTo({ y: 0 });
+          }}
+          openAlerts={openAlerts}
+          nextMonth={() => goMonth(1)}
+        />
+      )}
+
+      {!hidden && askDay && <DailyCheckCard key={askDay} date={askDay} onSave={k.saveCheck} />}
+
+      {!hidden && reviews.length > 0 && <ReviewCard reviews={reviews} onAnswer={k.answerReview} />}
+
+      {!hidden && consult.length > 0 && k.consultDismissed !== thisMonth && (
+        <Card>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>周期の記録について</Text>
+          <Text style={[styles.detailText, { color: colors.text }]}>{consultText(consult)}</Text>
+          <Button kind="secondary" label="今月はもう出さない" onPress={() => k.dismissConsult(thisMonth)} />
+        </Card>
+      )}
+
+      {!hidden && <MascotSays text={mascotLine(phase, k.starts.length > 0, selected)} />}
+
+      {k.access === 'denied' &&
+        (k.calendarSkipped ? (
+          <Notice
+            text="カレンダーは使っていません。日付を選んで「この日に予定を入れる」から、このアプリの中だけに予定を入れられます。"
+            action={{ label: 'カレンダーを使う', onPress: () => void k.enableCalendar() }}
+          />
+        ) : (
+          <Notice
+            text="カレンダーへのアクセスが許可されていないため、予定との重なりは表示できません。予定はこの端末の中で読むだけで、外には送りません。"
+            action={{ label: '設定アプリで許可する', onPress: () => Linking.openSettings() }}
+          />
+        ))}
+      {!hidden && takingPill(k.notes) && <Notice text="ピルを飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
+      {!hidden && takingShiftMedicine(k.notes) && <Notice text="月経移動の薬を飲んでいる間は、生理やPMSの時期の目安が合わないことがあります。" />}
+      {guard.prediction?.provisional && (
+        <Notice text="記録がまだ少ないため、28日周期を仮定した仮の予測です。" />
+      )}
+
 
       {!hidden && (
         <Text style={[styles.footnote, { color: colors.muted }]}>
