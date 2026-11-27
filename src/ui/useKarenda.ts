@@ -26,6 +26,7 @@ import {
   recordPeriodStart,
   removeManualEvent as deleteManualEvent,
   removePeriodStart,
+  saveConflictStatus,
   saveDailyCheck,
   setPeriodEnd as savePeriodEnd,
   setShifted as saveShifted,
@@ -54,6 +55,7 @@ import {
   addDays,
   buildReport,
   Answer,
+  ConflictStatus,
   DailyCheck,
   DateKey,
   DEFAULT_KEYWORDS,
@@ -149,6 +151,8 @@ export type Karenda = StoredState & {
   dismiss(eventId: string, date: DateKey): Promise<void>;
   /** 何をしたかを付けて対応済みにする。未確認なら確認済みを経てから進める */
   resolve(eventId: string, date: DateKey, resolution: Resolution): Promise<void>;
+  /** 「元に戻す」。対応済みにする前の状態に戻す（押し間違いの取り消し。前に進める規則の唯一の例外） */
+  undoResolve(eventId: string, date: DateKey, before: ConflictStatus): Promise<void>;
   /** パスワードで鍵をかけたバックアップを作り、共有メニューで渡す。平文で書き出す道は作らない */
   exportBackup(passphrase: string, today: DateKey): Promise<void>;
   /** バックアップのファイルを選んでもらう。やめた時は null */
@@ -422,6 +426,7 @@ export function useKarenda({ loadDatabase, calendar, notifier, askReview, files,
         await applyDecision(opened, [{ eventId, date }], { kind: 'resolve', resolution });
         track('conflict_resolved', { resolution });
       }),
+    undoResolve: (eventId, date, before) => withDb((opened) => saveConflictStatus(opened, eventId, date, before)),
     exportBackup: async (passphrase, today) => {
       if (!db) return;
       const started = Date.now();

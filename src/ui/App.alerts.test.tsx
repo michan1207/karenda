@@ -109,6 +109,19 @@ describe('alerts', () => {
     expect(await screen.findByText('お知らせ（1）')).toBeTruthy();
   });
 
+  it('brings a resolved alert back as it was when undone', async () => {
+    const { db } = await setup();
+    await fireEvent.press(await screen.findByText('お知らせ（2）'));
+    await fireEvent.press(screen.getByLabelText('「企画プレゼン」はずらした'));
+    expect(await screen.findByText('「企画プレゼン」を「ずらした」にして、一覧から外しました。')).toBeTruthy();
+    await fireEvent.press(screen.getByText('元に戻す'));
+    // 押す前は未確認だったので、未確認に戻り、数も戻る
+    expect(await screen.findByText('お知らせ（2）')).toBeTruthy();
+    expect(screen.getByText('企画プレゼン')).toBeTruthy();
+    expect((await getConflictStatuses(db)).get('talk')).toBeUndefined();
+    expect(screen.queryByText('元に戻す')).toBeNull();
+  });
+
   it('tells a partner in the picked template through the share sheet, without events', async () => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction', activityType: undefined });
     await setup();
