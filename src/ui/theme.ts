@@ -14,6 +14,8 @@ const palette = {
     onAccent: '#ffffff',
     heavy: '#ffd6e4',
     heavyEdge: '#ffecf2',
+    // 「生理かもしれない日」の点線。塗りが薄いので線で見分ける
+    heavyLine: '#e47ea4',
     pms: '#ece2fb',
     // リボン・主なボタン・今日の丸。白い文字を乗せる
     pink: '#c93a72',
@@ -46,6 +48,7 @@ const palette = {
     onAccent: '#17141c',
     heavy: '#4a2833',
     heavyEdge: '#3a2530',
+    heavyLine: '#b4627f',
     pms: '#3a2f4b',
     pink: '#c93a72',
     onPink: '#ffffff',
