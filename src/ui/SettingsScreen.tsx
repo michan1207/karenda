@@ -79,6 +79,154 @@ export function SettingsScreen({ k, today }: Props) {
         <Ribbon text="設定" />
       </View>
 
+      <Text accessibilityRole="header" style={[styles.group, { color: colors.muted }]}>
+        記録
+      </Text>
+
+      <Section title="生理の記録">
+        {k.starts.length === 0 ? (
+          <Text style={[styles.help, { color: colors.muted }]}>まだ記録がありません。カレンダーで日付を選んで記録できます。</Text>
+        ) : (
+          [...k.starts].reverse().map((start) => (
+            <Confirm
+              key={start}
+              message={`${dayTitle(start)}の記録を消します。予測も変わります。`}
+              label="記録を消す"
+              onConfirm={() => k.removeStart(start)}
+              trigger={(ask) => (
+                <View style={styles.row}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>{dayTitle(start)}〜</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`${dayTitle(start)}の記録を消す`} onPress={ask} hitSlop={8}>
+                    <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
+                  </Pressable>
+                </View>
+              )}
+            />
+          ))
+        )}
+      </Section>
+
+      <Section title="ピル">
+        <PillPanel k={k} today={today} />
+      </Section>
+
+      <Section title="月経移動">
+        <PillPanel k={k} today={today} kind="shift" />
+      </Section>
+
+      <Text accessibilityRole="header" style={[styles.group, { color: colors.muted }]}>
+        予測
+      </Text>
+
+      <Section title="周期のまとめ">
+        {summaryRows.every(([, stats]) => !stats) ? (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            まだありません。生理の始まりの日を2回以上記録すると、周期の日数をまとめます。
+          </Text>
+        ) : (
+          summaryRows.map(([label, stats, note]) =>
+            stats ? (
+              <View key={label} style={styles.summaryRow}>
+                <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
+                <Text style={[styles.help, { color: colors.muted }]}>
+                  {`平均${stats.average}日（${stats.shortest}〜${stats.longest}日、${stats.count}回）${note ? `。${note}` : ''}`}
+                </Text>
+              </View>
+            ) : null,
+          )
+        )}
+        <Text style={[styles.help, { color: colors.muted }]}>
+          これまでの記録全部からのまとめです（予測は最近の{RECENT_CYCLES}回から）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}
+          日より長い間隔は、記録の抜けかもしれないので入れていません。薬でずらした生理には、月経移動の薬のあとの生理も入ります。
+        </Text>
+      </Section>
+
+      <Section title="予測の当たり具合">
+        {latest && <Text style={[styles.rowLabel, { color: colors.text }]}>{latestLine(latest)}</Text>}
+        {mean === null || rate === null ? (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            まだ評価できるデータが足りません（n={n}）。生理開始日を記録すると、その前に出していた予測と比べます。
+          </Text>
+        ) : (
+          <>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>平均のズレ</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{mean.toFixed(1)}日</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>±1日以内</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>
+                {n}回中{Math.round(rate * n)}回
+              </Text>
+            </View>
+            <Text style={[styles.help, { color: colors.muted }]}>直近{n}回（n={n}）の予測と、実際の開始日を比べています。</Text>
+          </>
+        )}
+        <Text style={[styles.help, { color: colors.muted }]}>予測は目安です。体調の判断は医師にご相談ください。</Text>
+      </Section>
+
+      <Section title="気をつける時期">
+        <Stepper
+          label="生理ヘビー期"
+          unit="日間"
+          value={k.settings.heavyDays}
+          min={1}
+          max={7}
+          onChange={(heavyDays) => k.setSettings({ heavyDays })}
+        />
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>PMSの時期</Text>
+          <View style={styles.chips}>
+            {([false, true] as const).map((manual) => {
+              const selected = (k.pms.source === 'manual') === manual;
+              return (
+                <Chip
+                  key={String(manual)}
+                  label={manual ? '手動で指定' : '自動（推定）'}
+                  selected={selected}
+                  onPress={() => !selected && k.setPmsManual(manual)}
+                />
+              );
+            })}
+          </View>
+        </View>
+        {k.pms.source === 'manual' ? (
+          <Stepper
+            label="PMSの時期（予定日の何日前から）"
+            unit="日前"
+            value={k.pms.daysBefore}
+            min={0}
+            max={14}
+            onChange={(pmsDays) => k.setSettings({ pmsDays })}
+          />
+        ) : (
+          <View>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>
+              PMS は生理予定日の{k.pms.daysBefore}日前から（{k.pms.source === 'auto' ? 'あなたの記録から推定' : '記録がたまるまでの目安'}）
+            </Text>
+            <Text style={[styles.help, { color: colors.muted }]}>{pmsBasis(k.pms)}</Text>
+          </View>
+        )}
+      </Section>
+
+      {excluded.length > 0 && (
+        <Section title="予測に使っていない間隔">
+          <Text style={[styles.help, { color: colors.muted }]}>
+            {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
+            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理（月経移動の薬のあとの生理も）までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
+          </Text>
+          {excluded.map((gap) => (
+            <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>
+              {fullDate(gap.from)}〜{fullDate(gap.to)}　{gap.days}日（{reasonName(gap.reason)}）
+            </Text>
+          ))}
+        </Section>
+      )}
+
+      <Text accessibilityRole="header" style={[styles.group, { color: colors.muted }]}>
+        予定とお知らせ
+      </Text>
+
       <Section title="カレンダー">
         {k.access === 'granted' ? (
           <Text style={[styles.help, { color: colors.muted }]}>
@@ -153,50 +301,6 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section title="気をつける時期">
-        <Stepper
-          label="生理ヘビー期"
-          unit="日間"
-          value={k.settings.heavyDays}
-          min={1}
-          max={7}
-          onChange={(heavyDays) => k.setSettings({ heavyDays })}
-        />
-        <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>PMSの時期</Text>
-          <View style={styles.chips}>
-            {([false, true] as const).map((manual) => {
-              const selected = (k.pms.source === 'manual') === manual;
-              return (
-                <Chip
-                  key={String(manual)}
-                  label={manual ? '手動で指定' : '自動（推定）'}
-                  selected={selected}
-                  onPress={() => !selected && k.setPmsManual(manual)}
-                />
-              );
-            })}
-          </View>
-        </View>
-        {k.pms.source === 'manual' ? (
-          <Stepper
-            label="PMSの時期（予定日の何日前から）"
-            unit="日前"
-            value={k.pms.daysBefore}
-            min={0}
-            max={14}
-            onChange={(pmsDays) => k.setSettings({ pmsDays })}
-          />
-        ) : (
-          <View>
-            <Text style={[styles.rowLabel, { color: colors.text }]}>
-              PMS は生理予定日の{k.pms.daysBefore}日前から（{k.pms.source === 'auto' ? 'あなたの記録から推定' : '記録がたまるまでの目安'}）
-            </Text>
-            <Text style={[styles.help, { color: colors.muted }]}>{pmsBasis(k.pms)}</Text>
-          </View>
-        )}
-      </Section>
-
       <Section title="予定の重さを決める言葉">
         <Text style={[styles.help, { color: colors.muted }]}>
           予定のタイトルにこの言葉が入っていると、重い予定として扱います。終日の予定は「重い」になります（有給・休暇・代休・OFF の予定と祝日は除きます）。
@@ -243,97 +347,9 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section title="生理の記録">
-        {k.starts.length === 0 ? (
-          <Text style={[styles.help, { color: colors.muted }]}>まだ記録がありません。カレンダーで日付を選んで記録できます。</Text>
-        ) : (
-          [...k.starts].reverse().map((start) => (
-            <Confirm
-              key={start}
-              message={`${dayTitle(start)}の記録を消します。予測も変わります。`}
-              label="記録を消す"
-              onConfirm={() => k.removeStart(start)}
-              trigger={(ask) => (
-                <View style={styles.row}>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>{dayTitle(start)}〜</Text>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`${dayTitle(start)}の記録を消す`} onPress={ask} hitSlop={8}>
-                    <Text style={[styles.remove, { color: colors.danger }]}>消す</Text>
-                  </Pressable>
-                </View>
-              )}
-            />
-          ))
-        )}
-      </Section>
-
-      <Section title="周期のまとめ">
-        {summaryRows.every(([, stats]) => !stats) ? (
-          <Text style={[styles.help, { color: colors.muted }]}>
-            まだありません。生理の始まりの日を2回以上記録すると、周期の日数をまとめます。
-          </Text>
-        ) : (
-          summaryRows.map(([label, stats, note]) =>
-            stats ? (
-              <View key={label} style={styles.summaryRow}>
-                <Text style={[styles.rowLabel, { color: colors.text }]}>{label}</Text>
-                <Text style={[styles.help, { color: colors.muted }]}>
-                  {`平均${stats.average}日（${stats.shortest}〜${stats.longest}日、${stats.count}回）${note ? `。${note}` : ''}`}
-                </Text>
-              </View>
-            ) : null,
-          )
-        )}
-        <Text style={[styles.help, { color: colors.muted }]}>
-          これまでの記録全部からのまとめです（予測は最近の{RECENT_CYCLES}回から）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}
-          日より長い間隔は、記録の抜けかもしれないので入れていません。薬でずらした生理には、月経移動の薬のあとの生理も入ります。
-        </Text>
-      </Section>
-
-      <Section title="ピル">
-        <PillPanel k={k} today={today} />
-      </Section>
-
-      <Section title="月経移動">
-        <PillPanel k={k} today={today} kind="shift" />
-      </Section>
-
-      {excluded.length > 0 && (
-        <Section title="予測に使っていない間隔">
-          <Text style={[styles.help, { color: colors.muted }]}>
-            {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
-            ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理（月経移動の薬のあとの生理も）までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
-          </Text>
-          {excluded.map((gap) => (
-            <Text key={gap.from} style={[styles.rowLabel, { color: colors.text }]}>
-              {fullDate(gap.from)}〜{fullDate(gap.to)}　{gap.days}日（{reasonName(gap.reason)}）
-            </Text>
-          ))}
-        </Section>
-      )}
-
-      <Section title="予測の当たり具合">
-        {latest && <Text style={[styles.rowLabel, { color: colors.text }]}>{latestLine(latest)}</Text>}
-        {mean === null || rate === null ? (
-          <Text style={[styles.help, { color: colors.muted }]}>
-            まだ評価できるデータが足りません（n={n}）。生理開始日を記録すると、その前に出していた予測と比べます。
-          </Text>
-        ) : (
-          <>
-            <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>平均のズレ</Text>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>{mean.toFixed(1)}日</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>±1日以内</Text>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>
-                {n}回中{Math.round(rate * n)}回
-              </Text>
-            </View>
-            <Text style={[styles.help, { color: colors.muted }]}>直近{n}回（n={n}）の予測と、実際の開始日を比べています。</Text>
-          </>
-        )}
-        <Text style={[styles.help, { color: colors.muted }]}>予測は目安です。体調の判断は医師にご相談ください。</Text>
-      </Section>
+      <Text accessibilityRole="header" style={[styles.group, { color: colors.muted }]}>
+        安心とデータ
+      </Text>
 
       <Section title="アプリのロック">
         <View style={styles.row}>
@@ -361,21 +377,6 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section title="利用状況の記録">
-        <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>利用状況をこの端末に記録する</Text>
-          <Switch
-            accessibilityLabel="利用状況をこの端末に記録する"
-            value={k.metricsEnabled}
-            onValueChange={k.setMetrics}
-            trackColor={{ true: colors.pink, false: colors.line }}
-          />
-        </View>
-        <Text style={[styles.help, { color: colors.muted }]}>
-          記録した回数などを、この端末の中だけで数えます。外には送りません。オフにしても、アプリの使い方は変わりません。
-        </Text>
-      </Section>
-
       <Section title="プライバシー">
         <Text style={[styles.help, { color: colors.muted }]}>
           生理や体調の記録は大事な情報なので、どこにも送っていないことを、ここで確かめられます。
@@ -401,6 +402,21 @@ export function SettingsScreen({ k, today }: Props) {
           </Text>
         ))}
         <Text style={[styles.help, { color: colors.muted }]}>{CALENDAR_NOTE}</Text>
+      </Section>
+
+      <Section title="利用状況の記録">
+        <View style={styles.row}>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>利用状況をこの端末に記録する</Text>
+          <Switch
+            accessibilityLabel="利用状況をこの端末に記録する"
+            value={k.metricsEnabled}
+            onValueChange={k.setMetrics}
+            trackColor={{ true: colors.pink, false: colors.line }}
+          />
+        </View>
+        <Text style={[styles.help, { color: colors.muted }]}>
+          記録した回数などを、この端末の中だけで数えます。外には送りません。オフにしても、アプリの使い方は変わりません。
+        </Text>
       </Section>
 
       <Section title="データ">
@@ -552,6 +568,7 @@ function KeywordList({
 }
 
 const styles = StyleSheet.create({
+  group: { fontSize: 15, fontWeight: '700', marginTop: 12, marginLeft: 4 },
   content: { padding: 16, gap: 12 },
   title: { marginTop: 8, marginBottom: 4 },
   help: { fontSize: 13, lineHeight: 19 },
