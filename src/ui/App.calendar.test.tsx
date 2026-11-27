@@ -170,11 +170,11 @@ describe('calendar', () => {
   it('marks a recorded start as shifted with medicine, and takes the mark off', async () => {
     const { db } = await setup({ starts: [...REGULAR, '2026-10-19'] });
     await fireEvent.press(await screen.findByLabelText(/^10月19日（月）/));
-    await fireEvent.press(screen.getByText('薬（ピルなど）で時期をずらした生理にする'));
+    await fireEvent.press(screen.getByText('薬でずらした生理にする'));
     expect(await screen.findByText(/薬で時期をずらした生理です/)).toBeTruthy();
     expect((await loadState(db)).notes.shifted).toEqual(new Set(['2026-10-19']));
     await fireEvent.press(screen.getByText('ずらした印を外す'));
-    expect(await screen.findByText('薬（ピルなど）で時期をずらした生理にする')).toBeTruthy();
+    expect(await screen.findByText('薬でずらした生理にする')).toBeTruthy();
     expect((await loadState(db)).notes.shifted).toEqual(new Set());
   });
 
@@ -188,7 +188,7 @@ describe('calendar', () => {
     });
     await fireEvent.press(await screen.findByLabelText(/^10月19日（月）/));
     expect(await screen.findByText(/月経移動の薬のあとの生理です/)).toBeTruthy();
-    expect(screen.queryByText('薬（ピルなど）で時期をずらした生理にする')).toBeNull();
+    expect(screen.queryByText('薬でずらした生理にする')).toBeNull();
   });
 
   it('draws a line on the days the pill or the shift medicine was taken, up to today, and explains it', async () => {
