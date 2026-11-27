@@ -217,12 +217,12 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
             )}
           </>
         ) : selected <= today ? (
-          <Button label="この日を生理開始日として記録" onPress={() => k.addStart(selected)} />
+          <Button label="生理開始日として記録" onPress={() => k.addStart(selected)} />
         ) : null}
         {hidden || !endChoice ? null : endChoice.recorded ? (
           <Button kind="secondary" label="終わりの日の記録を消す" onPress={() => k.setPeriodEnd(endChoice.start, null)} />
         ) : (
-          <Button kind="secondary" label="この日を生理の終わりの日として記録" onPress={() => k.setPeriodEnd(endChoice.start, selected)} />
+          <Button kind="secondary" label="生理の終わりとして記録" onPress={() => k.setPeriodEnd(endChoice.start, selected)} />
         )}
         {selectedEvents.length === 0 ? (
           <Text style={[styles.detailText, { color: colors.muted }]}>

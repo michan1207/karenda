@@ -98,7 +98,7 @@ Cocomia is a calendar that warns users when important events overlap with their 
 
 How to try it:
 1. Tap "はじめる" (Start) and allow calendar and notification access.
-2. On the calendar tab, select a date in the past and tap "この日を生理開始日として記録" (Record this day as a period start date).
+2. On the calendar tab, select a date in the past and tap "生理開始日として記録" (Record as a period start date).
 3. Predicted heavy days and PMS days are tinted on the calendar. Events whose titles contain words such as "出張" (business trip) or "プレゼン" (presentation), or all-day events, are marked with ⚠ when they overlap.
 4. The Alerts tab lists overlaps in the next 30 days.
 
