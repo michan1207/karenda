@@ -58,7 +58,7 @@ describe('settings', () => {
   it('estimates the PMS length by default, and lets the user set it by hand', async () => {
     await openSettings();
     expect(screen.getByText('PMS は生理予定日の7日前から（記録がたまるまでの目安）')).toBeTruthy();
-    expect(screen.getByText(/始まりが読めた周期：0／6/)).toBeTruthy();
+    expect(screen.getByText(/今は0／6周期分/)).toBeTruthy();
     expect(screen.queryByText('7日前')).toBeNull();
     await fireEvent.press(screen.getByText('手動で指定'));
     expect(await screen.findByText('7日前')).toBeTruthy();

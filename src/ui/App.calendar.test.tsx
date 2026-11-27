@@ -40,19 +40,19 @@ describe('calendar', () => {
   it('shows the feelings that the phase of the tapped day tends to bring, without naming illnesses', async () => {
     await setup();
     // 今日 10-24 は PMSの時期
-    expect(await screen.findByText('生理前に起こりやすい心の変化')).toBeTruthy();
+    expect(await screen.findByText('生理前の心の変化')).toBeTruthy();
     expect(screen.getByText(/集中力や判断力が落ちる/)).toBeTruthy();
     // 病名は診断のように読めるので出さない。相談先だけ案内する
     expect(screen.queryByText(/PMDD|双極性障害|病名/)).toBeNull();
     expect(screen.getByText(/婦人科/)).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('10月27日（火）、生理2日目（予測）、予定と重なっています'));
-    expect(screen.getByText('生理中に起こりやすい心の変化')).toBeTruthy();
+    expect(screen.getByText('生理中の心の変化')).toBeTruthy();
     expect(screen.queryByText(/月経困難症|うつ状態/)).toBeNull();
     await fireEvent.press(screen.getByLabelText('10月1日（木）'));
-    expect(screen.getByText('生理の終わりごろ〜直後に起こりやすい心の変化')).toBeTruthy();
+    expect(screen.getByText('生理のあとの心の変化')).toBeTruthy();
     expect(screen.queryByText(/貧血|自律神経失調/)).toBeNull();
     await fireEvent.press(screen.getByLabelText('10月5日（月）'));
-    expect(screen.queryByText(/起こりやすい心の変化/)).toBeNull();
+    expect(screen.queryByText(/の心の変化$/)).toBeNull();
   });
 
   it('lets Mia say something different each day in every phase, with a next step', async () => {
@@ -299,7 +299,7 @@ describe('calendar', () => {
     const calendar = fakeCalendar(false);
     const { db } = await setup({ calendar });
     await fireEvent.press(await screen.findByLabelText('10月27日（火）、生理2日目（予測）'));
-    expect(screen.getByText('カレンダーは使っていません。予定はこのアプリの中だけに入れられます。')).toBeTruthy();
+    expect(screen.queryByText(/カレンダーは使っていません/)).toBeNull();
     await fireEvent.press(screen.getByText('この日に予定を入れる'));
     await fireEvent.changeText(screen.getByLabelText('10月27日（火）に入れる予定の名前'), '発表');
     await fireEvent(screen.getByLabelText('時間を入れる'), 'valueChange', true);
