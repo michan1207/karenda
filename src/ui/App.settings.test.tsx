@@ -28,6 +28,16 @@ describe('settings', () => {
     return result;
   }
 
+  it('groups the settings: records first, then prediction, events and notices, and data last', async () => {
+    await openSettings();
+    const page = JSON.stringify(screen.toJSON());
+    const order = ['記録', '生理の記録', '予測', '周期のまとめ', '予定とお知らせ', 'お知らせ通知', '安心とデータ', 'すべてのデータを削除'].map(
+      (text) => page.indexOf(`"${text}"`),
+    );
+    expect(order.every((at) => at > -1)).toBe(true);
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+  });
+
   // 数字は判定のしくみの値から作る。値を変えたら、この文も合わせて書き換える
   it('explains when notices come and how titles are learned, with the numbers the app uses', async () => {
     await openSettings();
