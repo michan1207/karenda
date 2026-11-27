@@ -145,21 +145,21 @@ export function SettingsScreen({ k, today }: Props) {
         {latest && <Text style={[styles.rowLabel, { color: colors.text }]}>{latestLine(latest)}</Text>}
         {mean === null || rate === null ? (
           <Text style={[styles.help, { color: colors.muted }]}>
-            まだ評価できるデータが足りません（n={n}）。生理開始日を記録すると、その前に出していた予測と比べます。
+            まだ比べられる回数が足りません（今は{n}回）。生理開始日を記録すると、その前に出していた予測と比べます。
           </Text>
         ) : (
           <>
             <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>平均のズレ</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>平均のずれ</Text>
               <Text style={[styles.rowLabel, { color: colors.text }]}>{mean.toFixed(1)}日</Text>
             </View>
             <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>±1日以内</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>1日以内で当たった回数</Text>
               <Text style={[styles.rowLabel, { color: colors.text }]}>
                 {n}回中{Math.round(rate * n)}回
               </Text>
             </View>
-            <Text style={[styles.help, { color: colors.muted }]}>直近{n}回（n={n}）の予測と、実際の開始日を比べています。</Text>
+            <Text style={[styles.help, { color: colors.muted }]}>直近{n}回の予測と、実際の開始日を比べています。</Text>
           </>
         )}
         <Text style={[styles.help, { color: colors.muted }]}>予測は目安です。体調の判断は医師にご相談ください。</Text>
@@ -167,7 +167,7 @@ export function SettingsScreen({ k, today }: Props) {
 
       <Section title="気をつける時期">
         <Stepper
-          label="生理ヘビー期"
+          label="生理の重い日"
           unit="日間"
           value={k.settings.heavyDays}
           min={1}
@@ -210,7 +210,7 @@ export function SettingsScreen({ k, today }: Props) {
       </Section>
 
       {excluded.length > 0 && (
-        <Section title="予測に使っていない間隔">
+        <Section title="予測から外した周期">
           <Text style={[styles.help, { color: colors.muted }]}>
             {excluded.length}件を予測の計算から外しました（{[...new Set(excluded.map((gap) => reasonName(gap.reason)))].join('／')}
             ）。{MIN_PLAUSIBLE}日より短い・{MAX_PLAUSIBLE}日より長い間隔は、記録の抜けや重なりかもしれないので使っていません。薬で時期をずらした生理（月経移動の薬のあとの生理も）までの間隔も使っていません。ピルを飲んでいる間と飲んでいない間は、分けて予測しています。記録は消えていません。
@@ -301,7 +301,7 @@ export function SettingsScreen({ k, today }: Props) {
         )}
       </Section>
 
-      <Section title="予定の重さを決める言葉">
+      <Section title="重い予定を見分ける言葉">
         <Text style={[styles.help, { color: colors.muted }]}>
           予定のタイトルにこの言葉が入っていると、重い予定として扱います。終日の予定は「重い」になります（有給・休暇・代休・OFF の予定と祝日は除きます）。
         </Text>
@@ -309,7 +309,7 @@ export function SettingsScreen({ k, today }: Props) {
         <KeywordList level="medium" label="ふつうの予定" keywords={k.keywords} onChange={k.setKeywords} />
       </Section>
 
-      <Section title="覚えた予定">
+      <Section title="答えから覚えた予定">
         <Text style={[styles.help, { color: colors.muted }]}>
           {`予定のあとの「どうだった？」で同じ答えが${LEARN_AFTER}回続くと、その予定の重さを覚えて、上の言葉より優先します。重さを押すと直せます。`}
         </Text>
@@ -404,11 +404,11 @@ export function SettingsScreen({ k, today }: Props) {
         <Text style={[styles.help, { color: colors.muted }]}>{CALENDAR_NOTE}</Text>
       </Section>
 
-      <Section title="利用状況の記録">
+      <Section title="使い方の記録（この端末の中だけ）">
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>利用状況をこの端末に記録する</Text>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>使い方をこの端末に記録する</Text>
           <Switch
-            accessibilityLabel="利用状況をこの端末に記録する"
+            accessibilityLabel="使い方をこの端末に記録する"
             value={k.metricsEnabled}
             onValueChange={k.setMetrics}
             trackColor={{ true: colors.pink, false: colors.line }}

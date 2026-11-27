@@ -89,7 +89,7 @@ describe('usage records', () => {
   it('can be turned off in settings', async () => {
     const { db } = await setup();
     await fireEvent.press(await screen.findByText('設定'));
-    await fireEvent(screen.getByLabelText('利用状況をこの端末に記録する'), 'valueChange', false);
+    await fireEvent(screen.getByLabelText('使い方をこの端末に記録する'), 'valueChange', false);
     await waitFor(async () => expect(await isMetricsEnabled(db)).toBe(false));
   });
 });
