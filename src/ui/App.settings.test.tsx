@@ -41,6 +41,10 @@ describe('settings', () => {
   // 数字は判定のしくみの値から作る。値を変えたら、この文も合わせて書き換える
   it('explains when notices come and how titles are learned, with the numbers the app uses', async () => {
     await openSettings();
+    // はじめは要点だけ。細かい決まりは「くわしく」を押すと出る
+    expect(screen.getByText('重なる予定がある時は、前もって朝9時にこの端末から知らせます。予定のあとに「どうだった？」と聞くこともあります。')).toBeTruthy();
+    expect(screen.queryByText(/^重なる予定は、要注意（A）なら/)).toBeNull();
+    await fireEvent.press(screen.getByText('くわしく'));
     expect(
       screen.getByText(
         '重なる予定は、要注意（A）なら7日前と3日前、注意（B）なら3日前、どちらも決める目安の日にも、朝9時にこの端末から通知します。1つの予定の通知は3回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝9時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝7時（8時より前に始まる日はその1時間前）に「今日の予定」を知らせます。',

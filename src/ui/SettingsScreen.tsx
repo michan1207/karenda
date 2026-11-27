@@ -59,6 +59,7 @@ export function SettingsScreen({ k, today }: Props) {
     })[reason];
   const [lockAvailable, setLockAvailable] = useState<boolean | null>(null);
   const [lockFailed, setLockFailed] = useState(false);
+  const [notifyMore, setNotifyMore] = useState(false);
 
   useEffect(() => {
     k.authenticator
@@ -258,8 +259,17 @@ export function SettingsScreen({ k, today }: Props) {
           />
         </View>
         <Text style={[styles.help, { color: colors.muted }]}>
-          {`重なる予定は、要注意（A）なら${leadDays('A')}、注意（B）なら${leadDays('B')}、どちらも決める目安の日にも、朝${NOTIFY_HOUR}時にこの端末から通知します。1つの予定の通知は${MAX_PER_ALERT}回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝${NOTIFY_HOUR}時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝${DAY_REMINDER_AT / 60}時（${DAY_REMINDER_AT / 60 + 1}時より前に始まる日はその1時間前）に「今日の予定」を知らせます。`}
+          {`重なる予定がある時は、前もって朝${NOTIFY_HOUR}時にこの端末から知らせます。予定のあとに「どうだった？」と聞くこともあります。`}
         </Text>
+        {/* 細かい決まりは長いので、知りたい人だけ開く */}
+        <Pressable accessibilityRole="button" onPress={() => setNotifyMore(!notifyMore)} hitSlop={8}>
+          <Text style={[styles.help, styles.more, { color: colors.accent }]}>{notifyMore ? 'くわしい説明を閉じる' : 'くわしく'}</Text>
+        </Pressable>
+        {notifyMore && (
+          <Text style={[styles.help, { color: colors.muted }]}>
+            {`重なる予定は、要注意（A）なら${leadDays('A')}、注意（B）なら${leadDays('B')}、どちらも決める目安の日にも、朝${NOTIFY_HOUR}時にこの端末から通知します。1つの予定の通知は${MAX_PER_ALERT}回まで、同じ日の通知は1件にまとめます。「今日は決めない」を押すと、次の日にもう一度だけ知らせます。重い予定・ふつうの予定のあとは、次の朝${NOTIFY_HOUR}時に「どうだった？」と1件だけ聞きます。時刻のある予定がある日は、朝${DAY_REMINDER_AT / 60}時（${DAY_REMINDER_AT / 60 + 1}時より前に始まる日はその1時間前）に「今日の予定」を知らせます。`}
+          </Text>
+        )}
         {k.notifyEnabled && k.notifyAccess === 'denied' && (
           <Notice
             text="端末の設定で通知がオフになっています。"
@@ -569,6 +579,7 @@ function KeywordList({
 
 const styles = StyleSheet.create({
   group: { fontSize: 15, fontWeight: '700', marginTop: 12, marginLeft: 4 },
+  more: { fontWeight: '700' },
   content: { padding: 16, gap: 12 },
   title: { marginTop: 8, marginBottom: 4 },
   help: { fontSize: 13, lineHeight: 19 },
