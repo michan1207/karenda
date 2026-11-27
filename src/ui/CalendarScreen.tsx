@@ -213,7 +213,7 @@ export function CalendarScreen({ k, today, reviews, openAlerts }: Props) {
                 <Button kind="secondary" label="ずらした印を外す" onPress={() => k.setShifted(selected, false)} />
               </>
             ) : (
-              <Button kind="secondary" label="薬（ピルなど）で時期をずらした生理にする" onPress={() => k.setShifted(selected, true)} />
+              <Button kind="secondary" label="薬でずらした生理にする" onPress={() => k.setShifted(selected, true)} />
             )}
           </>
         ) : selected <= today ? (

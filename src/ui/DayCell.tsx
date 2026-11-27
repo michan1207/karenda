@@ -43,7 +43,8 @@ export function DayCell({
   const medicineColor = useMedicineColor();
   const red = alerts.some((alert) => alert.grade === 'A');
   // 予測の幅のはし（中心の日からずれた日）は薄くする
-  const heavyColor = zone?.zone === 'heavy' && zone.predicted && !zone.periodDay ? colors.heavyEdge : colors.heavy;
+  const edge = zone?.zone === 'heavy' && zone.predicted && !zone.periodDay;
+  const heavyColor = edge ? colors.heavyEdge : colors.heavy;
   const zoneColor = zone?.zone === 'heavy' ? heavyColor : zone?.zone === 'pms' ? colors.pms : 'transparent';
   const background = isToday ? colors.pink : zoneColor;
   const label = [
@@ -64,7 +65,9 @@ export function DayCell({
       style={[
         styles.cell,
         { backgroundColor: background, opacity: inMonth ? 1 : 0.4 },
-        isSelected && { borderColor: colors.accent },
+        edge && !isToday && styles.edge,
+        edge && !isToday && { borderColor: colors.heavyLine },
+        isSelected && { borderColor: colors.accent, borderStyle: 'solid' },
       ]}
     >
       <Text
@@ -89,10 +92,10 @@ export function DayCell({
   );
 }
 
-function LegendItem({ color, label, textColor }: { color: string; label: string; textColor: string }) {
+function LegendItem({ color, label, textColor, line }: { color: string; label: string; textColor: string; line?: string }) {
   return (
     <View style={styles.legendItem}>
-      <View style={[styles.swatch, { backgroundColor: color }]} />
+      <View style={[styles.swatch, { backgroundColor: color }, line !== undefined && [styles.edge, { borderColor: line }]]} />
       <Text style={[styles.legendText, { color: textColor }]}>{label}</Text>
     </View>
   );
@@ -105,7 +108,7 @@ export function Legend({ medicine = [] }: { medicine?: MedicineMark[] }) {
   return (
     <View style={styles.legend}>
       <LegendItem color={colors.heavy} label="生理の重い日" textColor={colors.muted} />
-      <LegendItem color={colors.heavyEdge} label="生理かもしれない日" textColor={colors.muted} />
+      <LegendItem color={colors.heavyEdge} line={colors.heavyLine} label="生理かもしれない日" textColor={colors.muted} />
       <LegendItem color={colors.pms} label="PMSの時期" textColor={colors.muted} />
       <View style={styles.legendItem}>
         <AlertMark strong size={12} />
@@ -140,6 +143,7 @@ const styles = StyleSheet.create({
   legendLine: { width: 14, height: 3, borderRadius: 1.5 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  swatch: { width: 12, height: 12, borderRadius: radius.pill },
-  legendText: { fontSize: 12 },
+  swatch: { width: 14, height: 14, borderRadius: radius.pill },
+  edge: { borderStyle: 'dashed', borderWidth: 2 },
+  legendText: { fontSize: 13 },
 });

@@ -176,7 +176,7 @@ export function SettingsScreen({ k, today }: Props) {
           onChange={(heavyDays) => k.setSettings({ heavyDays })}
         />
         <View style={styles.row}>
-          <Text style={[styles.rowLabel, { color: colors.text }]}>PMSの時期</Text>
+          <Text style={[styles.rowLabel, styles.noShrink, { color: colors.text }]}>PMSの時期</Text>
           <View style={styles.chips}>
             {([false, true] as const).map((manual) => {
               const selected = (k.pms.source === 'manual') === manual;
@@ -279,17 +279,17 @@ export function SettingsScreen({ k, today }: Props) {
         {k.notifyEnabled && (
           <>
             <View style={styles.row}>
-              <Text style={[styles.rowLabel, { color: colors.text }]}>{`予定の${SOON_MINUTES}分前にも知らせる`}</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>{`${SOON_MINUTES}分前にも知らせる`}</Text>
               <Switch
-                accessibilityLabel={`予定の${SOON_MINUTES}分前にも知らせる`}
+                accessibilityLabel={`${SOON_MINUTES}分前にも知らせる`}
                 value={k.soonEnabled}
                 onValueChange={k.setSoon}
                 trackColor={{ true: colors.pink, false: colors.line }}
               />
             </View>
             <Text style={[styles.help, { color: colors.muted }]}>
-              時刻のある予定が始まる{SOON_MINUTES}分前に、もう一度知らせます。カレンダーで予定を変えた時は、Cocomia を開くと通知も変わります。
-              {k.soonEnabled && k.exactAlarm === false && '下の「時刻ちょうどに知らせる」がオフだと、予定に間に合わないことがあります。'}
+              時刻のある予定の{SOON_MINUTES}分前に、もう一度知らせます。予定を変えたら、Cocomia を開くと通知も変わります。
+              {k.soonEnabled && k.exactAlarm === false && '下の「時刻ちょうど」がオフだと、間に合わないことがあります。'}
             </Text>
           </>
         )}
@@ -305,7 +305,7 @@ export function SettingsScreen({ k, today }: Props) {
               />
             </View>
             <Text style={[styles.help, { color: colors.muted }]}>
-              オフの時は、通知が決まった時刻より最大1時間ほど遅れて届くことがあります。切り替えると設定アプリが開くので、「アラームとリマインダー」でオンかオフを選んでください。
+              オフだと、通知が1時間ほど遅れることがあります。押すと設定アプリの「アラームとリマインダー」が開きます。
             </Text>
           </>
         )}
@@ -586,6 +586,7 @@ const styles = StyleSheet.create({
   summaryRow: { gap: 2 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   rowLabel: { fontSize: 15, flexShrink: 1 },
+  noShrink: { flexShrink: 0 },
   learnedLabel: { flex: 1 },
   remove: { fontSize: 14, fontWeight: '600' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
