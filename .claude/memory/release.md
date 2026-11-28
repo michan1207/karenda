@@ -11,3 +11,4 @@
 - ストア文言の下書き `store/app-store.md`, `store/google-play.md`、スクショ `store/images/`
 - サポート/プライバシーポリシーは `docs/`（GitHub Pages: https://michan1207.github.io/karenda/）
 - 画面は縦横どちらでも使える（`app.json` の `orientation: "default"`、2026-11-20 オーナー「縦でも横でも」）。縦に固定すると Play が「縦向きの画面が必須」と注意を出す
+- Play の本番アクセス申請・ストア審査の文（更新内容・whatsNew）には、テスター（オープンチャット）の声と、それに合わせて直したことを入れる。記録はClaudeのメモリー tester-feedback.md（2026-11-28 オーナー指示）
