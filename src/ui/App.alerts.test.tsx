@@ -152,11 +152,25 @@ describe('alerts', () => {
     await fireEvent.changeText(screen.getByLabelText('送る文'), '来週ちょっとしんどいかも🍵');
     await fireEvent.press(screen.getByText('パートナーに伝える'));
     expect(share).toHaveBeenCalledWith({ message: '来週ちょっとしんどいかも🍵' });
+    await fireEvent.press(screen.getByText('まじめモード'));
     await fireEvent.press(screen.getByText('マイペース'));
     expect(screen.getByLabelText('送る文').props.value).toBe(
       '今日から生理期間に入りました！\n今月も体調見ながらマイペースに過ごします〜！',
     );
     share.mockRestore();
+  });
+
+  it('switches between the funny and the serious templates', async () => {
+    await setup();
+    await fireEvent.press(await screen.findByText('お知らせ（2）'));
+    const draft = () => screen.getByLabelText('送る文').props.value as string;
+    expect(screen.getByText('省エネモード')).toBeTruthy();
+    expect(screen.queryByText('始まりました')).toBeNull();
+    await fireEvent.press(screen.getByText('まじめモード'));
+    expect(draft()).toBe('今日から生理が始まりました。\n体調を見ながら過ごすので、よろしくお願いします。');
+    expect(screen.queryByText('省エネモード')).toBeNull();
+    await fireEvent.press(screen.getByText('笑えるモード'));
+    expect(draft()).toMatch(/^本日より省エネモード/);
   });
 
   it('says when nothing clashes', async () => {
