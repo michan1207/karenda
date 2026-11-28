@@ -4,7 +4,7 @@ import { Linking, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { Action, addDays, ConflictAlert, ConflictStatus, DateKey, Guard, Impact, monthlyReflection, Resolution, statusOf } from '../engine';
 import { AlertMark, Button, Card, Chip, Decorations, Input, MascotSays, Notice, PillHeading, Ribbon, Text } from './components';
 import { dayTitle, gradeLabel, shortDate, titleOf } from './format';
-import { PARTNER_TEMPLATES } from './partnerTemplates';
+import { FUNNY_TEMPLATES, PARTNER_TEMPLATES, SERIOUS_TEMPLATES } from './partnerTemplates';
 import { radius, useColors } from './theme';
 import type { Karenda } from './useKarenda';
 import { UPCOMING_DAYS } from './useUpcomingAlerts';
@@ -14,7 +14,9 @@ type Props = { k: Karenda; today: DateKey; alerts: ConflictAlert[]; actionsOf: G
 
 export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
   const colors = useColors();
-  const [template, setTemplate] = useState(PARTNER_TEMPLATES[0][0]);
+  const [mode, setMode] = useState<'funny' | 'serious'>('funny');
+  const templates = mode === 'funny' ? FUNNY_TEMPLATES : SERIOUS_TEMPLATES;
+  const [template, setTemplate] = useState(FUNNY_TEMPLATES[0][0]);
   // null の間は見本の文のまま。書き換えたら、その文を送る
   const [edited, setEdited] = useState<string | null>(null);
   const text = edited ?? template;
@@ -89,8 +91,19 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
       {/* 見本はお知らせの一覧のあと。開いてすぐ、重なる予定が目に入るように */}
       <Card>
         <PillHeading text="パートナーに送る文" />
+        <Text style={[styles.sub, { color: colors.muted }]}>文の感じ</Text>
         <Chips
-          options={PARTNER_TEMPLATES}
+          options={MODES}
+          value={mode}
+          onPick={(next) => {
+            setMode(next);
+            setTemplate((next === 'funny' ? FUNNY_TEMPLATES : SERIOUS_TEMPLATES)[0][0]);
+            setEdited(null);
+          }}
+        />
+        <Text style={[styles.sub, { color: colors.muted }]}>見本</Text>
+        <Chips
+          options={templates}
           value={template}
           onPick={(id) => {
             setTemplate(id);
@@ -125,6 +138,11 @@ export function AlertsScreen({ k, today, alerts, actionsOf }: Props) {
     </ScrollView>
   );
 }
+
+const MODES: ['funny' | 'serious', string][] = [
+  ['funny', '笑えるモード'],
+  ['serious', 'まじめモード'],
+];
 
 function Chips<T extends string>({
   options,
